@@ -1,0 +1,2 @@
+medicane_data_input/all_manos_CL.csv filter=lfs diff=lfs merge=lfs -text
+medicane_data_input/all_manos_CL_pixel.csv filter=lfs diff=lfs merge=lfs -text
