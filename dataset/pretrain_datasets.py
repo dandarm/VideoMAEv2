@@ -272,9 +272,10 @@ class HybridVideoMAE(torch.utils.data.Dataset):
                 % (setting)))
         clips = []
         with open(setting) as split_f:
+            next(split_f)  # Salta l'intestazione
             data = split_f.readlines()
             for line in data:
-                line_info = line.split(' ')
+                line_info = line.split(',')
                 # line format: video_path, video_duration, video_label
                 if len(line_info) < 2:
                     raise (RuntimeError(
@@ -468,11 +469,9 @@ class VideoMAE(torch.utils.data.Dataset):
             encoder_mask_list = []
             decoder_mask_list = []
             for _ in range(self.num_sample):
-                process_data, encoder_mask, decoder_mask = self.transform(
-                    (images, None))
+                process_data, encoder_mask, decoder_mask = self.transform((images, None))
                 process_data = process_data.view(
-                    (self.new_length, 3) + process_data.size()[-2:]).transpose(
-                        0, 1)
+                    (self.new_length, 3) + process_data.size()[-2:]).transpose(0, 1)
                 process_data_list.append(process_data)
                 encoder_mask_list.append(encoder_mask)
                 decoder_mask_list.append(decoder_mask)
