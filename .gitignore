@@ -143,5 +143,9 @@ cython_debug/
 
 
 # others
+.idea/*
 work_dir/
 data/
+/pytorch_model.bin
+/output/
+/sequenced_imgs/
