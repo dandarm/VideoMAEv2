@@ -149,3 +149,6 @@ data/
 /pytorch_model.bin
 /output/
 /sequenced_imgs/
+*.gif
+*.bin
+*.pth
