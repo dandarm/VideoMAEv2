@@ -127,6 +127,7 @@ class PretrainVisionTransformerEncoder(nn.Module):
         x = x + self.pos_embed.type_as(x).to(x.device).clone().detach()
 
         B, _, C = x.shape
+        mask = mask.bool()  # Se è un tensore con 0/1
         x_vis = x[~mask].reshape(B, -1, C)  # ~mask means visible
 
         for blk in self.blocks:
@@ -338,6 +339,7 @@ class PretrainVisionTransformer(nn.Module):
         return {'pos_embed', 'cls_token', 'mask_token'}
 
     def forward(self, x, mask, decode_mask=None):
+        decode_mask = decode_mask.bool()  # Se è un tensore con 0/1
         decode_vis = mask if decode_mask is None else ~decode_mask
 
         x_vis = self.encoder(x, mask)  # [B, N_vis, C_e]
@@ -400,9 +402,12 @@ def pretrain_videomae_base_patch16_224(pretrained=False, **kwargs):
         norm_layer=partial(nn.LayerNorm, eps=1e-6),
         **kwargs)
     model.default_cfg = _cfg()
-    if pretrained:
-        checkpoint = torch.load(kwargs["init_ckpt"], map_location="cpu")
-        model.load_state_dict(checkpoint["model"])
+    # se si vuole caricare il pretrained e inserire qualcosa in kwargs["init_ckpt"],
+    # allora genera errore la creazione di istanza PretrainVisionTransformer sopra
+    #
+    #if pretrained:
+    #    checkpoint = torch.load(kwargs["init_ckpt"], map_location="cpu")
+    #    model.load_state_dict(checkpoint["model"])
     return model
 
 
@@ -453,7 +458,7 @@ def pretrain_videomae_huge_patch16_224(pretrained=False, **kwargs):
 
 
 @register_model
-def pretrain_videomae_giant_patch14_224(pretrained=False, **kwargs):
+def pretrain_videomae_giant_patch14_224(pretrained_checkpoint=None, **kwargs):
     model = PretrainVisionTransformer(
         img_size=224,
         patch_size=14,
@@ -469,7 +474,7 @@ def pretrain_videomae_giant_patch14_224(pretrained=False, **kwargs):
         norm_layer=partial(nn.LayerNorm, eps=1e-6),
         **kwargs)
     model.default_cfg = _cfg()
-    if pretrained:
-        checkpoint = torch.load(kwargs["init_ckpt"], map_location="cpu")
+    if pretrained_checkpoint is not None:
+        checkpoint = torch.load(pretrained_checkpoint, map_location="cpu")
         model.load_state_dict(checkpoint["model"])
     return model

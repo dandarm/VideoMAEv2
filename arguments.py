@@ -107,22 +107,22 @@ def prepare_args():
     }
     # user argument values
     user_args_pretrain = {
-        'model': 'pretrain_videomae_base_patch16_224',
+        'model': 'pretrain_videomae_giant_patch14_224',  # 'pretrain_videomae_base_patch16_224',
         'pretrained': True,  # Abilita il caricamento del checkpoint
-        'finetune': './pytorch_model.bin',
-        'init_ckpt': './pytorch_model.bin',
+        'finetune': './vit_g_hybrid_pt_1200e.pth',
+        'init_ckpt': './vit_g_hybrid_pt_1200e.pth',
         'data_path': './train.csv',
         'log_dir': './output',
         'output_dir': './output',
         'data_set': 'medicanes',
         'mask_type': 'tube',
-        'mask_ratio': 0.9,
+        'mask_ratio': 0.75,
         'decoder_mask_type': 'run_cell',
         'decoder_mask_ratio': 0.5,
         'batch_size': 14,
-        'num_sample': 2,
+        'num_sample': 1,
         'num_frames': 16,
-        'sampling_rate': 4,
+        'sampling_rate': 1,  # voglio tutti i frame temporali
         'num_workers': 10,
         'opt': 'adamw',
         'lr': 1e-3,
@@ -132,36 +132,65 @@ def prepare_args():
         'save_ckpt_freq': 20,
         'decoder_depth': 4,
     }
-    user_args = {
-        'model': 'vit_base_patch16_224',
-        'data_path': './',
-        'finetune': './pytorch_model.bin',
-        'log_dir': './output',
-        'output_dir': './output',
-        'data_set': 'medicanes',
-        'batch_size': '1',
-        'input_size': '224',
-        'short_side_size': '224',
-        'save_ckpt_freq': '10',
-        'num_frames': 16,
-        'sampling_rate': '4',
-        'num_workers': '10',
-        'opt': 'adamw',
-        'lr': '7e-4',
-        'opt_betas': [0.9, 0.999],
-        'weight_decay': '0.05',
-        'layer_decay': '0.75',
-        'test_num_segment': 1,
-        'test_num_crop': '1',
-        'epochs': '90',
-        'dist_eval': '',
-        'nb_classes': '1',
-        'seed': 42,
-        'warmup_steps': 1000
-    }
+    # user_args = {
+    #     'model': 'vit_base_patch16_224',
+    #     'data_path': './',
+    #     'finetune': './pytorch_model.bin',
+    #     'log_dir': './output',
+    #     'output_dir': './output',
+    #     'data_set': 'medicanes',
+    #     'batch_size': '1',
+    #     'input_size': '224',
+    #     'short_side_size': '224',
+    #     'save_ckpt_freq': '10',
+    #     'num_frames': 16,
+    #     'sampling_rate': '1',
+    #     'num_workers': '10',
+    #     'opt': 'adamw',
+    #     'lr': '7e-4',
+    #     'opt_betas': [0.9, 0.999],
+    #     'weight_decay': '0.05',
+    #     'layer_decay': '0.75',
+    #     'test_num_segment': 1,
+    #     'test_num_crop': '1',
+    #     'epochs': '90',
+    #     'dist_eval': '',
+    #     'nb_classes': '1',
+    #     'seed': 42,
+    #     'warmup_steps': 1000
+    # }
     # Merge dictionaries (user_args overrides default_args)
     # args_dict = {**default_args, **user_args}
     args_dict = {**default_args, **user_args_pretrain}
     # Convert args_dict to an Args object
     args = Args(**args_dict)
     return args
+
+
+# argomenti utili?
+# 'tubelet_size': 2,
+# 'input_size': 224,
+# 'short_side_size': 224,
+# 'num_segments': 1,
+# 'num_frames': 16,
+# 'sampling_rate': 4,
+# 'mask_type': 'tube',
+# 'mask_ratio': 0.9,
+# 'decoder_mask_type': 'run_cell',
+# 'decoder_mask_ratio': 0.5,
+# 'num_sample': 2,
+#
+#
+# 'decoder_depth': 4,
+# 'test_num_segment': 10,
+# 'test_num_crop': 3,
+# 'reprob': 0.25,
+# 'recount': 1,
+# 'resplit': False,
+# 'mixup': 0.8,
+# 'cutmix': 1.0,
+# 'cutmix_minmax': None,
+# 'mixup_prob': 1.0,
+# 'mixup_switch_prob': 0.5,
+# 'mixup_mode': 'batch',
+# 'init_scale': 0.001,

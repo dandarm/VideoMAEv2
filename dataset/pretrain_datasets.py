@@ -219,11 +219,8 @@ class HybridVideoMAE(torch.utils.data.Dataset):
                 else:
                     fname_tmpl = self.name_pattern
 
-                segment_indices, skip_offsets = self._sample_train_indices(
-                    total_frame)
-                frame_id_list = self.get_frame_id_list(total_frame,
-                                                       segment_indices,
-                                                       skip_offsets)
+                segment_indices, skip_offsets = self._sample_train_indices(total_frame)
+                frame_id_list = self.get_frame_id_list(total_frame,segment_indices,skip_offsets)
 
                 images = []
                 for idx in frame_id_list:
@@ -321,7 +318,7 @@ class HybridVideoMAE(torch.utils.data.Dataset):
                 else:
                     frame_id = offset - 1
                 frame_id_list.append(frame_id)
-                if offset + self.new_step < duration:
+                if offset + self.new_step <= duration:  # <= invece di <
                     offset += self.new_step
         return frame_id_list
 

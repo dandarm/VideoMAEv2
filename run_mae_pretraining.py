@@ -256,13 +256,14 @@ def get_model(args):
     print(f"Creating model: {args.model}")
     model = create_model(
         args.model,
-        pretrained=False,
+        pretrained=args.init_ckpt,  # non più bool, perché pretrain_videomae_base_patch16_224 genera errore 'unexpected arg init_ckpt'
         drop_path_rate=args.drop_path,
         drop_block_rate=None,
         all_frames=args.num_frames,
         tubelet_size=args.tubelet_size,
         decoder_depth=args.decoder_depth,
-        with_cp=args.with_checkpoint)
+        with_cp=args.with_checkpoint,
+        checkpoint_path=args.init_ckpt)
 
     if version.parse(torch.__version__) > version.parse('1.13.1'):
         torch.set_float32_matmul_precision('high')
@@ -287,10 +288,11 @@ def main(args):
 
     model = get_model(args)
     patch_size = model.encoder.patch_embed.patch_size
-    print("Patch size = %s" % str(patch_size))
     args.window_size = (args.num_frames // args.tubelet_size,
                         args.input_size // patch_size[0],
                         args.input_size // patch_size[1])
+    print(f"Window size : {args.window_size}")
+    print("Patch size : %s" % str(patch_size))
     args.patch_size = patch_size
 
     # get dataset
