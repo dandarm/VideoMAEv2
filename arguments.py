@@ -14,6 +14,9 @@ class Args:
                         pass  # Keep the value as a string if it can't be converted
             setattr(self, key, value)
 
+    def __getattr__(self, name):
+        """ Restituisce None se l'attributo non esiste, invece di sollevare un AttributeError """
+        return None
 
 
 def prepare_args():
@@ -119,7 +122,7 @@ def prepare_args():
         'mask_ratio': 0.75,
         'decoder_mask_type': 'run_cell',
         'decoder_mask_ratio': 0.5,
-        'batch_size': 14,
+        'batch_size': 1,
         'num_sample': 1,
         'num_frames': 16,
         'sampling_rate': 1,  # voglio tutti i frame temporali
