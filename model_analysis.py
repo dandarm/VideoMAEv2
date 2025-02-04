@@ -15,9 +15,9 @@ from utils import multiple_pretrain_samples_collate
 from dataset import build_pretraining_dataset
 from torch.utils.data import DataLoader
 from run_mae_pretraining import get_model
+from run_mae_pretraining import main as main_pretraining
 from arguments import prepare_args, Args  # NON TOGLIERE: serve a torch.load per caricare il mio modello addestrato
 
-from transformers import VideoMAEConfig, VideoMAEForVideoClassification
 
 
 # Funzione per caricare le immagini
@@ -83,15 +83,17 @@ pretrained_model_path = './pytorch_model.bin'  # Modello preaddestrato
 #specialized_model_path = './output_old2/checkpoint-149.pth'  # Modello addestrato
 image_folder = './sequenced_imgs/freq-1.6_part3'  # Cartella con le immagini di test
 
-# Trasformazioni per il preprocessing delle immagini
-# transform = transforms.Compose([
-#     transforms.Resize((224, 224)),
-#     transforms.ToTensor(),
-#     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-# ])
+
+def get_dataloader(args, patch_size, get_also_dataset=False):
+    #sistema parametri del patching
+    print("Patch size = %s" % str(patch_size))
+    args.window_size = (args.num_frames // args.tubelet_size,
+                        args.input_size // patch_size[0],
+                        args.input_size // patch_size[1])
+    print(f"Window size : {args.window_size}")
+    args.patch_size = patch_size
 
 
-def get_dataloader(args):
     dataset_test = build_pretraining_dataset(args)
     if args.num_sample > 1:
         collate_func = partial(multiple_pretrain_samples_collate, fold=False)
@@ -105,6 +107,7 @@ def get_dataloader(args):
         dataset_test, num_replicas=num_tasks, rank=sampler_rank, shuffle=True)
     print("Sampler_train = %s" % str(sampler))
 
+    print(f"Batch_size: {args.batch_size}")
     data_loader_test = DataLoader(
         dataset_test,
         #sampler=sampler,
@@ -117,50 +120,29 @@ def get_dataloader(args):
         worker_init_fn=utils.seed_worker,
         persistent_workers=True
     )
-    return data_loader_test
+    if not get_also_dataset:
+        return data_loader_test
+    else:
+        return data_loader_test, dataset_test
+
+def get_dataset_dataloader(args, patch_size):
+    return get_dataloader(args, patch_size, get_also_dataset=True)
 
 
-def calc_metrics(image_folder):
-
-    # Carica le sequenze di frame
-    # sequences = []
-    # for seq_dir in os.listdir(image_folder):
-    #     seq_path = os.path.join(image_folder, seq_dir)
-    #     if os.path.isdir(seq_path):
-    #         seq_tensor = load_frame_sequence(seq_path, transform, num_frames=16, device=device)
-    #         sequences.append(seq_tensor)
-    #
-    # # Combina tutte le sequenze in un batch
-    # sequences = torch.cat(sequences, dim=0)  # (batch_size, num_frames, C, H, W)
-
-
-
-    # Carica le immagini
-    #images = load_images(image_folder, transform, device)
-
+def calc_metrics():
     args = prepare_args()
     device = torch.device(args.device)
 
     # Carica i modelli
     pretrained_model = get_model(args)
+    pretrained_model.to(device)
     # cambio il path dentro args
     #args.init_ckpt = specialized_model_path
     #specialized_model = get_model(args)
 
-    patch_size = pretrained_model.encoder.patch_embed.patch_size  #[16, 16]  #
-    print("Patch size = %s" % str(patch_size))
-    args.window_size = (args.num_frames // args.tubelet_size,
-                        args.input_size // patch_size[0],
-                        args.input_size // patch_size[1])
-    print(f"Window size : {args.window_size}")
-    args.patch_size = patch_size
+    patch_size = pretrained_model.encoder.patch_embed.patch_size
+    data_loader_test = get_dataloader(args, patch_size)
 
-    pretrained_model.to(device)
-
-    data_loader_test = get_dataloader(args)
-
-
-    #sequences = images.unsqueeze(0)
     # Ricostruzione e calcolo delle metriche
     with torch.no_grad():
         for batch in data_loader_test:
