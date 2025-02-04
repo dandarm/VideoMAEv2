@@ -108,7 +108,7 @@ def get_dataloader(args):
     data_loader_test = DataLoader(
         dataset_test,
         #sampler=sampler,
-        batch_size=1,  # Batch size per il test
+        batch_size=args.batch_size,  # Batch size per il test
         shuffle=False,
         num_workers=10,  # Adatta al tuo sistema
         pin_memory=True,
@@ -178,12 +178,12 @@ def calc_metrics(image_folder):
 
             #print("Shape dell'output:", outputs.shape)
             # Calcola le metriche
-            pretrained_mse, pretrained_psnr = reconstruction_metrics(images, pretrained_reconstructed)
+            #pretrained_mse, pretrained_psnr = reconstruction_metrics(images, pretrained_reconstructed)
             #specialized_mse, specialized_psnr = reconstruction_metrics(images, specialized_reconstructed)
 
     # Stampa i risultati
     print('=== Risultati delle Metriche di Ricostruzione ===')
-    print(f'Modello Preaddestrato - MSE: {pretrained_mse:.4f}, PSNR: {pretrained_psnr:.2f} dB')
+    #print(f'Modello Preaddestrato - MSE: {pretrained_mse:.4f}, PSNR: {pretrained_psnr:.2f} dB')
     #print(f'Modello Specializzato - MSE: {specialized_mse:.4f}, PSNR: {specialized_psnr:.2f} dB')
 
     # Conclusione
