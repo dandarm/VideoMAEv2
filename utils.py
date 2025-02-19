@@ -458,30 +458,24 @@ def cosine_scheduler(base_value,
     return schedule
 
 
-def save_model(args,
-               epoch,
-               model,
-               model_without_ddp,
-               optimizer,
-               loss_scaler,
-               model_ema=None):
+def save_model(args, epoch, model, model_without_ddp, optimizer, loss_scaler, model_ema=None):
     output_dir = Path(args.output_dir)
     epoch_name = str(epoch)
     if loss_scaler is not None:
-        checkpoint_paths = [output_dir / ('checkpoint-%s.pth' % epoch_name)]
-        for checkpoint_path in checkpoint_paths:
-            to_save = {
-                'model': model_without_ddp.state_dict(),
-                'optimizer': optimizer.state_dict(),
-                'epoch': epoch,
-                'scaler': loss_scaler.state_dict(),
-                'args': args,
-            }
+        checkpoint_path = output_dir / ('checkpoint-%s.pth' % epoch_name)
+        #for checkpoint_path in checkpoint_paths:
+        to_save = {
+            'model': model_without_ddp.state_dict(),
+            'optimizer': optimizer.state_dict(),
+            'epoch': epoch,
+            'scaler': loss_scaler.state_dict(),
+            'args': args.__dict__,
+        }
 
-            if model_ema is not None:
-                to_save['model_ema'] = get_state_dict(model_ema)
+        if model_ema is not None:
+            to_save['model_ema'] = get_state_dict(model_ema)
 
-            save_on_master(to_save, checkpoint_path)
+        save_on_master(to_save, checkpoint_path)
     else:
         client_state = {'epoch': epoch}
         if model_ema is not None:
@@ -511,8 +505,7 @@ def auto_load_model(args,
                 if t.isdigit():
                     latest_ckpt = max(int(t), latest_ckpt)
             if latest_ckpt >= 0:
-                args.resume = os.path.join(output_dir,
-                                           'checkpoint-%d.pth' % latest_ckpt)
+                args.resume = os.path.join(output_dir, 'checkpoint-%d.pth' % latest_ckpt)
             print("Auto resume checkpoint: %s" % args.resume)
 
         if args.resume:
