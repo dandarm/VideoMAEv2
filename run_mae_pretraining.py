@@ -256,14 +256,15 @@ def get_model(args):
     print(f"Creating model: {args.model}")
     model = create_model(
         args.model,
-        pretrained=args.init_ckpt,  # non più bool, perché pretrain_videomae_base_patch16_224 genera errore 'unexpected arg init_ckpt'
+        #pretrained=True,
         drop_path_rate=args.drop_path,
         drop_block_rate=None,
         all_frames=args.num_frames,
-        tubelet_size=args.tubelet_size,
-        decoder_depth=args.decoder_depth,
+        #tubelet_size=args.tubelet_size,
+        #decoder_depth=args.decoder_depth,
         with_cp=args.with_checkpoint,
-        checkpoint_path=args.init_ckpt)
+        checkpoint_path=None,  # devo mettere a None perché factory non gestisce un checkpoint con chiave 'model'
+        **args.__dict__)
 
     if version.parse(torch.__version__) > version.parse('1.13.1'):
         torch.set_float32_matmul_precision('high')
