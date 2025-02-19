@@ -31,7 +31,7 @@ def launch_specialization_training():
     pretrained_model.to(device)
     model_without_ddp = pretrained_model
     n_parameters = sum(p.numel() for p in pretrained_model.parameters() if p.requires_grad)
-    print("Model = %s" % str(model_without_ddp))
+    #print("Model = %s" % str(model_without_ddp))
     print('number of params: {} M'.format(n_parameters / 1e6))
 
     # LOAD DATASET
@@ -53,10 +53,10 @@ def launch_specialization_training():
     print("Number of training steps = %d" % num_training_steps_per_epoch)
     print("Number of training examples per epoch = %d" %
           (total_batch_size * num_training_steps_per_epoch))
-    if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(
-            pretrained_model, device_ids=[args.gpu], find_unused_parameters=False)
-        model_without_ddp = model.module
+    # if args.distributed:
+    #     model = torch.nn.parallel.DistributedDataParallel(
+    #         pretrained_model, device_ids=[args.gpu], find_unused_parameters=False)
+    #     model_without_ddp = model.module
 
     optimizer = create_optimizer(args, model_without_ddp)
     loss_scaler = NativeScaler()
@@ -124,25 +124,21 @@ def launch_specialization_training():
             if _epoch % args.save_ckpt_freq == 0 or _epoch == args.epochs:
                 utils.save_model(
                     args=args,
-                    model=model,
+                    model=pretrained_model,
                     model_without_ddp=model_without_ddp,
                     optimizer=optimizer,
                     loss_scaler=loss_scaler,
                     epoch=epoch)
 
         log_stats = {
-            **{f'train_{k}': v
-               for k, v in train_stats.items()}, 'epoch': epoch,
+            **{f'train_{k}': v for k, v in train_stats.items()}, 'epoch': epoch,
             'n_parameters': n_parameters
         }
 
         if args.output_dir and utils.is_main_process():
             if log_writer is not None:
                 log_writer.flush()
-            with open(
-                    os.path.join(args.output_dir, "log.txt"),
-                    mode="a",
-                    encoding="utf-8") as f:
+            with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
                 f.write(json.dumps(log_stats) + "\n")
 
     total_time = time.time() - start_time
