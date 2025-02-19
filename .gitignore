@@ -153,3 +153,5 @@ data/
 *.bin
 *.pth
 *.zip
+from_gcloud/
+output*
