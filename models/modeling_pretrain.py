@@ -269,6 +269,7 @@ class PretrainVisionTransformer(nn.Module):
         with_cp=False,
         all_frames=16,
         cos_attn=False,
+        **kwargs,
     ):
         super().__init__()
         self.encoder = PretrainVisionTransformerEncoder(
@@ -458,7 +459,7 @@ def pretrain_videomae_huge_patch16_224(pretrained=False, **kwargs):
 
 
 @register_model
-def pretrain_videomae_giant_patch14_224(pretrained_checkpoint=None, **kwargs):
+def pretrain_videomae_giant_patch14_224(pretrained=True, **kwargs):
     model = PretrainVisionTransformer(
         img_size=224,
         patch_size=14,
@@ -474,7 +475,8 @@ def pretrain_videomae_giant_patch14_224(pretrained_checkpoint=None, **kwargs):
         norm_layer=partial(nn.LayerNorm, eps=1e-6),
         **kwargs)
     model.default_cfg = _cfg()
-    if pretrained_checkpoint is not None:
-        checkpoint = torch.load(pretrained_checkpoint, map_location="cpu")
+    if pretrained:
+        #checkpoint = torch.load(pretrained_checkpoint, map_location="cpu")
+        checkpoint = torch.load(kwargs["init_ckpt"], map_location="cpu")
         model.load_state_dict(checkpoint["model"])
     return model
