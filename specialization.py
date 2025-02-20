@@ -16,7 +16,7 @@ from utils import multiple_pretrain_samples_collate
 from optim_factory import create_optimizer
 from dataset import build_pretraining_dataset
 from run_mae_pretraining import get_model
-from engine_for_pretraining import train_one_epoch
+from engine_for_pretraining import train_one_epoch, test
 from arguments import prepare_args, Args  # NON TOGLIERE: serve a torch.load per caricare il mio modello addestrato
 from model_analysis import get_dataloader, get_dataset_dataloader
 
@@ -37,7 +37,8 @@ def launch_specialization_training():
     # LOAD DATASET
     patch_size = pretrained_model.encoder.patch_embed.patch_size
     data_loader_train, dataset_train = get_dataset_dataloader(args, patch_size)
-    # TODO: prendo un altro uguale per il test???
+    args.data_path = './test.csv',
+    data_loader_test = get_dataloader(args, patch_size)
 
 
     # SET HYPER PARAMETERS
@@ -140,6 +141,18 @@ def launch_specialization_training():
                 log_writer.flush()
             with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
                 f.write(json.dumps(log_stats) + "\n")
+
+        if epoch % args.testing_epochs == 0:
+            test_stats = test(pretrained_model, data_loader_test, device, epoch,
+                        patch_size=patch_size[0], normlize_target=args.normlize_target, log_writer=log_writer)
+            test_log_stats = {**{f'test_{k}': v for k, v in test_stats.items()}, 'epoch': epoch, 'n_parameters': n_parameters}
+            if log_writer is not None:
+                log_writer.flush()
+            with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
+                f.write(json.dumps(test_log_stats) + "\n")
+
+
+
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
