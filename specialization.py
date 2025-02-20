@@ -37,7 +37,7 @@ def launch_specialization_training():
     # LOAD DATASET
     patch_size = pretrained_model.encoder.patch_embed.patch_size
     data_loader_train, dataset_train = get_dataset_dataloader(args, patch_size)
-    args.data_path = './test.csv',
+    args.data_path = './test.csv'
     data_loader_test = get_dataloader(args, patch_size)
 
 
