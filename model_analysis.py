@@ -84,7 +84,9 @@ pretrained_model_path = './pytorch_model.bin'  # Modello preaddestrato
 image_folder = './sequenced_imgs/freq-1.6_part3'  # Cartella con le immagini di test
 
 
-def get_dataloader(args, patch_size, get_also_dataset=False):
+def get_dataloader(args, patch_size, get_also_dataset=False, **kwargs):
+    train = kwargs.get('train', True)
+
     #sistema parametri del patching
     print("Patch size = %s" % str(patch_size))
     args.window_size = (args.num_frames // args.tubelet_size,
@@ -94,7 +96,6 @@ def get_dataloader(args, patch_size, get_also_dataset=False):
     args.patch_size = patch_size
 
 
-    dataset_test = build_pretraining_dataset(args)
     if args.num_sample > 1:
         collate_func = partial(multiple_pretrain_samples_collate, fold=False)
     else:
@@ -103,30 +104,30 @@ def get_dataloader(args, patch_size, get_also_dataset=False):
     num_tasks = utils.get_world_size()
     global_rank = utils.get_rank()
     sampler_rank = global_rank
-    sampler = torch.utils.data.DistributedSampler(
-        dataset_test, num_replicas=num_tasks, rank=sampler_rank, shuffle=True)
-    print("Sampler_train = %s" % str(sampler))
+    #sampler = torch.utils.data.DistributedSampler(
+    #    dataset_test, num_replicas=num_tasks, rank=sampler_rank, shuffle=True)
+    #print("Sampler_train = %s" % str(sampler))
+
+    dataset = build_pretraining_dataset(args, train=train)
 
     print(f"Batch_size: {args.batch_size}")
-    data_loader_test = DataLoader(
-        dataset_test,
-        #sampler=sampler,
-        batch_size=args.batch_size,  # Batch size per il test
+    data_loader = DataLoader(dataset,
+        batch_size=args.batch_size,
         shuffle=False,
-        num_workers=10,  # Adatta al tuo sistema
+        num_workers=24,
         pin_memory=True,
         drop_last=True,
         collate_fn=collate_func,
         worker_init_fn=utils.seed_worker,
         persistent_workers=True
-    )
+    )#sampler=sampler,
     if not get_also_dataset:
-        return data_loader_test
+        return data_loader
     else:
-        return data_loader_test, dataset_test
+        return data_loader, dataset
 
-def get_dataset_dataloader(args, patch_size):
-    return get_dataloader(args, patch_size, get_also_dataset=True)
+def get_dataset_dataloader(args, patch_size, **kwargs):
+    return get_dataloader(args, patch_size, get_also_dataset=True, **kwargs)
 
 
 def calc_metrics():
