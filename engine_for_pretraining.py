@@ -171,7 +171,7 @@ def test(model: torch.nn.Module,
     metric_logger = utils.MetricLogger(delimiter="  ")
     #metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
     #metric_logger.add_meter('min_lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
-    header = 'Epoch: [{}]'.format(epoch)
+    header = 'TEST... '
     print_freq = 20
 
     for step, batch in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
