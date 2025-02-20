@@ -13,13 +13,13 @@ from .pretrain_datasets import (  # noqa: F401
 )
 
 
-def build_pretraining_dataset(args):
+def build_pretraining_dataset(args, train=True):
     transform = DataAugmentationForVideoMAEv2(args)
     dataset = HybridVideoMAE(
         root=args.data_root,
         setting=args.data_path,
-        train=True,
-        test_mode=False,
+        train=train,
+        test_mode=not train,
         name_pattern=args.fname_tmpl,
         video_ext='mp4',
         is_color=True,

@@ -134,6 +134,7 @@ def prepare_args():
         'epochs': 150,
         'save_ckpt_freq': 20,
         'decoder_depth': 4,
+        'testing_epochs': 3
     }
     # user_args = {
     #     'model': 'vit_base_patch16_224',
