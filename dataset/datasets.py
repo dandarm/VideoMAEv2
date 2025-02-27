@@ -12,6 +12,7 @@ from . import video_transforms, volume_transforms
 from .loader import get_image_loader, get_video_loader
 from .random_erasing import RandomErasing
 
+from PIL import Image
 
 class VideoClsDataset(Dataset):
     """Load your own video classification dataset."""
@@ -620,6 +621,53 @@ class RawFrameClsDataset(Dataset):
             return len(self.dataset_samples)
         else:
             return len(self.test_dataset)
+
+class MedicanesClsDataset(Dataset):
+    """
+    Dataset custom per la classificazione binaria (medicane vs. non-medicane).
+    Il CSV deve avere le colonne: path, start, end, label.
+    'path' indica la sottocartella contenente i 16 frame.
+    """
+
+    def __init__(self, anno_path, data_root='', mode='train', clip_len=16, transform=None):
+        self.df = pd.read_csv(anno_path)
+        self.data_root = data_root
+        self.mode = mode
+        self.clip_len = clip_len
+        # Impostiamo una trasformazione di default
+        if transform is None:
+            self.transform = transforms.Compose([
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+            ])
+        else:
+            self.transform = transform
+
+    def __len__(self):
+        return len(self.df)
+
+    def __getitem__(self, idx):
+        row = self.df.iloc[idx]
+        folder_path = row['path']
+        label = int(row['label'])
+        # Se il path non è assoluto, lo compone con data_root
+        if not os.path.isabs(folder_path):
+            folder_path = os.path.join(self.data_root, folder_path)
+        # Carica i file della cartella ordinandoli in modo crescente
+        frame_files = sorted(os.listdir(folder_path))
+        frames = []
+        # Assumiamo che la cartella contenga almeno clip_len frame
+        for file in frame_files[:self.clip_len]:
+            file_path = os.path.join(folder_path, file)
+            img = Image.open(file_path).convert("RGB")
+            img = self.transform(img)
+            frames.append(img)
+        # Converte la lista di frame in un tensore di forma [clip_len, C, H, W]
+        video = torch.stack(frames, dim=0)
+        return video, label
+
 
 
 def spatial_sampling(
