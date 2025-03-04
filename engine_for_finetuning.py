@@ -91,12 +91,10 @@ def train_one_epoch(model: torch.nn.Module,
 
         if loss_scaler is None:
             samples = samples.half()
-            loss, output = train_class_batch(model, samples, targets,
-                                             criterion)
+            loss, output = train_class_batch(model, samples, targets, criterion)
         else:
             with torch.cuda.amp.autocast(dtype=torch.bfloat16):
-                loss, output = train_class_batch(model, samples, targets,
-                                                 criterion)
+                loss, output = train_class_batch(model, samples, targets, criterion)
 
         loss_value = loss.item()
 
@@ -118,8 +116,7 @@ def train_one_epoch(model: torch.nn.Module,
             loss_scale_value = get_loss_scale_for_deepspeed(model)
         else:
             # this attribute is added by timm on one optimizer (adahessian)
-            is_second_order = hasattr(
-                optimizer, 'is_second_order') and optimizer.is_second_order
+            is_second_order = hasattr(optimizer, 'is_second_order') and optimizer.is_second_order
             loss /= update_freq
             grad_norm = loss_scaler(
                 loss,
@@ -196,20 +193,16 @@ def validation_one_epoch(data_loader, model, device):
             output = model(images)
             loss = criterion(output, target)
 
-        acc1, acc5 = accuracy(output, target, topk=(1, 5))
+        acc1,  = accuracy(output, target, topk=(1, ))  # Modifcato per classificazione binaria
 
         batch_size = images.shape[0]
         metric_logger.update(loss=loss.item())
         metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
-        metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
+        #metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
-    print(
-        '* Acc@1 {top1.global_avg:.3f} Acc@5 {top5.global_avg:.3f} loss {losses.global_avg:.3f}'
-        .format(
-            top1=metric_logger.acc1,
-            top5=metric_logger.acc5,
-            losses=metric_logger.loss))
+    print('* Acc@1 {top1.global_avg:.3f}  loss {losses.global_avg:.3f}'
+        .format(top1=metric_logger.acc1, losses=metric_logger.loss))
 
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
@@ -247,17 +240,18 @@ def final_test(data_loader, model, device, file):
                 str(int(split_nb[i].cpu().numpy())))
             final_result.append(string)
 
-        acc1, acc5 = accuracy(output, target, topk=(1, 5))
+        acc1,  = accuracy(output, target, topk=(1, ))  # modificato: classificazione binaria
 
         batch_size = images.shape[0]
         metric_logger.update(loss=loss.item())
         metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
-        metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
+        #metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
 
     if not os.path.exists(file):
         os.mknod(file)
     with open(file, 'w') as f:
-        f.write("{}, {}\n".format(acc1, acc5))
+        #f.write("{}, {}\n".format(acc1, acc5))
+        f.write("{}\n".format(acc1))
         for line in final_result:
             f.write(line)
     # gather the stats from all processes

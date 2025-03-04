@@ -156,3 +156,7 @@ data/
 *.csv
 from_gcloud/
 output*
+.aider*
+airmass*
+run_classification.sh
+log_train*

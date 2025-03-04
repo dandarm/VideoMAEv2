@@ -90,28 +90,29 @@ def launch_finetuning_classification():
     print(f"Creating model: {args.model} (nb_classes={args.nb_classes})")
     model = create_model(
         args.model,
-        pretrained=False,
+        #pretrained=True,
         num_classes=args.nb_classes,
         drop_rate=0.0,
         drop_path_rate=args.drop_path,
-        attn_drop_rate=0.0,
-        drop_block_rate=None
+        #attn_drop_rate=0.0,
+        drop_block_rate=None,
+        **args.__dict__
     )
     # Carichiamo i pesi pretrained
-    if args.finetune and os.path.isfile(args.finetune):
-        checkpoint = torch.load(args.finetune, map_location='cpu')
-        print(f"[INFO] Loading pretrained weights from {args.finetune}")
-        state_dict = checkpoint
-        # Se c'è 'model' o 'module' come chiave
-        for model_key in ['model', 'module']:
-            if model_key in checkpoint:
-                state_dict = checkpoint[model_key]
-                print(f"[INFO] Found key '{model_key}' in checkpoint")
-                break
-        msg = model.load_state_dict(state_dict, strict=False)
-        print(f"[INFO] load_state_dict: {msg}")
-    else:
-        print("[WARN] No pretrained weights loaded (args.finetune non trovato)")
+    # if args.finetune and os.path.isfile(args.finetune):
+    #     checkpoint = torch.load(args.finetune, map_location='cpu')
+    #     print(f"[INFO] Loading pretrained weights from {args.finetune}")
+    #     state_dict = checkpoint
+    #     # Se c'è 'model' o 'module' come chiave
+    #     for model_key in ['model', 'module']:
+    #         if model_key in checkpoint:
+    #             state_dict = checkpoint[model_key]
+    #             print(f"[INFO] Found key '{model_key}' in checkpoint")
+    #             break
+    #     msg = model.load_state_dict(state_dict, strict=False)
+    #     print(f"[INFO] load_state_dict: {msg}")
+    # else:
+    #     print("[WARN] No pretrained weights loaded (args.finetune non trovato)")
 
     model.to(device)
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
