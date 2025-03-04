@@ -666,6 +666,8 @@ class MedicanesClsDataset(Dataset):
             frames.append(img)
         # Converte la lista di frame in un tensore di forma [clip_len, C, H, W]
         video = torch.stack(frames, dim=0)
+        video = video.permute(1, 0, 2, 3)  # [C, T, H, W]
+
         return video, label
 
 
