@@ -345,7 +345,8 @@ class VisionTransformer(nn.Module):
                  tubelet_size=2,
                  use_mean_pooling=True,
                  with_cp=False,
-                 cos_attn=False):
+                 cos_attn=False,
+                 **kwargs):
         super().__init__()
         self.num_classes = num_classes
         # num_features for consistency with other models
@@ -432,8 +433,7 @@ class VisionTransformer(nn.Module):
         x = self.patch_embed(x)
 
         if self.pos_embed is not None:
-            x = x + self.pos_embed.expand(B, -1, -1).type_as(x).to(
-                x.device).clone().detach()
+            x = x + self.pos_embed.expand(B, -1, -1).type_as(x).to(x.device).clone().detach()
         x = self.pos_drop(x)
 
         for blk in self.blocks:
@@ -470,7 +470,7 @@ def vit_small_patch16_224(pretrained=False, **kwargs):
 
 
 @register_model
-def vit_base_patch16_224(pretrained=False, **kwargs):
+def vit_base_patch16_224(pretrained=True, **kwargs):
     model = VisionTransformer(
         patch_size=16,
         embed_dim=768,
@@ -481,6 +481,10 @@ def vit_base_patch16_224(pretrained=False, **kwargs):
         norm_layer=partial(nn.LayerNorm, eps=1e-6),
         **kwargs)
     model.default_cfg = _cfg()
+    if pretrained:
+        #checkpoint = torch.load(kwargs["init_ckpt"], map_location="cpu")
+        #model.load_state_dict(checkpoint["state_dict"])
+        model = load_checkpoint(model, kwargs["init_ckpt"])
     return model
 
 
@@ -526,4 +530,53 @@ def vit_giant_patch14_224(pretrained=False, **kwargs):
         norm_layer=partial(nn.LayerNorm, eps=1e-6),
         **kwargs)
     model.default_cfg = _cfg()
+    return model
+
+
+
+import torch
+
+def load_checkpoint(model, checkpoint_path):
+    """
+    Carica un checkpoint e corregge i nomi dei layer se necessario.
+
+    Args:
+        model (torch.nn.Module): Il modello in cui caricare i pesi.
+        checkpoint_path (str): Il percorso al file del checkpoint.
+
+    Returns:
+        model (torch.nn.Module): Il modello con i pesi caricati.
+    """
+    print(f"Caricamento del checkpoint da: {checkpoint_path}")
+    checkpoint = torch.load(checkpoint_path, map_location="cpu")
+
+    # Verifica se il checkpoint contiene una chiave tipo 'model' o 'state_dict'
+    checkpoint_model = None
+    for key in ["model", "module", "state_dict"]:
+        if key in checkpoint:
+            checkpoint_model = checkpoint[key]
+            print(f"Caricato state_dict con chiave: {key}")
+            break
+    if checkpoint_model is None:
+        checkpoint_model = checkpoint  # Se non ha una chiave specifica, usa tutto il dict
+
+    # Rimuove il prefisso "backbone." o "module." se presente
+    new_state_dict = {k.replace("backbone.", "").replace("module.", ""): v for k, v in checkpoint_model.items()}
+
+    # Rinomina la testa di classificazione
+    if "cls_head.fc_cls.weight" in new_state_dict and "cls_head.fc_cls.bias" in new_state_dict:
+        new_state_dict["head.weight"] = new_state_dict.pop("cls_head.fc_cls.weight")
+        new_state_dict["head.bias"] = new_state_dict.pop("cls_head.fc_cls.bias")
+        print("Rinominata 'cls_head.fc_cls' -> 'head' nel checkpoint.")
+    # ❗ Rimuoviamo la testa del modello per evitare il mismatch
+    if "head.weight" in new_state_dict:
+        del new_state_dict["head.weight"]
+    if "head.bias" in new_state_dict:
+        del new_state_dict["head.bias"]
+    print("Testa del modello rimossa dal checkpoint per evitare mismatch.")
+
+    # Carica i pesi nel modello
+    model.load_state_dict(new_state_dict, strict=False)
+    print("Checkpoint caricato con successo!")
+
     return model

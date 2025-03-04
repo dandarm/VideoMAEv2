@@ -7,7 +7,7 @@
 # --------------------------------------------------------'
 import os
 
-from .datasets import RawFrameClsDataset, VideoClsDataset
+from .datasets import RawFrameClsDataset, VideoClsDataset, MedicanesClsDataset
 from .pretrain_datasets import (  # noqa: F401
     DataAugmentationForVideoMAEv2, HybridVideoMAE, VideoMAE,
 )
@@ -40,12 +40,15 @@ def build_dataset(is_train, test_mode, args):
     if is_train:
         mode = 'train'
         anno_path = os.path.join(args.data_path, 'train.csv')
+        anno_path = args.data_path
     elif test_mode:
         mode = 'test'
         anno_path = os.path.join(args.data_path, 'val.csv')
     else:
         mode = 'validation'
         anno_path = os.path.join(args.data_path, 'val.csv')
+
+    anno_path = args.data_path  # TODO: cambiare e specificare test e val
 
     if args.data_set == 'Kinetics-400':
         if not args.sparse_sample:
@@ -258,6 +261,17 @@ def build_dataset(is_train, test_mode, args):
                 sparse_sample=True,
                 args=args)
         nb_classes = 339
+
+    elif args.data_set == "medicanes":
+        dataset = MedicanesClsDataset(
+            anno_path=anno_path,
+            data_root=args.data_root,
+            mode=mode,
+            clip_len=args.num_frames,
+            transform=None  # o una trasformazione custom
+        )
+        nb_classes = 2
+
     else:
         raise NotImplementedError('Unsupported Dataset')
 
