@@ -215,8 +215,8 @@ def prepare_finetuning_args():
         'remode': 'pixel',
         'recount': 1,
         'resplit': False,
-        'mixup': 0.8,
-        'cutmix': 1.0,
+        'mixup': 0.0,
+        'cutmix': 0.0,
         'cutmix_minmax': None,
         'mixup_prob': 1.0,
         'mixup_switch_prob': 0.5,
@@ -262,61 +262,38 @@ def prepare_finetuning_args():
     # user argument values
 
     user_args_finetune = {
-        'model': 'vit_base_patch16_224',  # 'pretrain_videomae_base_patch16_224',
+        'model': 'vit_giant_patch14_224',             #'vit_base_patch16_224'
         'pretrained': True,  # Abilita il caricamento del checkpoint
-        'finetune': './pytorch_model.bin',
-        'init_ckpt': './pytorch_model.bin',
-        'data_path': './dataset_wlabels.csv',
+        'finetune': './vit_g_hybrid_pt_1200e_k710_ft.pth',
+        'init_ckpt': './vit_g_hybrid_pt_1200e_k710_ft.pth',
+        'data_path': './',
         'log_dir': './output',
         'output_dir': './output',
         'data_set': 'medicanes',
         'nb_classes': 2,
         'mask_type': 'tube',
-        'mask_ratio': 0.75,
+        'mask_ratio': 0.8,
         'decoder_mask_type': 'run_cell',
         'decoder_mask_ratio': 0.5,
-        'batch_size': 2,
+        'batch_size': 1,
         'num_sample': 1,
         'num_frames': 16,
         'sampling_rate': 1,  # voglio tutti i frame temporali
+        'test_num_segment': 1, # 10
+        'test_num_crop': 1,  # 3
         'num_workers': 10,
         'opt': 'adamw',
         'lr': 1e-3,
         'opt_betas': [0.9, 0.95],
-        'warmup_epochs': 15,
-        'epochs': 150,
-        'save_ckpt_freq': 20,
+        'warmup_epochs': 1,
+        'epochs': 350,
+        'save_ckpt_freq': 300,
         'decoder_depth': 4,
-        'testing_epochs': 3
+        'testing_epochs': 3,
+        'VAL_FREQ': 10
         #dist_eval
     }
-    # user_args = {
-    #     'model': 'vit_base_patch16_224',
-    #     'data_path': './',
-    #     'finetune': './pytorch_model.bin',
-    #     'log_dir': './output',
-    #     'output_dir': './output',
-    #     'data_set': 'medicanes',
-    #     'batch_size': '1',
-    #     'input_size': '224',
-    #     'short_side_size': '224',
-    #     'save_ckpt_freq': '10',
-    #     'num_frames': 16,
-    #     'sampling_rate': '1',
-    #     'num_workers': '10',
-    #     'opt': 'adamw',
-    #     'lr': '7e-4',
-    #     'opt_betas': [0.9, 0.999],
-    #     'weight_decay': '0.05',
-    #     'layer_decay': '0.75',
-    #     'test_num_segment': 1,
-    #     'test_num_crop': '1',
-    #     'epochs': '90',
-    #     'dist_eval': '',
-    #     'nb_classes': '1',
-    #     'seed': 42,
-    #     'warmup_steps': 1000
-    # }
+
     # Merge dictionaries (user_args overrides default_args)
     # args_dict = {**default_args, **user_args}
     args_dict = {**default_args, **user_args_finetune}
@@ -324,7 +301,7 @@ def prepare_finetuning_args():
     args = Args(**args_dict)
     return args
 
-
+#region argomenti da approfondire
 # argomenti utili?
 # 'tubelet_size': 2,
 # 'input_size': 224,
@@ -352,3 +329,5 @@ def prepare_finetuning_args():
 # 'mixup_switch_prob': 0.5,
 # 'mixup_mode': 'batch',
 # 'init_scale': 0.001,
+
+#end region

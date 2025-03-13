@@ -475,8 +475,8 @@ def pretrain_videomae_giant_patch14_224(pretrained=True, **kwargs):
         norm_layer=partial(nn.LayerNorm, eps=1e-6),
         **kwargs)
     model.default_cfg = _cfg()
-    if pretrained:
-        #checkpoint = torch.load(pretrained_checkpoint, map_location="cpu")
-        checkpoint = torch.load(kwargs["init_ckpt"], map_location="cpu")
-        model.load_state_dict(checkpoint["model"])
+    #if pretrained:
+    #    #checkpoint = torch.load(pretrained_checkpoint, map_location="cpu")
+    #    checkpoint = torch.load(kwargs["init_ckpt"], map_location="cpu")
+    #    model.load_state_dict(checkpoint["model"])
     return model
