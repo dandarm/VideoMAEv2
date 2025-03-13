@@ -152,8 +152,11 @@ data/
 *.gif
 *.bin
 *.pth
+*.pth*
 *.zip
 *.csv
+*.dat
+*.png
 from_gcloud/
 output*
 .aider*
