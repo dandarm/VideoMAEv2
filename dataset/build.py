@@ -39,16 +39,15 @@ def build_pretraining_dataset(args, train=True):
 def build_dataset(is_train, test_mode, args):
     if is_train:
         mode = 'train'
-        anno_path = os.path.join(args.data_path, 'train.csv')
-        anno_path = args.data_path
+        anno_path = os.path.join(args.data_path, 'train_supervised.csv')
     elif test_mode:
         mode = 'test'
-        anno_path = os.path.join(args.data_path, 'val.csv')
+        anno_path = os.path.join(args.data_path, 'test_supervised.csv')
     else:
         mode = 'validation'
-        anno_path = os.path.join(args.data_path, 'val.csv')
+        anno_path = os.path.join(args.data_path, 'val_supervised.csv')
 
-    anno_path = args.data_path  # TODO: cambiare e specificare test e val
+    #anno_path = args.data_path  # TODO: cambiare e specificare test e val
 
     if args.data_set == 'Kinetics-400':
         if not args.sparse_sample:

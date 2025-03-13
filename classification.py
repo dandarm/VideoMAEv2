@@ -47,15 +47,13 @@ def launch_finetuning_classification():
     #print("=====================================")
 
     # -------------------------------------------
-    # build dataset
+    print("BUILDING DATASET...") 
     # -------------------------------------------
     # Carichiamo train, val, test
-    dataset_train, nb_classes_train = build_dataset(
-        is_train=True, test_mode=False, args=args)
-    dataset_val, nb_classes_val = build_dataset(
-        is_train=False, test_mode=False, args=args)
-    dataset_test, nb_classes_test = build_dataset(
-        is_train=False, test_mode=True, args=args)
+    dataset_train, nb_classes_train = build_dataset(is_train=True, test_mode=False, args=args)
+    dataset_val, nb_classes_val = build_dataset(is_train=False, test_mode=False, args=args)
+    dataset_test, nb_classes_test = build_dataset(is_train=False, test_mode=True, args=args)
+    print(f"DATASET: train: {len(dataset_train)}, val: {len(dataset_val)}, test: {len(dataset_test)}")
 
     # Dato che NB_CLASSES deve essere coerente...
     print(f"[INFO] dataset_train classes: {nb_classes_train}, dataset_val classes: {nb_classes_val}, dataset_test classes: {nb_classes_test}")
@@ -133,15 +131,19 @@ def launch_finetuning_classification():
     lr_schedule_values = utils.cosine_scheduler(
         args.lr, args.min_lr, args.epochs, num_training_steps_per_epoch,
         warmup_epochs=args.warmup_epochs, warmup_steps=args.warmup_steps)
+    print(f"lr_schedule_values {lr_schedule_values}")
     if args.weight_decay_end is None:
         args.weight_decay_end = args.weight_decay
     wd_schedule_values = utils.cosine_scheduler(
         args.weight_decay, args.weight_decay_end,
         args.epochs, num_training_steps_per_epoch
     )
+    print(f"wd_schedule_values {wd_schedule_values}")
 
     # Prepariamo la loss
     mixup_active = (args.mixup > 0 or args.cutmix > 0. or args.cutmix_minmax is not None)
+    print(f"mixup_active? {mixup_active}", flush=True)
+    mixup_active = False
     if mixup_active:
         criterion = SoftTargetCrossEntropy()
     elif args.smoothing > 0.:
@@ -170,6 +172,7 @@ def launch_finetuning_classification():
     max_accuracy = 0.0
     start_time = time.time()
 
+    print("START TRAINING!", flush=True)
     for epoch in range(args.start_epoch, args.epochs):
         # TRAIN
         train_stats = train_one_epoch(
@@ -192,33 +195,35 @@ def launch_finetuning_classification():
         )
 
         # SALVATAGGIO CHECKPOINT
-        if args.output_dir and ((epoch + 1) % args.save_ckpt_freq == 0 or (epoch + 1) == args.epochs):
-            ckpt_path = os.path.join(args.output_dir, f"checkpoint-{epoch}.pth")
-            torch.save({
-                "model": model.state_dict(),
-                "optimizer": optimizer.state_dict(),
-                "epoch": epoch,
-                "scaler": loss_scaler.state_dict(),
-                "args": vars(args)  # se vuoi salvare i param
-            }, ckpt_path)
-            print(f"[INFO] checkpoint saved at {ckpt_path}")
+        # if args.output_dir and ((epoch + 1) % args.save_ckpt_freq == 0 or (epoch + 1) == args.epochs):
+        #     ckpt_path = os.path.join(args.output_dir, f"checkpoint-{epoch}.pth")
+        #     torch.save({
+        #         "model": model.state_dict(),
+        #         "optimizer": optimizer.state_dict(),
+        #         "epoch": epoch,
+        #         "scaler": loss_scaler.state_dict(),
+        #         "args": vars(args)  # se vuoi salvare i param
+        #     }, ckpt_path)
+        #     print(f"[INFO] checkpoint saved at {ckpt_path}")
 
         # VAL
-        val_stats = validation_one_epoch(data_loader_val, model, device)
-        print(f"[EPOCH {epoch + 1}] val acc1: {val_stats['acc1']:.2f}%")
-        if val_stats["acc1"] > max_accuracy:
-            max_accuracy = val_stats["acc1"]
-            print(f"[INFO] New best acc1: {max_accuracy:.2f}%")
-            # se vuoi salvare un "best" checkpoint
-            best_ckpt_path = os.path.join(args.output_dir, "checkpoint-best.pth")
-            torch.save({
-                "model": model.state_dict(),
-                "optimizer": optimizer.state_dict(),
-                "epoch": epoch,
-                "scaler": loss_scaler.state_dict(),
-                "args": vars(args)
-            }, best_ckpt_path)
-            print(f"[INFO] Best checkpoint saved at {best_ckpt_path}")
+        val_stats = {}
+        if (epoch + 1) % args.VAL_FREQ == 0:
+            val_stats = validation_one_epoch(data_loader_val, model, device)
+            print(f"[EPOCH {epoch + 1}] val acc1: {val_stats['acc1']:.2f}%")
+            if val_stats["acc1"] > max_accuracy:
+                max_accuracy = val_stats["acc1"]
+                print(f"[INFO] New best acc1: {max_accuracy:.2f}%")
+                # se vuoi salvare un "best" checkpoint
+                best_ckpt_path = os.path.join(args.output_dir, "checkpoint-best.pth")
+                torch.save({
+                    "model": model.state_dict(),
+                    "optimizer": optimizer.state_dict(),
+                    "epoch": epoch,
+                    "scaler": loss_scaler.state_dict(),
+                    "args": vars(args)
+                }, best_ckpt_path)
+                print(f"[INFO] Best checkpoint saved at {best_ckpt_path}")
 
         # logging su file
         log_stats = {
@@ -233,9 +238,9 @@ def launch_finetuning_classification():
     total_time = time.time() - start_time
     print(f"Training time: {str(datetime.timedelta(seconds=int(total_time)))}")
 
-    # TEST finale
-    test_stats = final_test(data_loader_test, model, device, file=os.path.join(args.output_dir, "test_preds.txt"))
-    print(f"[TEST] final test Acc@1 {test_stats['acc1']:.2f}%, Acc@5 {test_stats['acc5']:.2f}%")
+    # TEST finale   # COMMENTO PERCHé FA ERRORE SE BATCH SIZE è SOLTANTO 1 (?)
+    #test_stats = final_test(data_loader_test, model, device, file=os.path.join(args.output_dir, "test_preds.txt"))
+    #print(f"[TEST] final test Acc@1 {test_stats['acc1']:.2f}%, Acc@5 {test_stats['acc5']:.2f}%")
 
     return
 
