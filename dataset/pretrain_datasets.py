@@ -19,7 +19,7 @@ from .transforms import (
 )
 
 
-def tile_image(frames_input, crop_size=224, stride=224):
+def tile_image(frames_input, tile_size=224, stride=224):
     """
     Divide ogni frame in più tile 224x224 invece di selezionare un solo ritaglio.
     """
@@ -36,9 +36,9 @@ def tile_image(frames_input, crop_size=224, stride=224):
         w, h = frame.size  # Ottieni le dimensioni dell'immagine
         tiles = []
 
-        for y in range(0, h - crop_size + 1, stride):
-            for x in range(0, w - crop_size + 1, stride):
-                tile = frame.crop((x, y, x + crop_size, y + crop_size))  # Usa crop() di PIL
+        for y in range(0, h - tile_size + 1, stride):
+            for x in range(0, w - tile_size + 1, stride):
+                tile = frame.crop((x, y, x + tile_size, y + tile_size))  # Usa crop() di PIL
                 tiles.append(tile)  # Converte il tile in tensore
 
         if tiles:
