@@ -7,28 +7,13 @@ from collections import defaultdict
 from datetime import datetime
 import pandas as pd
 
+from build_dataset import extract_dates_pattern_airmass_rgb_20200101_0000
 
-def extract_dates_pattern_airmass_rgb_20200101_0000(filename):
-    """
-    Estrae le date di inizio e fine acquisizione dal nome del file.
-    
-    Esempio di nome file:
-    airmass_rgb_20200101_0000.png
-    """
-    pattern = r"^airmass_rgb_(\d{8})_(\d{4})\.png$"
-    match = re.match(pattern, filename)
-    if match:
-        date_str = match.group(1)  # YYYYMMDD
-        time_str = match.group(2)  # HHMM
-        datetime_str = f"{date_str}{time_str}"
-        dt = datetime.strptime(datetime_str, '%Y%m%d%H%M')
-        return dt
-    else:
-        return None
     
 def split_into_subfolders_and_track_dates(images, output_dir, num_frames=16):    
     subfolder_info = []
     num_total_files = len(images)
+    # quanti blocchi di 16 consecutivi
     num_subfolders = num_total_files // num_frames
 
     for i in range(num_subfolders):

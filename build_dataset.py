@@ -51,12 +51,6 @@ def create_csv(output_dir):
     
     
     
-    
-    
-    
-    
-    
-    
 ################################################################
 #############################
 ################################################################
@@ -128,7 +122,7 @@ def load_cyclones_track_noheader(path_tracks):
     
     
 ##########################################################
-###################         #Logica per determinare se (lat, lon) cade dentro un tile 224◊224
+###################         #Logica per determinare se (lat, lon) cade dentro un tile 224√ó224
 ##########################################################
 
 def compute_pixel_scale(
@@ -169,13 +163,13 @@ def inside_tile(lat, lon, tile_x, tile_y,
                 x_center, y_center,
                 px_per_km_x, px_per_km_y):
     """
-    Verifica se la lat/lon (gradi) cade dentro i confini di un tile 224◊224 
+    Verifica se la lat/lon (gradi) cade dentro i confini di un tile 224√ó224 
     definito in coordinate "pixel".
     
     1) Converti (lat,lon) in coordinate geostazionarie (m. stuff).
     2) Sottrai offset del sub-satellite point (x_center, y_center).
     3) Confronta con l'intervallo [tile_x, tile_x+tile_width] in coordinate pixel.
-       -> serve una scala (px_per_km_x, px_per_km_y) o simile per passare da ìmetri geostazionariî a pixel.
+       -> serve una scala (px_per_km_x, px_per_km_y) o simile per passare da ‚Äúmetri geostazionari‚Äù a pixel.
     """
     # 1) Ottieni la proiezione "Xgeo, Ygeo" in metri (circa) 
     x_geo, y_geo = basemap_obj(lon, lat)
@@ -186,7 +180,7 @@ def inside_tile(lat, lon, tile_x, tile_y,
     # 3) Converti Xlocal, Ylocal in pixel
     # ipotesi: 1 pixel ogni 3 km (esempio). 
     # Nella tua logica devi estrarre la scala esatta dal dimensionamento 
-    # del dataset (ad es. big_image_w ◊ big_image_h).
+    # del dataset (ad es. big_image_w √ó big_image_h).
     x_pix = Xlocal * px_per_km_x
     y_pix = Ylocal * px_per_km_y
 
@@ -210,14 +204,14 @@ def split_into_tiles_subfolders_and_track_dates(
     output_dir,
     tile_width=224,
     tile_height=224,
-    stride_x=112,
+    stride_x=112, # deveessere di 98:  [0, 98, 196] -> [(0,224), (98, 322), (196, 420)]
     stride_y=112,
     num_frames=16,
     big_image_w=1290, 
     big_image_h=420,
 ):
     """
-    Crea sub-cartelle "part1_0_0", "part2_0_0", ecc., ognuna con 16 frame
+    Crea sub‚Äêcartelle "part1_0_0", "part2_0_0", ecc., ognuna con 16 frame
     crop 224x224. L'offset si sposta di stride_x, stride_y.
     Ritorna subfolder_info = lista di dict:
        {
@@ -232,10 +226,15 @@ def split_into_tiles_subfolders_and_track_dates(
     num_total_files = len(sorted_filenames)
     # quanti blocchi di 16 consecutivi
     num_subfolders = num_total_files // num_frames
+    print(f"num_subfolders: {num_subfolders}")
 
+    iteration=0
     # Per ogni tile offset in (0.. big_image_w-224, step stride_x)
     for tile_y in range(0, big_image_h - tile_height + 1, stride_y):
         for tile_x in range(0, big_image_w - tile_width + 1, stride_x):
+            print(iteration, end=" ", flush=True)
+            print(f"tilex {tile_x} \t tiley {tile_y}", end=" ", flush=True)
+            iteration += 1
 
             # Ora scandiamo i blocchi di 16 frame
             part_index = 1
@@ -243,7 +242,7 @@ def split_into_tiles_subfolders_and_track_dates(
                 subfolder_name = f"part{part_index}_{tile_x}_{tile_y}"
                 part_index += 1
                 subfolder_path = os.path.join(output_dir, subfolder_name)
-                os.makedirs(subfolder_path, exist_ok=True)
+                #os.makedirs(subfolder_path, exist_ok=True)  TODO: rimettere
 
                 start_idx = i * num_frames
                 end_idx = start_idx + num_frames
@@ -255,11 +254,11 @@ def split_into_tiles_subfolders_and_track_dates(
                 for idx, (img_path, frame_dt) in enumerate(block_files):
                     new_name = os.path.join(subfolder_path, f"img_{idx+1:05d}.png")
 
-                    # Faccio open + crop
-                    with Image.open(img_path) as im:
-                        crop_region = (tile_x, tile_y, tile_x + tile_width, tile_y + tile_height)
-                        cropped_im = im.crop(crop_region)
-                        cropped_im.save(new_name)
+                # TODO: rimettere poi!!!    # Faccio open + crop
+                #    with Image.open(img_path) as im:
+                #        crop_region = (tile_x, tile_y, tile_x + tile_width, tile_y + tile_height)
+                #        cropped_im = im.crop(crop_region)
+                #        cropped_im.save(new_name)
 
                     dt_list.append(frame_dt)
 
@@ -270,21 +269,26 @@ def split_into_tiles_subfolders_and_track_dates(
                     "tile_x": tile_x,
                     "tile_y": tile_y,
                 })
+                
+            print(f"part_index {part_index-1}")
+
 
     return subfolder_info
 
 
-def label_subfolders_with_cyclones(
+def label_subfolders_with_cyclones_df(
     subfolder_info,
     df_tracks,
     basemap_obj,
     x_center, y_center,
     px_scale_x, px_scale_y,
-    out_csv
 ):
     """
-    Scorre subfolder_info e assegna label=1 se in almeno 1 frame c'e' un ciclone inside.
-    Scrive un CSV: [folder, start, end, label].
+    Per ciascuna voce di subfolder_info, calcola una label (0/1) se almeno
+    un frame in quell'intervallo ha un centro ciclone dentro la tile.
+
+    Ritorna un DataFrame con colonne [folder, start, end, label].
+    un CSV: [folder, start, end, label].
     """
     # prepara groupby
     df_tracks['year'] = df_tracks['time'].dt.year
@@ -294,47 +298,52 @@ def label_subfolders_with_cyclones(
 
     cyc_groups = df_tracks.groupby(['year','month','day','hour'])
 
-    with open(out_csv, 'w', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow(["path","start","end","label"])
+    results = []  # accumuliamo i risultati in una lista di dict
 
-        for info in subfolder_info:
-            folder_path = info['folder']
-            tile_x = info['tile_x']
-            tile_y = info['tile_y']
-            dt_list = info['datetimes']
 
-            found = False
-            for dt_ in dt_list:
-                if dt_ is None:
-                    continue
-                k = (dt_.year, dt_.month, dt_.day, dt_.hour)
-                if k in cyc_groups.indices:
-                    idxes = cyc_groups.indices[k]
-                    group_df = df_tracks.iloc[idxes]
-                    for row_ in group_df.itertuples(index=False):
-                        lat_ = row_.lat
-                        lon_ = row_.lon
-                        if inside_tile(lat_, lon_, tile_x, tile_y,
-                                       224, 224,
-                                       basemap_obj,
-                                       x_center, y_center,
-                                       px_per_km_x=px_scale_x, 
-                                       px_per_km_y=px_scale_y):
-                            found = True
-                            break
-                if found:
-                    break
-            label = 1 if found else 0
-            writer.writerow([folder_path, 1, 16, label])
+    for info in subfolder_info:
+        folder_path = info['folder']
+        tile_x = info['tile_x']
+        tile_y = info['tile_y']
+        dt_list = info['datetimes']
 
-    print(f"Salvato CSV con label in {out_csv}")
+        found = False
+        for dt_ in dt_list:
+            if dt_ is None:
+                continue
+            k = (dt_.year, dt_.month, dt_.day, dt_.hour)
+
+            if k in cyc_groups.indices:
+                idxes = cyc_groups.indices[k]
+                group_df = df_tracks.iloc[idxes]
+                for row_ in group_df.itertuples(index=False):
+                    if inside_tile(row_.lat, row_.lon, tile_x, tile_y,
+                                    224, 224,
+                                    basemap_obj,
+                                    x_center, y_center,
+                                    px_per_km_x=px_scale_x, 
+                                    px_per_km_y=px_scale_y):
+                        found = True
+                        break
+            if found:
+                break
+
+        label = 1 if found else 0
+        results.append({
+            "folder": folder_path,
+            "start": 1,      # fissi 1 e 16 come "start" e "end"
+            "end":   16,
+            "label": label
+        })
+
+    df_out = pd.DataFrame(results, columns=["folder","start","end","label"])
+    return df_out
+        #print(label, end="", flush=True)
 
 
 def main():
     latcorners = [30, 48]
     loncorners = [-7, 46]
-    x_center, y_center = m(9.5, 0)
     m = Basemap(
         projection='geos',
         rsphere=(6378137.0, 6356752.3142),
@@ -343,11 +352,9 @@ def main():
         lon_0=9.5,
         satellite_height=3.5785831E7
     )
-    Xmin, Ymin, px_scale_x, px_scale_y = compute_pixel_scale(
-        basemap_obj=m,
-        latcorners, loncorners=,
-        big_image_w=1290, big_image_h=420
-    )
+    x_center, y_center = m(9.5, 0)
+    Xmin, Ymin, px_scale_x, px_scale_y = compute_pixel_scale(m, latcorners, loncorners,
+        big_image_w=1290, big_image_h=420)
 
     #  carica i files
     input_dir = "../fromgcloud"  # Cambia questo percorso
@@ -364,12 +371,12 @@ def main():
     sorted_filenames = [item[0] for item in sorted_files]
     print(f" Ci sono {len(sorted_filenames)} files.")
     
-    sorted_filenames = sorted_filenames[:100]
+    #sorted_filenames = sorted_filenames[:32]
 
     # 1) Abbiamo gia' i sorted_filenames caricati, e output_dir definito
-    subfolder_info = split_into_tiles_subfolders_and_track_dates(
-        sorted_filenames=[(p, dt) for p, dt in zip(sorted_filenames, [f[1] for f in sorted_files])],
-        output_dir=output_dir)
+    sf = [(p, dt) for p, dt in zip(sorted_filenames, [f[1] for f in sorted_files])]
+    print(f"sorted filenames, len = {len(sf)}")
+    subfolder_info = split_into_tiles_subfolders_and_track_dates(sorted_filenames=sf, output_dir=output_dir)
     print(f"Creati {len(subfolder_info)} tile-video in total.")
 
     # 2) Carico i ciclonici
