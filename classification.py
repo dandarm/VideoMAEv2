@@ -16,7 +16,6 @@ from arguments import prepare_finetuning_args, Args  # NON TOGLIERE: serve a tor
 from model_analysis import get_dataloader, get_dataset_dataloader
 
 
-# import dei moduli dal tuo codice
 from dataset import build_dataset
 import torch.backends.cudnn as cudnn
 from engine_for_finetuning import train_one_epoch, validation_one_epoch, final_test
