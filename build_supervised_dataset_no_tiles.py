@@ -8,6 +8,7 @@ from datetime import datetime
 import pandas as pd
 
 from build_dataset import extract_dates_pattern_airmass_rgb_20200101_0000
+from medicane_utils.load_files import load_medicane_intervals
 
     
 def split_into_subfolders_and_track_dates(images, output_dir, num_frames=16):    
@@ -40,9 +41,6 @@ def split_into_subfolders_and_track_dates(images, output_dir, num_frames=16):
 
 
 def create_supervised_csv_from_info(subfolder_info, medicane_csv, out_csv):
-    import csv
-    from datetime import datetime
-    import pandas as pd
 
     # Carica gli intervalli di medicane
     intervals = load_medicane_intervals(medicane_csv)
@@ -65,19 +63,7 @@ def create_supervised_csv_from_info(subfolder_info, medicane_csv, out_csv):
 
 
 
-def load_medicane_intervals(medicane_csv):
-    """
-    Legge un file CSV con le date di inizio/fine dei Medicane.
-    Esempio: col start_date, end_date in formato 'YYYY-MM-DD HH:MM'
-    """
-    
-    intervals = []
-    df = pd.read_csv(medicane_csv)
-    for _, row in df.iterrows():
-        start_dt = datetime.strptime(row['Start_Date'], "%Y-%m-%d")
-        end_dt   = datetime.strptime(row['End_Date'],   "%Y-%m-%d")
-        intervals.append((start_dt, end_dt))
-    return intervals
+
 
 def is_in_medicane(date_to_check, intervals):
     return any(start <= date_to_check <= end for (start, end) in intervals)
