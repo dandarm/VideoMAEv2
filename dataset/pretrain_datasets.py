@@ -19,38 +19,6 @@ from .transforms import (
 )
 
 
-def tile_image(frames_input, tile_size=224, stride=224):
-    """
-    Divide ogni frame in più tile 224x224 invece di selezionare un solo ritaglio.
-    """
-    if not isinstance(frames_input, list):
-        frames_list = [frames_input]  # Converti un singolo frame in una lista
-    else:
-        frames_list = frames_input  # Se è già una lista, usala direttamente
-
-    #to_tensor = transforms.ToTensor()
-    all_tiles = []
-
-    #print(f"len:{len(frames)}, len di 0: {len(frames[0])} elemento 1 :{frames[1]}")
-    for frame in frames_list:  # Itera su ogni frame (immagine PIL)
-        w, h = frame.size  # Ottieni le dimensioni dell'immagine
-        tiles = []
-
-        for y in range(0, h - tile_size + 1, stride):
-            for x in range(0, w - tile_size + 1, stride):
-                tile = frame.crop((x, y, x + tile_size, y + tile_size))  # Usa crop() di PIL
-                tiles.append(tile)  # Converte il tile in tensore
-
-        if tiles:
-            all_tiles.extend(tiles)  # Stack dei tile per ogni frame
-
-    if not all_tiles:
-        return ([], 0)
-
-    return all_tiles, 0
-    #return torch.stack(all_tiles) if all_tiles else torch.tensor([])
-
-
 class DataAugmentationForVideoMAEv2(object):
 
     def __init__(self, args):

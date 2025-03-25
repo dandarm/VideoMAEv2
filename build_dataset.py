@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-
 import os
 import shutil
 from pathlib import Path
@@ -13,6 +12,13 @@ from time import time
 import pandas as pd
 from PIL import Image
 from mpl_toolkits.basemap import Basemap
+
+from medicane_utils.load_files import load_cyclones_track_noheader, get_files_from_folder, extract_dates_pattern_airmass_rgb_20200101_0000
+from medicane_utils.geo_const import latcorners, loncorners, x_center, y_center, basemap_obj
+
+
+
+
 
 
 def create_csv(output_dir):
@@ -45,79 +51,45 @@ def create_csv(output_dir):
 
     print(f"File CSV generati:\nTrain: {train_csv}\nTest: {test_csv}\nValidation: {val_csv}")
     
-    
-    
-    
-    
-    
-    
-################################################################
-#############################
-################################################################
 
-def get_files_from_folder(folder, extension):
-    folder = Path(folder)
-    files = list(folder.rglob(f"*.{extension}"))
-    return files
-    
-def extract_dates_pattern_airmass_rgb_20200101_0000(filename):
+
+
+##########################################################
+###############  CREAZIONE TILES     #####################
+##########################################################
+
+
+
+def calc_tile_offsets(image_width=1290, image_height=420, tile_size=224, stride=112):
     """
-    Estrae le date di inizio e fine acquisizione dal nome del file.
-    
-    Esempio di nome file:
-    airmass_rgb_20200101_0000.png
-    """
-    pattern = r"^airmass_rgb_(\d{8})_(\d{4})\.png$"
-    match = re.match(pattern, filename)
-    if match:
-        date_str = match.group(1)  # YYYYMMDD
-        time_str = match.group(2)  # HHMM
-        datetime_str = f"{date_str}{time_str}"
-        dt = datetime.strptime(datetime_str, '%Y%m%d%H%M')
-        return dt
-    else:
-        return None
+    Ritorna una lista di (x_off, y_off) 
+    """    
+    offsets = []
+    for y_off in range(0, image_height - tile_size + 1, stride):
+        for x_off in range(0, image_width - tile_size + 1, stride):
+            offsets.append((x_off, y_off))
+    return offsets
 
+def get_dataset_offsets(frames_list, tile_size=224, stride=112):
+    """Prende tutti gli offsets di ogni immagine"""
+    all_offsets = []
+    for frame in frames_list:  # Itera su ogni frame (immagine PIL)
+        w, h = frame.size
+        offsets_this_frame = calc_tile_offsets(w, h, tile_size, stride)
+        all_offsets.append(offsets_this_frame)
 
+    return all_offsets
 
+def create_tile(frame, tile_size=224, stride=112):
+    w, h = frame.size
+    offsets_this_frame = calc_tile_offsets(w, h, tile_size, stride)
+    # costruisco le tiles
+    tiles_this_frame = []
+    for x,y in offsets_this_frame:  
+        tile = frame.crop((x, y, x + tile_size, y + tile_size))  # Usa crop() di PIL
+        tiles_this_frame.append(tile)
 
-
-########### legge i track di MANOS
-def load_cyclones_track_noheader(path_tracks):
-    """
-    Carica righe del file TRACKS_CL7 (senza header). Ogni riga ha 8 campi:
-      id, lat, lon, year, month, day, hour, pressure
-    Restituisce una lista di dict:
-        { 'id_cyc': str, 'lat': float, 'lon': float, 'time': datetime }
-    """
-    rows = []
-    with open(path_tracks, 'r') as f:
-        for line in f:
-            # es. "00000001 -013.991 0032.717 1979 01 08 16 01012.31\n"
-            parts = line.split()
-            if len(parts) < 8:
-                continue
-            id_str = parts[0]
-            lat_str = parts[1].replace(',', '.')
-            lon_str = parts[2].replace(',', '.')
-            year = int(parts[3])
-            month= int(parts[4])
-            day  = int(parts[5])
-            hour = int(parts[6])
-            # pressure = parts[7]  # ignorato
-
-            lat = float(lat_str)
-            lon = float(lon_str)
-
-            time_stamp = pd.Timestamp(year=year, month=month, day=day, hour=hour)
-
-            rows.append({
-                'id_cyc': id_str,
-                'lat':    lat,
-                'lon':    lon,
-                'time':   time_stamp,
-            })
-    return pd.DataFrame(rows)
+    return tiles_this_frame, offsets_this_frame
     
     
     
@@ -156,11 +128,21 @@ def compute_pixel_scale(
 
     return Xmin, Ymin, px_scale_x, px_scale_y
 
-  
+def coord2px(lat, lon, px_per_km_x, px_per_km_y, Xmin, Ymin):
+    # 1) Ottieni la proiezione "Xgeo, Ygeo" in metri (circa) 
+    x_geo, y_geo = basemap_obj(lon, lat)
+    # 2) Sottrai offset
+    Xlocal = x_geo - Xmin
+    Ylocal = y_geo - Ymin
+    # 3) Converti Xlocal, Ylocal in pixel
+    x_pix = Xlocal * px_per_km_x
+    y_pix = Ylocal * px_per_km_y
+
+    return x_pix, y_pix
+    
+
 def inside_tile(lat, lon, tile_x, tile_y,
                 tile_width, tile_height,
-                basemap_obj, # Basemap con lon_0=9.5, satellite_height=...
-                x_center, y_center,
                 px_per_km_x, px_per_km_y):
     """
     Verifica se la lat/lon (gradi) cade dentro i confini di un tile 224×224 
@@ -171,20 +153,10 @@ def inside_tile(lat, lon, tile_x, tile_y,
     3) Confronta con l'intervallo [tile_x, tile_x+tile_width] in coordinate pixel.
        -> serve una scala (px_per_km_x, px_per_km_y) o simile per passare da “metri geostazionari” a pixel.
     """
-    # 1) Ottieni la proiezione "Xgeo, Ygeo" in metri (circa) 
-    x_geo, y_geo = basemap_obj(lon, lat)
-    # 2) Sottrai offset
-    Xlocal = x_geo - x_center
-    Ylocal = y_geo - y_center
+    
+    x_pix, y_pix = coord2px(lat, lon, px_per_km_x, px_per_km_y)
 
-    # 3) Converti Xlocal, Ylocal in pixel
-    # ipotesi: 1 pixel ogni 3 km (esempio). 
-    # Nella tua logica devi estrarre la scala esatta dal dimensionamento 
-    # del dataset (ad es. big_image_w × big_image_h).
-    x_pix = Xlocal * px_per_km_x
-    y_pix = Ylocal * px_per_km_y
-
-    # 4) Check se (x_pix, y_pix) cade nel tile 
+    # Check se (x_pix, y_pix) cade nel tile 
     if (tile_x <= x_pix < tile_x + tile_width) and \
        (tile_y <= y_pix < tile_y + tile_height):
         return True
@@ -197,6 +169,24 @@ def inside_tile(lat, lon, tile_x, tile_y,
     
 
 # crea i video e salva in cartelle partX e traccia la data dei video
+def labeled_tiles_from_metadatafiles(sorted_metadata_files):   #, save_to_file=False):
+
+    updated_metadata = []
+    default_offsets_for_frame = calc_tile_offsets()
+    for idx, (img_path, frame_dt) in enumerate(sorted_metadata_files):
+        
+        for tile_x, tile_y in default_offsets_for_frame:
+
+
+            updated_metadata.append({                    
+                        "datetime": frame_dt,  
+                        "tile_x": tile_x,
+                        "tile_y": tile_y,
+                    })
+
+
+
+
 
 
 def split_into_tiles_subfolders_and_track_dates(
@@ -226,7 +216,7 @@ def split_into_tiles_subfolders_and_track_dates(
     num_total_files = len(sorted_filenames)
     # quanti blocchi di 16 consecutivi
     num_subfolders = num_total_files // num_frames
-    print(f"num_subfolders: {num_subfolders}")
+    print(f"num_subfolders video: {num_subfolders}")
 
     iteration=0
     # Per ogni tile offset in (0.. big_image_w-224, step stride_x)
@@ -333,15 +323,20 @@ def label_subfolders_with_cyclones_df(
             "folder": folder_path,
             "start": 1,      # fissi 1 e 16 come "start" e "end"
             "end":   16,
-            "label": label
+            "label": label,
+            "start_time": dt_list[0],
+            "end_time": dt_list[-1]
+    
         })
 
-    df_out = pd.DataFrame(results, columns=["folder","start","end","label"])
+    
+    df_out = pd.DataFrame(results, columns=["path","start","end","label","start_time","end_time"])
     return df_out
-        #print(label, end="", flush=True)
+    
 
 
 def main():
+    ###################################### BASEMAP 
     latcorners = [30, 48]
     loncorners = [-7, 46]
     m = Basemap(
@@ -356,26 +351,28 @@ def main():
     Xmin, Ymin, px_scale_x, px_scale_y = compute_pixel_scale(m, latcorners, loncorners,
         big_image_w=1290, big_image_h=420)
 
-    #  carica i files
+    ######################################  carica i files e le date
     input_dir = "../fromgcloud"  # Cambia questo percorso
     output_dir = "../airmassRGB/supervised"
-    os.makedirs(output_dir, exist_ok=True)
+    #os.makedirs(output_dir, exist_ok=True)
     
     filenames = get_files_from_folder(folder=input_dir, extension="png")
-    file_metadata = []
+    #print(f"Trovati {len(filenames)} files")
+    file_metadata = []  # contiene i nomi e le date
     for fname in filenames:
         start_dt = extract_dates_pattern_airmass_rgb_20200101_0000(fname.name)
         file_metadata.append((fname, start_dt))
-    sorted_files = sorted(file_metadata, key=lambda x: x[1])  # Ordina per start_dt
+
+    sorted_metadata = sorted(file_metadata, key=lambda x: x[1])  # Ordina per start_dt
     #random_fnames =  [item[0] for item in file_metadata]
-    sorted_filenames = [item[0] for item in sorted_files]
+    sorted_filenames = [item[0] for item in sorted_metadata]
     print(f" Ci sono {len(sorted_filenames)} files.")
     
     #sorted_filenames = sorted_filenames[:32]
 
     # 1) Abbiamo gia' i sorted_filenames caricati, e output_dir definito
-    sf = [(p, dt) for p, dt in zip(sorted_filenames, [f[1] for f in sorted_files])]
-    print(f"sorted filenames, len = {len(sf)}")
+    #sf = [(p, dt) for p, dt in zip(sorted_filenames, [f[1] for f in sorted_files])]
+    #print(f"sorted filenames, len = {len(sf)}")
     subfolder_info = split_into_tiles_subfolders_and_track_dates(sorted_filenames=sf, output_dir=output_dir)
     print(f"Creati {len(subfolder_info)} tile-video in total.")
 
@@ -384,10 +381,9 @@ def main():
     df_tracks = load_cyclones_track_noheader(tracks_file)
 
 
-
     # 4) label subfolders
     out_csv_label = os.path.join(output_dir, "label_tiles.csv")
-    label_subfolders_with_cyclones(
+    df = label_subfolders_with_cyclones_df(
         subfolder_info,
         df_tracks,
         basemap_obj=m,
