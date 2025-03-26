@@ -97,30 +97,16 @@ def create_tile(frame, tile_size=224, stride=112):
 ###################         #Logica per determinare se (lat, lon) cade dentro un tile 224×224
 ##########################################################
 
-def compute_pixel_scale(
-    basemap_obj,
-    latcorners, loncorners,
-    big_image_w=1290, big_image_h=420
-):
+def compute_pixel_scale(big_image_w=1290, big_image_h=420):
     """
     Proietta i 4 corner in coordinate geostazionarie,
     trova Xmin,Xmax, Ymin,Ymax => calcola px_scale_x,y.
     Ritorna (x_min, y_min, px_scale_x, px_scale_y).
     """
-    corner_coords = [
-        (loncorners[0], latcorners[0]),
-        (loncorners[1], latcorners[0]),
-        (loncorners[0], latcorners[1]),
-        (loncorners[1], latcorners[1])
-    ]
-    x_vals = []
-    y_vals = []
-    for (lo, la) in corner_coords:
-        xg, yg = basemap_obj(lo, la)
-        x_vals.append(xg)
-        y_vals.append(yg)
-    Xmin, Xmax = min(x_vals), max(x_vals)
-    Ymin, Ymax = min(y_vals), max(y_vals)
+    lat_min, lat_max = latcorners
+    lon_min, lon_max = loncorners
+    Xmin, Ymin = basemap_obj(lon_min, lat_min)
+    Xmax, Ymax = basemap_obj(lon_max, lat_max)
 
     # quante "pixel su un metro" in orizzontale e verticale
     px_scale_x = big_image_w / (Xmax - Xmin)
