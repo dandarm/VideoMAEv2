@@ -17,7 +17,11 @@ from medicane_utils.load_files import load_cyclones_track_noheader, get_files_fr
 from medicane_utils.geo_const import latcorners, loncorners, x_center, y_center, basemap_obj
 
 
+from medicane_utils.load_files import load_all_images, get_all_cyclones
+from medicane_utils.load_files import load_cyclones_track_noheader
+from medicane_utils.geo_const import latcorners, loncorners, x_center, y_center, basemap_obj
 
+from view_test_tiles import plot_image, draw_tiles_and_center, create_gif_pil
 
 
 
@@ -459,8 +463,17 @@ def main():
     )
 
 if __name__ == "__main__":
-    main()
+    tracks_df = get_all_cyclones()
+    sorted_metadata_files = load_all_images(input_dir = "../fromgcloud")
+    start = time()
+    df_data = labeled_tiles_from_metadatafiles(sorted_metadata_files, tracks_df)
+    end = time()
+    print(round((end-start)/60, 2))
+    df_data.to_csv("all_data.csv")
 
+    
+    # Richiediamo gli offset dai tile (non ci serve la lista di sub-tile veri e propri)
+    #default_offsets = calc_tile_offsets()
 
 
 
