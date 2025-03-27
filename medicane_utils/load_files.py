@@ -2,6 +2,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 import pandas as pd
+from medicane_utils.geo_const import latcorners, loncorners, x_center, y_center, basemap_obj
 
 #### legge il file con le date dei medicane
 def load_medicane_intervals(medicane_csv):
@@ -82,3 +83,64 @@ def extract_dates_pattern_airmass_rgb_20200101_0000(filename):
         return dt
     else:
         return None
+    
+
+
+def get_all_cyclones():
+    tracks_file = "./TRACKS_CL7.dat"  
+    df_tracks = load_cyclones_track_noheader(tracks_file)
+    df_tracks['time'] = pd.to_datetime(df_tracks['time'])
+
+    # limit to > 2011 cyclones
+    df_tracks = df_tracks[df_tracks['time'] > datetime(2011, 1, 1)]
+
+    # limit to Mediterranean cyclones
+    tracks_df_coord = df_tracks[
+        (df_tracks['lat'] >= latcorners[0]) & (df_tracks['lat'] <= latcorners[1]) &
+        (df_tracks['lon'] >= loncorners[0]) & (df_tracks['lon'] <= loncorners[1])
+    ]
+
+    # load Medicanes
+    df_med = pd.read_csv('medicane_validi.csv')
+    df_med['Start_Date'] = pd.to_datetime(df_med['Start_Date'])
+    df_med['End_Date'] = pd.to_datetime(df_med['End_Date'])
+
+    # join cyclones and medicanes
+    tracks_df_coord['Medicane'] = None
+
+    # Per ogni intervallo nel df_piccolo, assegna il nome alle righe che rientrano
+    for i, row in df_med.iterrows():
+        start = row['Start_Date']
+        end = row['End_Date'] + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)  # include tutto il giorno finale
+        nome = row['Medicane']
+        #print(start, end, nome, end=' ')
+        
+        m_start = tracks_df_coord['time'] >= start
+        m_end = tracks_df_coord['time'] <= end
+        mask = m_start & m_end
+        #print(m_start.sum(), m_end.sum(), mask.sum())
+        #display(tracks_df_coord[mask])
+        tracks_df_coord.loc[mask, 'Medicane'] = nome
+
+    av_med = tracks_df_coord[~tracks_df_coord['Medicane'].isna()]['Medicane'].unique()
+    print(f"Available Medicanes for training: {av_med}")
+
+    return tracks_df_coord
+
+
+
+def load_all_images(input_dir):
+    filenames = get_files_from_folder(folder=input_dir, extension="png")
+    #print(f"Trovati {len(filenames)} files")
+
+    file_metadata = []
+    for fname in filenames:
+        start_dt = extract_dates_pattern_airmass_rgb_20200101_0000(fname.name)
+        file_metadata.append((fname, start_dt))
+
+    sorted_files = sorted(file_metadata, key=lambda x: x[1])  # Ordina per start_dt
+    #random_fnames =  [item[0] for item in file_metadata]
+    #sorted_filenames = [item[0] for item in sorted_files]
+    print(f"{len(sorted_files)} files loaded.")
+
+    return sorted_files
