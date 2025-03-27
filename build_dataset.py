@@ -11,7 +11,7 @@ from time import time
 
 import pandas as pd
 from PIL import Image
-from mpl_toolkits.basemap import Basemap
+#from mpl_toolkits.basemap import Basemap
 
 from medicane_utils.load_files import load_cyclones_track_noheader, get_files_from_folder, extract_dates_pattern_airmass_rgb_20200101_0000
 from medicane_utils.geo_const import latcorners, loncorners, x_center, y_center, basemap_obj
@@ -96,7 +96,7 @@ def create_tile(frame, tile_size=224, stride=112):
 ##########################################################
 ###################         #Logica per determinare se (lat, lon) cade dentro un tile 224×224
 ##########################################################
-
+#region 
 def compute_pixel_scale(big_image_w=1290, big_image_h=420):
     """
     Proietta i 4 corner in coordinate geostazionarie,
@@ -124,12 +124,18 @@ def coord2px(lat, lon, px_per_km_x, px_per_km_y, Xmin, Ymin):
     x_pix = Xlocal * px_per_km_x
     y_pix = Ylocal * px_per_km_y
 
+    y_pix = 420 - y_pix  # necessario per rovesciare lungo l'asse y.  420 = altezza immagine
+
     return x_pix, y_pix
     
 
+def get_cyclone_center_pixel(lat, lon):
+    Xmin, Ymin, px_scale_x, px_scale_y = compute_pixel_scale()
+    x_pix, y_pix = coord2px(lat, lon, px_scale_x, px_scale_y, Xmin, Ymin) 
+    return int(x_pix), int(y_pix)
+
 def inside_tile(lat, lon, tile_x, tile_y,
-                tile_width, tile_height,
-                px_per_km_x, px_per_km_y):
+                tile_width=224, tile_height=224):
     """
     Verifica se la lat/lon (gradi) cade dentro i confini di un tile 224×224 
     definito in coordinate "pixel".
@@ -139,9 +145,11 @@ def inside_tile(lat, lon, tile_x, tile_y,
     3) Confronta con l'intervallo [tile_x, tile_x+tile_width] in coordinate pixel.
        -> serve una scala (px_per_km_x, px_per_km_y) o simile per passare da “metri geostazionari” a pixel.
     """
-    
-    x_pix, y_pix = coord2px(lat, lon, px_per_km_x, px_per_km_y)
+    #Xmin, Ymin, px_scale_x, px_scale_y = compute_pixel_scale()
+    #x_pix, y_pix = coord2px(lat, lon, px_scale_x, px_scale_y, Xmin, Ymin)    
 
+    x_pix, y_pix = get_cyclone_center_pixel(lat, lon)
+    
     # Check se (x_pix, y_pix) cade nel tile 
     if (tile_x <= x_pix < tile_x + tile_width) and \
        (tile_y <= y_pix < tile_y + tile_height):
@@ -149,29 +157,108 @@ def inside_tile(lat, lon, tile_x, tile_y,
     else:
         return False
 
+#endregion
 
 
+def get_tile_labels(lat, lon):
 
-    
+    default_offsets_for_frame = calc_tile_offsets()
+    labeled_tiles_offsets = [None] * len(default_offsets_for_frame)  # segue lo stesso ordine degli offsets_for_frame
+    for i, (tile_offset_x, tile_offset_y) in enumerate(default_offsets_for_frame):
+        #print(tile_offset_x, tile_offset_y)
+        if inside_tile(lat, lon, tile_offset_x, tile_offset_y):
+            #print("presente")
+            labeled_tiles_offsets[i] = 1
+        else:
+            #print("assente")
+            labeled_tiles_offsets[i] = 0
+
+    return labeled_tiles_offsets
+
 
 # crea i video e salva in cartelle partX e traccia la data dei video
-def labeled_tiles_from_metadatafiles(sorted_metadata_files):   #, save_to_file=False):
+def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks):   #, save_to_file=False):
 
     updated_metadata = []
+    
+    # Constants
     default_offsets_for_frame = calc_tile_offsets()
-    for idx, (img_path, frame_dt) in enumerate(sorted_metadata_files):
+
+    for img_path, frame_dt in sorted_metadata_files:       
+        # recupero la riga corrispondente all'ora intera dell'immagine
+        # devo perci arrotondare (in eccesso o difetto?) l'istante dell'img
+        dt_floor = frame_dt.replace(minute=0, second=0, microsecond=0)
+        mask = df_tracks["time"] == dt_floor
+        df_candidates = df_tracks[mask]
+        # il nome è sempre quello per tutta l'immagine
+        med_name = df_candidates['Medicane'].unique()
+        if len(med_name) > 0:
+            #print(med_name, flush=True)
+            medicane_name = med_name[0]
+        else:
+            medicane_name = med_name
         
-        for tile_x, tile_y in default_offsets_for_frame:
+        for tile_offset_x, tile_offset_y in default_offsets_for_frame:
+            found_any = False
+            lat = None
+            lon = None
+            
+            for row in df_candidates.itertuples(index=False):  # devo considerare il caso in cui ho più cicloni        
+                lat_, lon_ = row.lat, row.lon           #df_candidates[['lat', 'lon']].values[0]
+                #print(lat_, lon_, tile_offset_x, tile_offset_y, frame_dt)
+                if inside_tile(lat_, lon_, tile_offset_x, tile_offset_y):
+                    found_any = True
+                    lat = lat_
+                    lon = lon_                    
+                    #print("trovato!\n")
+                    break  # TODO: verificare che non sia dannoso
 
-
-            updated_metadata.append({                    
-                        "datetime": frame_dt,  
-                        "tile_x": tile_x,
-                        "tile_y": tile_y,
+            label = 1 if found_any else 0
+            # append UNA sola volta la tile
+            # associando lat/lon del primo ciclone trovato (se c'è)
+            if lat is not None:
+                x_pix, y_pix = get_cyclone_center_pixel(lat, lon)
+            else:
+                x_pix, y_pix = None, None
+            
+            #print(lat, lon)
+            
+            updated_metadata.append({
+                        "path": img_path,
+                        "datetime": frame_dt,
+                        "tile_offset_x": tile_offset_x,
+                        "tile_offset_y": tile_offset_y,
+                        "label": label,
+                        "lat": lat,
+                        "lon": lon,
+                        "x_pix":x_pix,
+                        "y_pix":y_pix,
+                        "name": medicane_name
                     })
+            
+    res =  pd.DataFrame(updated_metadata)
+    res = res.astype({
+        "path": 'string',
+        "datetime": 'datetime64[ns]',
+        "tile_offset_x": 'int16',
+        "tile_offset_y": 'int16',
+        "label": 'category',
+        "lat": 'float16',
+        "lon": 'float16',
+        "x_pix": 'Int16',
+        "y_pix": 'Int16',
+        "name": 'string'
+    })
+    return res
 
 
 
+
+
+
+
+
+#region old code
 
 
 
@@ -319,21 +406,12 @@ def label_subfolders_with_cyclones_df(
     df_out = pd.DataFrame(results, columns=["path","start","end","label","start_time","end_time"])
     return df_out
     
+#endregion
+
 
 
 def main():
-    ###################################### BASEMAP 
-    latcorners = [30, 48]
-    loncorners = [-7, 46]
-    m = Basemap(
-        projection='geos',
-        rsphere=(6378137.0, 6356752.3142),
-        resolution='i',
-        area_thresh=10000.,
-        lon_0=9.5,
-        satellite_height=3.5785831E7
-    )
-    x_center, y_center = m(9.5, 0)
+ 
     Xmin, Ymin, px_scale_x, px_scale_y = compute_pixel_scale(m, latcorners, loncorners,
         big_image_w=1290, big_image_h=420)
 
