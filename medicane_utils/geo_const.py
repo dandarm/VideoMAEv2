@@ -17,3 +17,4 @@ basemap_obj = Basemap(
     urcrnrlat=lat_max)
 
 x_center, y_center = basemap_obj(9.5, 0)
+
