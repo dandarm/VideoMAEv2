@@ -20,8 +20,6 @@ import matplotlib.pyplot as plt
 from arguments import prepare_finetuning_args, Args  # NON TOGLIERE: serve a torch.load per caricare il mio modello addestrato
 #from model_analysis import get_dataloader, get_dataset_dataloader
 
-from build_dataset import calc_tile_offsets
-
 # from dataset import build_dataset
 
 # from engine_for_finetuning import train_one_epoch, validation_one_epoch, final_test
@@ -68,6 +66,7 @@ def plot_image(img, basemap_obj, latcorners, loncorners, dpi=96, width=1290, hei
 
 def draw_tiles_and_center(
     pil_image: Image.Image,
+    default_offsets,
     tile_size=224,
     cyclone_centers=None,
     labeled_tiles_offsets=None,
@@ -82,9 +81,6 @@ def draw_tiles_and_center(
 
     Ritorna l'immagine PIL con i disegni sopra.
     """
-
-    # Richiediamo gli offset dai tile (non ci serve la lista di sub-tile veri e propri)
-    default_offsets = calc_tile_offsets()
 
     # Creiamo una copia su cui disegnare
     out_img = pil_image.copy()
