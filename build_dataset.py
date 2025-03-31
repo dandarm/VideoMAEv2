@@ -84,16 +84,15 @@ def get_dataset_offsets(frames_list, tile_size=224, stride=112):
 
     return all_offsets
 
-def create_tile(frame, tile_size=224, stride=112):
-    w, h = frame.size
-    offsets_this_frame = calc_tile_offsets(w, h, tile_size, stride)
+def create_tile(frame, offsets_list):
+    w, h = frame.size    
     # costruisco le tiles
     tiles_this_frame = []
-    for x,y in offsets_this_frame:  
+    for x,y in offsets_list:  
         tile = frame.crop((x, y, x + tile_size, y + tile_size))  # Usa crop() di PIL
         tiles_this_frame.append(tile)
 
-    return tiles_this_frame, offsets_this_frame
+    return tiles_this_frame
     
     
     

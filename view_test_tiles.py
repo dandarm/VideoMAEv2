@@ -4,7 +4,7 @@ import os
 # import time
 # import random
 # import json
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import matplotlib.pyplot as plt
 # import torch
@@ -63,6 +63,43 @@ def plot_image(img, basemap_obj, latcorners, loncorners, dpi=96, width=1290, hei
     img_pil = Image.open(buf)
     return img_pil
 
+from PIL import Image, ImageDraw, ImageFont
+
+
+def draw_timestamp_in_bottom_right(
+    pil_img,
+    text_str,
+    margin=10,
+    font_size=30,
+    font_path="digital-7 (italic).ttf",
+    text_color=(255, 80, 80)
+):
+    """
+    Disegna `text_str` in basso a destra dell'immagine `pil_img`.
+    Usa textbbox(...) per calcolare larghezza e altezza del testo.
+    Necessita Pillow >= 8.0
+    """
+    draw = ImageDraw.Draw(pil_img)
+
+    #if font is None:
+    #    font = ImageFont.load_default()  # default Pillow font
+    font = ImageFont.truetype(font_path, font_size)
+
+    # textbbox restituisce (left, top, right, bottom)
+    bbox = draw.textbbox((0, 0), text_str, font=font)
+    text_width = bbox[2] - bbox[0]
+    text_height= bbox[3] - bbox[1]
+
+    # Calcoliamo la posizione in basso a destra
+    img_w, img_h = pil_img.size
+    x = img_w - text_width - margin
+    y = img_h - text_height - margin
+
+    # Disegniamo
+    draw.text((x, y), text_str, font=font, fill=text_color)
+    return pil_img
+
+
 
 def draw_tiles_and_center(
     pil_image: Image.Image,
@@ -95,7 +132,7 @@ def draw_tiles_and_center(
         color = absent_color
         width = 1
         if labeled_tiles_offsets is not None:
-            if labeled_tiles_offsets[i] == 1:
+            if labeled_tiles_offsets[i] == '1':
                 color = present_color
                 width = 4            
         draw.rectangle(
