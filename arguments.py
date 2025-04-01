@@ -285,12 +285,12 @@ def prepare_finetuning_args():
         'opt': 'adamw',
         'lr': 1e-3,
         'opt_betas': [0.9, 0.95],
-        'warmup_epochs': 1,
+        'warmup_epochs': 10,
         'epochs': 350,
-        'save_ckpt_freq': 300,
+        'save_ckpt_freq': 100,
         'decoder_depth': 4,
         'testing_epochs': 3,
-        'VAL_FREQ': 10
+        'VAL_FREQ': 5
         #dist_eval
     }
 
@@ -301,7 +301,8 @@ def prepare_finetuning_args():
     args = Args(**args_dict)
     return args
 
-#region argomenti da approfondire
+#region 
+# argomenti da approfondire
 # argomenti utili?
 # 'tubelet_size': 2,
 # 'input_size': 224,
@@ -330,4 +331,4 @@ def prepare_finetuning_args():
 # 'mixup_mode': 'batch',
 # 'init_scale': 0.001,
 
-#end region
+#endregion

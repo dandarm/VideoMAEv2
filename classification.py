@@ -51,11 +51,11 @@ def launch_finetuning_classification():
     # Carichiamo train, val, test
     dataset_train, nb_classes_train = build_dataset(is_train=True, test_mode=False, args=args)
     dataset_val, nb_classes_val = build_dataset(is_train=False, test_mode=False, args=args)
-    dataset_test, nb_classes_test = build_dataset(is_train=False, test_mode=True, args=args)
-    print(f"DATASET: train: {len(dataset_train)}, val: {len(dataset_val)}, test: {len(dataset_test)}")
+    #dataset_test, nb_classes_test = build_dataset(is_train=False, test_mode=True, args=args)
+    print(f"DATASET: train: {len(dataset_train)}, val: {len(dataset_val)}")  #, test: {len(dataset_test)}")
 
     # Dato che NB_CLASSES deve essere coerente...
-    print(f"[INFO] dataset_train classes: {nb_classes_train}, dataset_val classes: {nb_classes_val}, dataset_test classes: {nb_classes_test}")
+    #print(f"[INFO] dataset_train classes: {nb_classes_train}, dataset_val classes: {nb_classes_val}, dataset_test classes: {nb_classes_test}")
 
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train,
@@ -73,13 +73,13 @@ def launch_finetuning_classification():
         drop_last=False
     )
 
-    data_loader_test = torch.utils.data.DataLoader(
-        dataset_test,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-        pin_memory=args.pin_mem,
-        drop_last=False
-    )
+    # data_loader_test = torch.utils.data.DataLoader(
+    #     dataset_test,
+    #     batch_size=args.batch_size,
+    #     num_workers=args.num_workers,
+    #     pin_memory=args.pin_mem,
+    #     drop_last=False
+    # )
 
     # -------------------------------------------
     # build model
