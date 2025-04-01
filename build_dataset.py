@@ -84,7 +84,7 @@ def get_dataset_offsets(frames_list, tile_size=224, stride=112):
 
     return all_offsets
 
-def create_tile(frame, offsets_list):
+def create_tiles(frame, offsets_list):
     w, h = frame.size    
     # costruisco le tiles
     tiles_this_frame = []
@@ -94,7 +94,12 @@ def create_tile(frame, offsets_list):
 
     return tiles_this_frame
     
-    
+def save_single_tile(img_path, new_path, offset_x, offset_y, tile_size):
+    frame_img = Image.open(img_path)
+    crop = (offset_x, offset_y, offset_x + tile_size, offset_y + tile_size)
+    tile = frame_img.crop(crop)
+    tile.save(new_path)
+
     
 ##########################################################
 ###################         #Logica per determinare se (lat, lon) cade dentro un tile 224×224
@@ -255,6 +260,89 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks):   #, sav
     return res
 
 
+
+
+def create_tile_videos(df, output_dir=None, tile_size=224):
+    """
+    df contiene:
+      tile_offset_x, tile_offset_y, datetime, path, ...
+    Ritorna una lista (videos_list) di DataFrame,
+    ognuno con 16 righe consecutive. 
+    """
+
+    # 1) Ordiniamo il DataFrame per (tile_offset_x, tile_offset_y, datetime)
+    df_sorted = df.sort_values(["tile_offset_x", "tile_offset_y", "datetime"])
+
+    # 2) Raggruppiamo per tile_offset
+    grouped = df_sorted.groupby(["tile_offset_x", "tile_offset_y"], group_keys=False)
+    
+    results = []
+    video_id = 0
+    
+    for (offset_x, offset_y), group_df in grouped:
+        # group_df è un sotto-DataFrame con tutte le righe di quella tile
+        # Ordinate già per datetime.
+        group_df = group_df.reset_index(drop=True)
+        row_count = len(group_df)
+        num_blocks = row_count // 16  # quante volte possiamo formare un blocco di 16
+        
+        # se row_count non è multiplo di 16, rimarranno righe extra che ignoriamo (oppure gestisci diversamente)
+        #         
+        for i in range(num_blocks):
+            start_i = i * 16
+            end_i   = start_i + 16
+            block_df = group_df.iloc[start_i:end_i]
+            start_time = group_df.datetime.iloc[start_i]
+            end_time = group_df.datetime.iloc[end_i]
+            
+            # se output dir è passato: salva le tile video in nuove cartelle
+            date_str = end_time.strftime("%d-%m-%Y_%H%M")
+            path_name = f"{date_str}_{offset_x}_{offset_y}"
+            subfolder = path_name
+            
+            if output_dir is not None:  
+                subfolder = Path(output_dir) / path_name                              
+                subfolder.mkdir(parents=True, exist_ok=True)
+
+                for k, row_ in enumerate(block_df.itertuples(index=False)):
+                    orig_path = row_.path  # colonna col path dell'immagine
+                    new_name = subfolder / f"img_{k+1:05d}.png"
+
+                    #default_offsets_list = calc_tile_offsets() # valori di default   w, h, tile_size, stride)
+                    save_single_tile(orig_path, new_name, offset_x, offset_y, tile_size)
+                    
+    
+            if (block_df['label'] == '1').any():
+                label = 1
+            else:
+                label = 0
+            # A questo punto block_df ha 16 righe consecutive
+            results.append({
+                "video_id": video_id,
+                "tile_offset_x": offset_x,
+                "tile_offset_y": offset_y,
+                "path": str(subfolder),
+                "label": label,
+                "start_time": start_time,
+                "end_time": end_time,                
+                "orig_paths": block_df["path"].tolist(),
+            })
+            video_id += 1
+
+    return pd.DataFrame(results)
+
+
+def create_and_save_tile_from_complete_df(df, output_dir):
+    for idx, row in df.iterrows():
+        # crea la cartella di destinazione
+        path_name = row.path
+        subfolder = Path(output_dir) / path_name
+        subfolder.mkdir(parents=True, exist_ok=True)
+
+        offset_x, offset_y = row.tile_offset_x, row.tile_offset_y
+        for k, orig_p in enumerate(row.orig_paths):
+            new_name = subfolder / f"img_{k+1:05d}.png"
+            save_single_tile(orig_p, new_name, offset_x, offset_y, tile_size=224)
 
 
 
