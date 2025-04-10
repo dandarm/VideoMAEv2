@@ -19,7 +19,6 @@ from medicane_utils.geo_const import latcorners, loncorners, x_center, y_center,
 
 from medicane_utils.load_files import load_all_images, get_all_cyclones
 from medicane_utils.load_files import load_cyclones_track_noheader
-from medicane_utils.geo_const import latcorners, loncorners, x_center, y_center, basemap_obj
 
 from view_test_tiles import plot_image, draw_tiles_and_center, create_gif_pil
 
@@ -113,6 +112,8 @@ def compute_pixel_scale(big_image_w=1290, big_image_h=420):
     """
     lat_min, lat_max = latcorners
     lon_min, lon_max = loncorners
+    # Calling a Basemap class instance with the arguments lon, lat
+    # will convert lon/lat (in degrees) to x/y map projection coordinates *(in meters)*:
     Xmin, Ymin = basemap_obj(lon_min, lat_min)
     Xmax, Ymax = basemap_obj(lon_max, lat_max)
 
@@ -122,15 +123,15 @@ def compute_pixel_scale(big_image_w=1290, big_image_h=420):
 
     return Xmin, Ymin, px_scale_x, px_scale_y
 
-def coord2px(lat, lon, px_per_km_x, px_per_km_y, Xmin, Ymin):
+def coord2px(lat, lon, px_per_m_x, px_per_m_y, Xmin, Ymin):
     # 1) Ottieni la proiezione "Xgeo, Ygeo" in metri (circa) 
     x_geo, y_geo = basemap_obj(lon, lat)
     # 2) Sottrai offset
     Xlocal = x_geo - Xmin
     Ylocal = y_geo - Ymin
     # 3) Converti Xlocal, Ylocal in pixel
-    x_pix = Xlocal * px_per_km_x
-    y_pix = Ylocal * px_per_km_y
+    x_pix = Xlocal * px_per_m_x
+    y_pix = Ylocal * px_per_m_y
 
     y_pix = 420 - y_pix  # necessario per rovesciare lungo l'asse y.  420 = altezza immagine
 

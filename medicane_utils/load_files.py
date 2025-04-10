@@ -138,9 +138,9 @@ def load_all_images(input_dir):
         start_dt = extract_dates_pattern_airmass_rgb_20200101_0000(fname.name)
         file_metadata.append((fname, start_dt))
 
-    sorted_files = sorted(file_metadata, key=lambda x: x[1])  # Ordina per start_dt
+    sorted_metadata = sorted(file_metadata, key=lambda x: x[1])  # Ordina per start_dt
     #random_fnames =  [item[0] for item in file_metadata]
-    #sorted_filenames = [item[0] for item in sorted_files]
-    print(f"{len(sorted_files)} files loaded.")
+    #sorted_filenames = [item[0] for item in sorted_metadata]
+    print(f"{len(sorted_metadata)} files loaded.")
 
-    return sorted_files
+    return sorted_metadata
