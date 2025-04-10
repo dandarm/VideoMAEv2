@@ -630,6 +630,7 @@ class MedicanesClsDataset(Dataset):
     """
 
     def __init__(self, anno_path, data_root='', mode='train', clip_len=16, transform=None):
+        self.path = anno_path
         self.df = pd.read_csv(anno_path)
         self.data_root = data_root
         self.mode = mode
