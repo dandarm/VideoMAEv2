@@ -5,24 +5,43 @@ latcorners = [30, 48]
 loncorners = [-7, 46]
 lat_min, lat_max = latcorners
 lon_min, lon_max = loncorners
-basemap_obj = Basemap(
-    projection='geos',
-    rsphere=(6378137.0, 6356752.3142),
-    resolution='i',
-    area_thresh=10000.,
-    lon_0=9.5,
-    satellite_height=3.5785831E7,
-    llcrnrlon=lon_min,
-    llcrnrlat=lat_min,
-    urcrnrlon=lon_max,
-    urcrnrlat=lat_max)
 
-x_center, y_center = basemap_obj(9.5, 0)
+def create_basemap_obj(ax=None, **kwargs):
+  if ax is None:
+    basemap_obj = Basemap(
+        projection='geos',
+        rsphere=(6378137.0, 6356752.3142),
+        resolution='i',
+        area_thresh=10000.,
+        lon_0=9.5,
+        satellite_height=3.5785831E7,
+        llcrnrlon=lon_min,
+        llcrnrlat=lat_min,
+        urcrnrlon=lon_max,
+        urcrnrlat=lat_max)
+  else:
+    basemap_obj = Basemap(
+        projection='geos',
+        ax=ax,
+        rsphere=(6378137.0, 6356752.3142),
+        resolution='i',
+        area_thresh=10000.,
+        lon_0=9.5,
+        satellite_height=3.5785831E7,
+        llcrnrlon=lon_min,
+        llcrnrlat=lat_min,
+        urcrnrlon=lon_max,
+        urcrnrlat=lat_max)
+  
+  return basemap_obj
+
+default_basem_obj = create_basemap_obj()
+x_center, y_center = default_basem_obj(9.5, 0)
 
 # griglia di corrispondenze da lon. lat a pixel_x, pixel_y
 
 def get_lon_lat_grid_2_pixel(image_w, image_h):
-    lon_grid, lat_grid, x, y = basemap_obj.makegrid(image_w, image_h, returnxy=True)
+    lon_grid, lat_grid, x, y = default_basem_obj.makegrid(image_w, image_h, returnxy=True)
     return lon_grid, lat_grid, x, y
 
 

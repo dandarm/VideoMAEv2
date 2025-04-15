@@ -14,13 +14,13 @@ from PIL import Image
 #from mpl_toolkits.basemap import Basemap
 
 from medicane_utils.load_files import load_cyclones_track_noheader, get_files_from_folder, extract_dates_pattern_airmass_rgb_20200101_0000
-from medicane_utils.geo_const import latcorners, loncorners, x_center, y_center, basemap_obj
+from medicane_utils.geo_const import latcorners, loncorners, x_center, y_center, default_basem_obj
 
 
 from medicane_utils.load_files import load_all_images, get_all_cyclones
 from medicane_utils.load_files import load_cyclones_track_noheader
 
-from view_test_tiles import plot_image, draw_tiles_and_center, create_gif_pil
+#from view_test_tiles import plot_image, draw_tiles_and_center, create_gif_pil
 
 
 
@@ -103,6 +103,7 @@ def save_single_tile(img_path, new_path, offset_x, offset_y, tile_size):
 ##########################################################
 ###################         #Logica per determinare se (lat, lon) cade dentro un tile 224×224
 ##########################################################
+
 #region 
 def compute_pixel_scale(big_image_w=1290, big_image_h=420):
     """
@@ -114,8 +115,8 @@ def compute_pixel_scale(big_image_w=1290, big_image_h=420):
     lon_min, lon_max = loncorners
     # Calling a Basemap class instance with the arguments lon, lat
     # will convert lon/lat (in degrees) to x/y map projection coordinates *(in meters)*:
-    Xmin, Ymin = basemap_obj(lon_min, lat_min)
-    Xmax, Ymax = basemap_obj(lon_max, lat_max)
+    Xmin, Ymin = default_basem_obj(lon_min, lat_min)
+    Xmax, Ymax = default_basem_obj(lon_max, lat_max)
 
     # quante "pixel su un metro" in orizzontale e verticale
     px_scale_x = big_image_w / (Xmax - Xmin)
@@ -125,7 +126,7 @@ def compute_pixel_scale(big_image_w=1290, big_image_h=420):
 
 def coord2px(lat, lon, px_per_m_x, px_per_m_y, Xmin, Ymin):
     # 1) Ottieni la proiezione "Xgeo, Ygeo" in metri (circa) 
-    x_geo, y_geo = basemap_obj(lon, lat)
+    x_geo, y_geo = default_basem_obj(lon, lat)
     # 2) Sottrai offset
     Xlocal = x_geo - Xmin
     Ylocal = y_geo - Ymin
@@ -264,7 +265,9 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks):   #, sav
 
 
 def create_tile_videos(df, output_dir=None, tile_size=224):
-    """
+    """  Crea il MASTER DATAFRAME
+
+
     df contiene:
       tile_offset_x, tile_offset_y, datetime, path, ...
     Ritorna una lista (videos_list) di DataFrame,
@@ -510,7 +513,7 @@ def label_subfolders_with_cyclones_df(
 
 def main():
  
-    Xmin, Ymin, px_scale_x, px_scale_y = compute_pixel_scale(m, latcorners, loncorners,
+    Xmin, Ymin, px_scale_x, px_scale_y = compute_pixel_scale(default_basem_obj, latcorners, loncorners,
         big_image_w=1290, big_image_h=420)
 
     ######################################  carica i files e le date
@@ -548,7 +551,7 @@ def main():
     df = label_subfolders_with_cyclones_df(
         subfolder_info,
         df_tracks,
-        basemap_obj=m,
+        basemap_obj=default_basem_obj,
         x_center=x_center,
         y_center=y_center,
         px_scale_x=px_scale_x,
