@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 import pandas as pd
-from medicane_utils.geo_const import latcorners, loncorners, x_center, y_center, basemap_obj
+from medicane_utils.geo_const import latcorners, loncorners#, x_center, y_center, default_basem_obj
 
 #### legge il file con le date dei medicane
 def load_medicane_intervals(medicane_csv):
