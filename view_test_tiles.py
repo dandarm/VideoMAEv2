@@ -30,11 +30,13 @@ from timm.models import create_model
 # from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
 # from utils import NativeScalerWithGradNormCount as NativeScaler
 
+from medicane_utils.geo_const import latcorners, loncorners
+
 #################################################################################
 ###########################  FUNZIONI DI VISUALIZZAZIONE
 #################################################################################
 
-def plot_image(img, basemap_obj, latcorners, loncorners, dpi=96, width=1290, height=420, draw_parallels_meridians=False):
+def plot_image(img, basemap_obj, dpi=96, width=1290, height=420, draw_parallels_meridians=False):
     
     lat_min, lat_max = latcorners
     lon_min, lon_max = loncorners

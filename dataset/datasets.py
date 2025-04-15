@@ -669,7 +669,7 @@ class MedicanesClsDataset(Dataset):
         video = torch.stack(frames, dim=0)
         video = video.permute(1, 0, 2, 3)  # [C, T, H, W]
 
-        return video, label
+        return video, label, folder_path
 
 
 

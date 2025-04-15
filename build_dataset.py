@@ -63,27 +63,27 @@ def create_csv(output_dir):
 
 
 
-def calc_tile_offsets(image_width=1290, image_height=420, tile_size=224, stride=112):
+def calc_tile_offsets(image_width=1290, image_height=420, tile_size=224, stride_x=224, stride_y=196):
     """
     Ritorna una lista di (x_off, y_off) 
     """    
     offsets = []
-    for y_off in range(0, image_height - tile_size + 1, stride):
-        for x_off in range(0, image_width - tile_size + 1, stride):
+    for y_off in range(0, image_height - tile_size + 1, stride_y):
+        for x_off in range(0, image_width - tile_size + 1, stride_x):
             offsets.append((x_off, y_off))
     return offsets
 
-def get_dataset_offsets(frames_list, tile_size=224, stride=112):
-    """Prende tutti gli offsets di ogni immagine"""
-    all_offsets = []
-    for frame in frames_list:  # Itera su ogni frame (immagine PIL)
-        w, h = frame.size
-        offsets_this_frame = calc_tile_offsets(w, h, tile_size, stride)
-        all_offsets.append(offsets_this_frame)
+# def get_dataset_offsets(frames_list, tile_size=224, stride=112):
+#     """Prende tutti gli offsets di ogni immagine"""
+#     all_offsets = []
+#     for frame in frames_list:  # Itera su ogni frame (immagine PIL)
+#         w, h = frame.size
+#         offsets_this_frame = calc_tile_offsets(w, h, tile_size, stride)
+#         all_offsets.append(offsets_this_frame)
 
-    return all_offsets
+#     return all_offsets
 
-def create_tiles(frame, offsets_list):
+def create_tiles(frame, offsets_list, tile_size=224):
     w, h = frame.size    
     # costruisco le tiles
     tiles_this_frame = []
@@ -333,7 +333,7 @@ def create_tile_videos(df, output_dir=None, tile_size=224):
     return pd.DataFrame(results)
 
 
-def create_and_save_tile_from_complete_df(df, output_dir):
+def create_and_save_tile_from_complete_df(df, output_dir, overwrite=False):
     for idx, row in df.iterrows():
         # crea la cartella di destinazione
         path_name = row.path
@@ -343,7 +343,13 @@ def create_and_save_tile_from_complete_df(df, output_dir):
         offset_x, offset_y = row.tile_offset_x, row.tile_offset_y
         for k, orig_p in enumerate(row.orig_paths):
             new_name = subfolder / f"img_{k+1:05d}.png"
-            save_single_tile(orig_p, new_name, offset_x, offset_y, tile_size=224)
+            #print(f"new_name {new_name}")
+            if not os.path.isfile(new_name) or overwrite:
+                #print(f"{new_name} lo sto risalvando?!")
+                save_single_tile(orig_p, new_name, offset_x, offset_y, tile_size=224)
+            else:
+                #print(f"non c'è stato bisogno di risalvarlo")
+                pass
 
 
 
