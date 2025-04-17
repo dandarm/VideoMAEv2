@@ -15,6 +15,7 @@ from PIL import Image
 
 from medicane_utils.load_files import load_cyclones_track_noheader, get_files_from_folder, extract_dates_pattern_airmass_rgb_20200101_0000
 from medicane_utils.geo_const import latcorners, loncorners, x_center, y_center, default_basem_obj
+from medicane_utils.geo_const import get_lon_lat_grid_2_pixel, trova_indici_vicini
 
 
 from medicane_utils.load_files import load_all_images, get_all_cyclones
@@ -105,6 +106,7 @@ def save_single_tile(img_path, new_path, offset_x, offset_y, tile_size):
 ##########################################################
 
 #region 
+
 def compute_pixel_scale(big_image_w=1290, big_image_h=420):
     """
     Proietta i 4 corner in coordinate geostazionarie,
@@ -139,10 +141,18 @@ def coord2px(lat, lon, px_per_m_x, px_per_m_y, Xmin, Ymin):
     return x_pix, y_pix
     
 
-def get_cyclone_center_pixel(lat, lon):
-    Xmin, Ymin, px_scale_x, px_scale_y = compute_pixel_scale()
-    x_pix, y_pix = coord2px(lat, lon, px_scale_x, px_scale_y, Xmin, Ymin) 
-    return int(x_pix), int(y_pix)
+# il codice di sopra è vecchio (e sbagliato)
+# ->
+lon_grid, lat_grid, x, y = get_lon_lat_grid_2_pixel(image_w=1290, image_h=420)
+
+def get_cyclone_center_pixel(lat, lon, image_h=420):
+    #Xmin, Ymin, px_scale_x, px_scale_y = compute_pixel_scale()
+    #x_pix, y_pix = coord2px(lat, lon, px_scale_x, px_scale_y, Xmin, Ymin) 
+
+    px, py = trova_indici_vicini(lon_grid, lat_grid, lon, lat)
+    py = image_h - py
+
+    return px, py
 
 def inside_tile(lat, lon, tile_x, tile_y,
                 tile_width=224, tile_height=224):
@@ -200,34 +210,47 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks):   #, sav
         dt_floor = frame_dt.replace(minute=0, second=0, microsecond=0)
         mask = df_tracks["time"] == dt_floor
         df_candidates = df_tracks[mask]
-        # il nome è sempre quello per tutta l'immagine
-        med_name = df_candidates['Medicane'].unique()
-        if len(med_name) > 0:
-            #print(med_name, flush=True)
-            medicane_name = med_name[0]
+
+
+        # il nome è sempre quello per tutta l'immagine, perché non esistono medicane contemporanei        
+        if 'Medicane' in df_candidates.columns:
+            med_name = df_candidates['Medicane'].unique()
+            if len(med_name) > 0:
+                #print(med_name, flush=True)
+                medicane_name = med_name[0]
+            else:
+                medicane_name = med_name
         else:
-            medicane_name = med_name
+            medicane_name = None
+        
         
         for tile_offset_x, tile_offset_y in default_offsets_for_frame:
             found_any = False
-            lat = None
-            lon = None
-            
-            for row in df_candidates.itertuples(index=False):  # devo considerare il caso in cui ho più cicloni        
-                lat_, lon_ = row.lat, row.lon           #df_candidates[['lat', 'lon']].values[0]
+            lat = []
+            lon = []
+            source = []
+            xp, yp = [], []
+
+            for row in df_candidates.itertuples(index=False):  
+                # devo considerare il caso in cui ho più cicloni *** anche nella stessa tile! ***
+                lat_, lon_ = row.lat, row.lon
+                s_ = row.source
                 #print(lat_, lon_, tile_offset_x, tile_offset_y, frame_dt)
                 if inside_tile(lat_, lon_, tile_offset_x, tile_offset_y):
                     found_any = True
-                    lat = lat_
-                    lon = lon_                    
-                    #print("trovato!\n")
-                    break  # TODO: verificare che non sia dannoso
+                    lat.append(lat_)
+                    lon.append(lon_)
+                    source.append(s_)
+
 
             label = 1 if found_any else 0
             # append UNA sola volta la tile
-            # associando lat/lon del primo ciclone trovato (se c'è)
-            if lat is not None:
-                x_pix, y_pix = get_cyclone_center_pixel(lat, lon)
+            # associando lat/lon di tutti i cicloni trovati (se ci sono)
+            if lat: # se ci sono coordinate
+                for lat_, lon_ in zip(lat, lon):
+                    x_pix, y_pix = get_cyclone_center_pixel(lat_, lon_)
+                    xp.append(x_pix)
+                    yp.append(y_pix)
             else:
                 x_pix, y_pix = None, None
             
@@ -241,9 +264,10 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks):   #, sav
                         "label": label,
                         "lat": lat,
                         "lon": lon,
-                        "x_pix":x_pix,
-                        "y_pix":y_pix,
-                        "name": medicane_name
+                        "x_pix":xp,
+                        "y_pix":yp,
+                        "name": medicane_name,
+                        "source": source
                     })
             
     res =  pd.DataFrame(updated_metadata)
@@ -253,11 +277,12 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks):   #, sav
         "tile_offset_x": 'int16',
         "tile_offset_y": 'int16',
         "label": 'category',
-        "lat": 'float16',
-        "lon": 'float16',
-        "x_pix": 'Int16',
-        "y_pix": 'Int16',
-        "name": 'string'
+        "lat": 'object',  # non più float16
+        "lon": 'object',  # non più float16
+        "x_pix": 'object', # non più Int16
+        "y_pix": 'object', # non più Int16
+        "name": 'string',
+        "source": 'string'
     })
     return res
 
