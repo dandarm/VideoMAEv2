@@ -331,6 +331,10 @@ def create_mediterranean_video(list_grouped_df, interval=200, dpi=96, width=1290
     #ani = animation.ArtistAnimation(fig, update, frames=len(path_list), interval=interval, blit=True, repeat_delay=1000)
     ani = animation.FuncAnimation(fig, update, frames=len(list_grouped_df), interval=interval, blit=True, repeat_delay=1000)
 
+    # Salva l'animazione in formato mp4 usando il writer 'ffmpeg'
+    # fps indica i frame per secondo, personalizza questo parametro in base alle tue esigenze
+    #ani.save('animazione_mediterraneo.mp4', writer='ffmpeg', fps=10, extra_args=['-vcodec', 'libx264'])
+
     #plt.show()
     plt.close(fig)  # Chiudiamo la figura per evitare doppia visualizzazione
     return HTML(ani.to_jshtml())
