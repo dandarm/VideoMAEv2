@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import re
 # import datetime
 # import time
 # import random
@@ -36,6 +37,20 @@ from timm.models import create_model
 from medicane_utils.geo_const import latcorners, loncorners, create_basemap_obj
 from build_dataset import calc_tile_offsets
 from medicane_utils.load_files import extract_dates_pattern_airmass_rgb_20200101_0000
+
+
+PALETTE = {
+    'CL2': (255, 0, 0),      # Rosso
+    'CL3': (0, 128, 0),      # Verde scuro
+    'CL4': (0, 0, 255),      # Blu
+    'CL5': (255, 165, 0),    # Arancione
+    'CL6': (128, 0, 128),    # Viola
+    'CL7': (0, 255, 255),    # Ciano
+    'CL8': (255, 0, 255),    # Magenta
+    'CL9': (128, 128, 0),    # Oliva
+    'CL10': (0, 0, 0),        # Nero
+}
+
 
 #################################################################################
 ###########################  FUNZIONI DI VISUALIZZAZIONE
@@ -116,20 +131,46 @@ def draw_timestamp_in_bottom_right(
 
 
 
+
+def extract_cl_number(cl):
+    """ Estrae il numero da 'CLn' come intero. """
+    match = re.match(r'CL(\d+)', cl)
+    return int(match.group(1)) if match else -1
+
+def deduplicate_xy_source(x_list, y_list, source_list):
+    if not x_list or not y_list or not source_list:
+        return []  # o None, o np.nan
+
+    grouped = {}
+    for x, y, src in zip(x_list, y_list, source_list):
+        key = (x, y)
+        if key not in grouped:
+            grouped[key] = []
+        grouped[key].append(src)
+
+    # per ogni gruppo scegli il CL con n più grande
+    result = []
+    for (x, y), srcs in grouped.items():
+        max_src = max(srcs, key=extract_cl_number)
+        result.append((x, y, max_src))
+
+    return result
+
+
 def draw_tiles_and_center(
     pil_image: Image.Image,
     default_offsets,
     tile_size=224,
     cyclone_centers=None,
     labeled_tiles_offsets=None,
-    point_color=(255, 0, 0),
+    point_color=(255, 255, 255),
     point_radius=4
 ):
     """
     Disegna, sull'immagine `pil_image`, una serie di riquadri (224×224 di default)
     generati con stride specificato, in modo identico alla suddivisione in tile.
 
-    `cyclone_center` è una lista di tuple (cx, cy), disegna un punto rosso in ogni posizione.
+    `cyclone_center` è una lista di tuple (cx, cy, source), disegna un punto rosso in ogni posizione.
 
     Ritorna l'immagine PIL con i disegni sopra.
     """
@@ -155,17 +196,22 @@ def draw_tiles_and_center(
             outline=color,
             width=width)
 
-    # Se c'è un centro da disegnare
-    if cyclone_centers is not None:
-        for cx, cy in cyclone_centers:
-        # Disegniamo un piccolo cerchio intorno al centro
+    #print(cyclone_centers)
+    for center in cyclone_centers:
+        for cx_cy_source in center:
+            #print(f"cx_cy_source {cx_cy_source}")
+            cx, cy, source = cx_cy_source
+            
+            # Disegniamo un piccolo cerchio intorno al centro
+            color = PALETTE.get(source, point_color)  # fallback a bianco
             draw.ellipse(
                 [
                     (cx - point_radius, cy - point_radius),
                     (cx + point_radius, cy + point_radius)
                 ],
-                fill=point_color
-        )
+                fill=color
+            )
+            #draw.text((cx, cy),source,(255,255,255))#,font=font)
 
     return out_img
 
@@ -264,7 +310,29 @@ def normalize_01(img_array):
     return _vis
 
 
-
+import ast 
+# per trasformare liste di tuple di stringhe in liste di tuple di liste di int (!)
+def safe_parse(s):
+    try:
+        print(s, end= '\t')
+        lst = ast.literal_eval(s)      
+        print(lst)
+        return [int(x) for x in lst] if isinstance(lst, list) else []
+    except (ValueError, SyntaxError):
+        #print('fail')
+        return []
+    
+def safe_literal_eval(val):
+    if isinstance(val, str):
+        val = val.strip()
+        if val.startswith('[') and val.endswith(']'):
+            try:
+                return ast.literal_eval(val)
+            except (ValueError, SyntaxError):
+                return []
+    return val  # già una lista, None, o qualsiasi altro tipo
+    
+    
 def create_mediterranean_video(list_grouped_df, interval=200, dpi=96, width=1290, height=420):
 
     #lista_immagini = []
@@ -304,14 +372,22 @@ def create_mediterranean_video(list_grouped_df, interval=200, dpi=96, width=1290
         #path = path_list[frame_index]
         img = Image.open(path) 
 
-        center_px_list = group_df[['x_pix','y_pix']].value_counts().index.values
+        center_px_df = group_df[['x_pix','y_pix', 'source']]
+        # -> center_px_df è un dataframe, con tante righe quante sono le tiles, e tanti elementi per ogni tile
+        # dove source è la CL di Manos
+        center_px_df_parsed = center_px_df.map(safe_literal_eval)
+        xy_source_list = center_px_df_parsed.apply(
+            lambda row: deduplicate_xy_source(row['x_pix'], row['y_pix'], row['source']),
+            axis=1)        
+        # print(f"xy_source_list {xy_source_list}", flush=True)
+        
         labeled_tiles_offsets = group_df['label'].values
         default_offsets = calc_tile_offsets()
         out_img = draw_tiles_and_center(img, default_offsets,
-            cyclone_centers=center_px_list,
+            cyclone_centers=xy_source_list,
             labeled_tiles_offsets=labeled_tiles_offsets
         )
-        time_str = path.split('/')[-1]
+        time_str = path.split('\\')[-1]        
         time = extract_dates_pattern_airmass_rgb_20200101_0000(time_str)
         stamped_img = draw_timestamp_in_bottom_right(out_img, time.strftime(" %H:%M %d-%m-%Y"), margin=15)
 
@@ -330,14 +406,12 @@ def create_mediterranean_video(list_grouped_df, interval=200, dpi=96, width=1290
 
     #ani = animation.ArtistAnimation(fig, update, frames=len(path_list), interval=interval, blit=True, repeat_delay=1000)
     ani = animation.FuncAnimation(fig, update, frames=len(list_grouped_df), interval=interval, blit=True, repeat_delay=1000)
-
-    # Salva l'animazione in formato mp4 usando il writer 'ffmpeg'
-    # fps indica i frame per secondo, personalizza questo parametro in base alle tue esigenze
-    #ani.save('animazione_mediterraneo.mp4', writer='ffmpeg', fps=10, extra_args=['-vcodec', 'libx264'])
+   
 
     #plt.show()
     plt.close(fig)  # Chiudiamo la figura per evitare doppia visualizzazione
-    return HTML(ani.to_jshtml())
+    #return HTML(ani.to_jshtml())
+    return ani
 
     
 
