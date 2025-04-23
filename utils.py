@@ -20,7 +20,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.distributed as dist
-from tensorboardX import SummaryWriter
+#from tensorboardX import SummaryWriter
 from timm.utils import get_state_dict
 from torch import inf
 from torch.utils.data._utils.collate import default_collate
