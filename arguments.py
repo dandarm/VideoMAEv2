@@ -114,7 +114,7 @@ def prepare_args():
         'pretrained': True,  # Abilita il caricamento del checkpoint
         'finetune': './vit_g_hybrid_pt_1200e.pth',
         'init_ckpt': './vit_g_hybrid_pt_1200e.pth',
-        'data_path': './train.csv',
+        'data_path': './train_UNsupervised.csv',
         'log_dir': './output',
         'output_dir': './output',
         'data_set': 'medicanes',
@@ -169,6 +169,8 @@ def prepare_args():
     # Convert args_dict to an Args object
     args = Args(**args_dict)
     return args
+
+
 
 def prepare_finetuning_args():
     # Default arguments from get_args()

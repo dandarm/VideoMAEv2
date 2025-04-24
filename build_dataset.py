@@ -196,6 +196,34 @@ def get_tile_labels(lat, lon):
     return labeled_tiles_offsets
 
 
+def create_df_unlabeled_tiles_from_metadatafiles(sorted_metadata_files, offsets_for_frame):
+    
+    updated_metadata = []    
+
+    for img_path, frame_dt in sorted_metadata_files:           
+        
+        for tile_offset_x, tile_offset_y in offsets_for_frame:
+            
+            updated_metadata.append({
+                        "path": img_path,
+                        "datetime": frame_dt,
+                        "tile_offset_x": tile_offset_x,
+                        "tile_offset_y": tile_offset_y,
+                    })
+            
+    res =  pd.DataFrame(updated_metadata)
+    res = res.astype({
+        "path": 'string',
+        "datetime": 'datetime64[ns]',
+        "tile_offset_x": 'int16',
+        "tile_offset_y": 'int16',
+    })
+    return res
+
+
+
+
+
 # crea i video e salva in cartelle partX e traccia la data dei video
 def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks):   #, save_to_file=False):
 
@@ -289,9 +317,11 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks):   #, sav
 
 
 
-def create_tile_videos(df, output_dir=None, tile_size=224):
-    """  Crea il MASTER DATAFRAME
+def create_tile_videos(df, output_dir=None, tile_size=224, supervised=True):
+    """  Crea il MASTER DATAFRAME con le informazioni per ogni video, 
+    subito prima del csv per videoMAE
 
+    non salva i video su cartella se non è specificata output_dir
 
     df contiene:
       tile_offset_x, tile_offset_y, datetime, path, ...
@@ -341,10 +371,13 @@ def create_tile_videos(df, output_dir=None, tile_size=224):
                     save_single_tile(orig_path, new_name, offset_x, offset_y, tile_size)
                     
     
-            if (block_df['label'] == '1').any():
-                label = 1
+            if supervised:
+                if (block_df['label'] == '1').any():
+                    label = 1
+                else:
+                    label = 0
             else:
-                label = 0
+                label = None
             # A questo punto block_df ha 16 righe consecutive
             results.append({
                 "video_id": video_id,
@@ -380,6 +413,36 @@ def create_and_save_tile_from_complete_df(df, output_dir, overwrite=False):
                 pass
 
 
+
+
+
+
+# region build dataset VideoMAE
+
+def get_gruppi_date(df_data):
+    # separo gruppi temporali contigui
+    df_data = df_data.sort_values('datetime') 
+    # Calcola la differenza temporale rispetto alla riga precedente
+    df_data['delta'] = df_data['datetime'].diff()
+
+    # Definisci i punti di rottura: True se la differenza è maggiore della frequenza attesa
+    df_data['new_group'] = (df_data['delta'] > pd.Timedelta(minutes=60))  # puoi aumentare il margine se serve
+
+    # Crea gli ID di gruppo cumulando i True
+    df_data['gruppo'] = df_data['new_group'].cumsum()
+
+    gruppi_date = [g for _, g in df_data.groupby('gruppo')]
+
+    return gruppi_date
+
+
+def create_final_df_csv(df_in, output_dir):
+    df_dataset_csv = df_in[['path', 'label']]
+    df_dataset_csv['path'] = output_dir + df_dataset_csv['path']
+    df_dataset_csv['start'] = 1
+    df_dataset_csv['end'] = 16
+    df_dataset_csv = df_dataset_csv[['path', 'start', 'end', 'label']]
+    return df_dataset_csv
 
 
 
