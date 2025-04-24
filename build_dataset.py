@@ -647,7 +647,44 @@ def main():
         out_csv=out_csv_label
     )
 
+
+def make_unsup_dataset():
+
+    input_dir = "../fromgcloud"
+    output_dir = "../airmassRGB/supervised/" 
+    unsup_output_dir = "../airmassRGB/unsupervised/" 
+
+    nome_file = "all_data_unsup.csv"
+    df_data = pd.read_csv(nome_file, dtype={
+            "path": 'string',
+            "tile_offset_x": 'int16',
+            "tile_offset_y": 'int16',
+        }, parse_dates=['datetime'])
+    df_data.drop(columns="Unnamed: 0", inplace=True)
+
+    #df_data = df_data[:1000]
+
+    gruppi_date = get_gruppi_date(df_data)
+    for df in gruppi_date:
+        df_videos = create_tile_videos(df, supervised=False)
+        create_and_save_tile_from_complete_df(df_videos, unsup_output_dir)
+    
+    df_dataset_csv_unsup = create_final_df_csv(df_videos, unsup_output_dir)
+    df_dataset_csv_unsup.drop(columns='label').to_csv("./train_UNsupervised.csv", index=False)
+
+
 if __name__ == "__main__":
+    make_unsup_dataset()
+
+
+
+
+
+
+
+
+
+    """
     tracks_df = get_all_cyclones()
     sorted_metadata_files = load_all_images(input_dir = "../fromgcloud")
     start = time()
@@ -655,7 +692,7 @@ if __name__ == "__main__":
     end = time()
     print(round((end-start)/60, 2))
     df_data.to_csv("all_data.csv")
-
+    """
     
     # Richiediamo gli offset dai tile (non ci serve la lista di sub-tile veri e propri)
     #default_offsets = calc_tile_offsets()
