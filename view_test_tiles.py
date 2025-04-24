@@ -161,7 +161,7 @@ def draw_tiles_and_center(
     pil_image: Image.Image,
     default_offsets,
     tile_size=224,
-    cyclone_centers=None,
+    cyclone_centers=[],
     labeled_tiles_offsets=None,
     point_color=(255, 255, 255),
     point_radius=4
@@ -287,7 +287,7 @@ def create_labeled_images_with_tiles(df_grouped, nome_gif, basemap_obj):
         date_str = group_df['datetime'].unique()[0].strftime(" %H:%M %d-%m-%Y")
         
         # Disegniamo
-        default_offsets = calc_tile_offsets()
+        default_offsets = calc_tile_offsets()  # TODO: togliere e ricavare in base agli poffsets già costruiti nel dataframe, oppure come argomento 
         out_img = draw_tiles_and_center(img, default_offsets,
             cyclone_centers=center_px_list,
             labeled_tiles_offsets=labeled_tiles_offsets
@@ -299,7 +299,24 @@ def create_labeled_images_with_tiles(df_grouped, nome_gif, basemap_obj):
     
     lista_immagini[0].save(nome_gif, save_all=True, append_images=lista_immagini[1:], duration=200, loop=0)
 
+def create_UNlabeled_images_with_tiles(df_grouped, nome_gif, basemap_obj, offsets):
+    # in ogni group abbiamo una sola immagine (un istante temporale) e tutte le tiles
 
+    lista_immagini = []    
+
+    for path_img, group_df in df_grouped:
+        # Apriamo l'immagine
+        img = Image.open(path_img)
+
+        date_str = group_df['datetime'].unique()[0].strftime(" %H:%M %d-%m-%Y")
+        
+        # Disegniamo
+        out_img = draw_tiles_and_center(img, offsets)
+        stamped_img = draw_timestamp_in_bottom_right(out_img, date_str, margin=15)
+        pi_img = plot_image(stamped_img, basemap_obj, draw_parallels_meridians=True)
+        lista_immagini.append(pi_img)
+    
+    lista_immagini[0].save(nome_gif, save_all=True, append_images=lista_immagini[1:], duration=200, loop=0)
 
 
 def normalize_01(img_array):
