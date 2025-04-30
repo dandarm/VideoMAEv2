@@ -79,9 +79,9 @@ def reconstruction_metrics(original, reconstructed):
 
 # Configurazione dei parametri
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-pretrained_model_path = './pytorch_model.bin'  # Modello preaddestrato
+#pretrained_model_path = './pytorch_model.bin'  # Modello preaddestrato
 #specialized_model_path = './output_old2/checkpoint-149.pth'  # Modello addestrato
-image_folder = './sequenced_imgs/freq-1.6_part3'  # Cartella con le immagini di test
+#image_folder = './sequenced_imgs/freq-1.6_part3'  # Cartella con le immagini di test
 
 
 def get_dataloader(args, patch_size, get_also_dataset=False, **kwargs):
@@ -114,7 +114,7 @@ def get_dataloader(args, patch_size, get_also_dataset=False, **kwargs):
     data_loader = DataLoader(dataset,
         batch_size=args.batch_size,
         shuffle=False,
-        num_workers=24,
+        num_workers=args.num_workers,
         pin_memory=True,
         drop_last=True,
         collate_fn=collate_func,

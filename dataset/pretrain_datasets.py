@@ -2,6 +2,7 @@ import os
 import random
 
 import numpy as np
+import pandas as pd
 import torch
 from PIL import Image
 from torchvision import transforms
@@ -180,7 +181,7 @@ class HybridVideoMAE(torch.utils.data.Dataset):
         
         self.video_loader = get_video_loader()
         self.image_loader = get_image_loader()
-
+        
 
         if not self.lazy_init:
             self.clips = self._make_dataset(root, setting)
@@ -190,7 +191,13 @@ class HybridVideoMAE(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         try:
-            video_name, start_idx, total_frame, x_off, y_off = self.clips[index]
+            #video_name, start_idx, total_frame, x_off, y_off = self.clips[index]
+            row = self.clips.iloc[index]
+            video_name = row['path']
+            start_idx = row['start']
+            total_frame = row['end']
+            x_off, y_off = row['x_off'], row['y_off']
+
             self.skip_length = self.orig_skip_length
             self.new_step = self.orig_new_step
             
@@ -269,30 +276,32 @@ class HybridVideoMAE(torch.utils.data.Dataset):
 
         tile_w = 224
         tile_h = 224
-        stride_x = 112  # stride or overlap or 224 se vuoi nessuna sovrapposizione
-        stride_y = 112
 
-        clips = []
-        with open(setting) as split_f:
-            next(split_f)  # Salta l'intestazione
-            data = split_f.readlines()
-            for line in data:
-                line_info = line.split(',')
-                # line format: video_path, video_duration, video_label
-                if len(line_info) < 3:
-                    raise (RuntimeError('Video input format is not correct, missing one or more element. %s'% line))
-                clip_path = os.path.join(root, line_info[0])
-                start_idx = int(line_info[1])
-                total_frame = int(line_info[2])
+        df = pd.read_csv(setting)
+        df[['x_off', 'y_off']] = df['path'].str.split('_').str[-2:].apply(pd.Series).astype(int)
 
-                # Genera tutte le (x_off, y_off) possibili
-                # assumendo che TUTTI i frame abbiano dimensioni 800x360
-                for y_off in range(0, 360 - tile_h + 1, stride_y):
-                    for x_off in range(0, 800 - tile_w + 1, stride_x):
-                        item = (clip_path, start_idx, total_frame, x_off, y_off)
-                #item = (clip_path, start_idx, total_frame)
-                        clips.append(item)
-        return clips
+        # clips = []
+        # with open(setting) as split_f:
+        #     next(split_f)  # Salta l'intestazione
+        #     data = split_f.readlines()
+        #     for line in data:
+        #         line_info = line.split(',')
+        #         # line format: video_path, video_duration, video_label
+        #         if len(line_info) < 3:
+        #             raise (RuntimeError('Video input format is not correct, missing one or more element. %s'% line))
+        #         clip_path = os.path.join(root, line_info[0])
+        #         start_idx = int(line_info[1])
+        #         total_frame = int(line_info[2])
+
+        #         # Genera tutte le (x_off, y_off) possibili
+        #         # assumendo che TUTTI i frame abbiano dimensioni 800x360
+        #         for y_off in range(0, 360 - tile_h + 1, stride_y):
+        #             for x_off in range(0, 800 - tile_w + 1, stride_x):
+        #                 item = (clip_path, start_idx, total_frame, x_off, y_off)
+        #         #item = (clip_path, start_idx, total_frame)
+        #                 clips.append(item)
+        #return clips
+        return df
 
     def _sample_train_indices(self, num_frames):
         average_duration = (num_frames - self.skip_length + 1) // self.num_segments
