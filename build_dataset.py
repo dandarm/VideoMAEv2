@@ -212,6 +212,7 @@ def create_df_unlabeled_tiles_from_metadatafiles(sorted_metadata_files, offsets_
                     })
             
     res =  pd.DataFrame(updated_metadata)
+    
     res = res.astype({
         "path": 'string',
         "datetime": 'datetime64[ns]',
@@ -653,6 +654,15 @@ def make_unsup_dataset():
     input_dir = "../fromgcloud"
     output_dir = "../airmassRGB/supervised/" 
     unsup_output_dir = "../airmassRGB/unsupervised/" 
+
+    #expanded_path = os.path.expandvars(path)
+
+    #creo il file all_data_unsup.csv
+    sorted_metadata_files = load_all_images(input_dir)
+    offsets_for_frame = calc_tile_offsets(stride_x=213, stride_y=196) # provo con 213 per coprire anche l'area più a destra
+    df_data_unsup = create_df_unlabeled_tiles_from_metadatafiles(sorted_metadata_files, offsets_for_frame)
+    df_data_unsup.to_csv("all_data_unsup.csv")
+     
 
     nome_file = "all_data_unsup.csv"
     df_data = pd.read_csv(nome_file, dtype={

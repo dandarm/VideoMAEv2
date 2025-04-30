@@ -47,7 +47,6 @@ def build_dataset(is_train, test_mode, args):
         mode = 'validation'
         anno_path = os.path.join(args.data_path, 'val_supervised.csv')
 
-    #anno_path = args.data_path  # TODO: cambiare e specificare test e val
 
     if args.data_set == 'Kinetics-400':
         if not args.sparse_sample:
