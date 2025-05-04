@@ -226,12 +226,9 @@ def create_df_unlabeled_tiles_from_metadatafiles(sorted_metadata_files, offsets_
 
 
 # crea i video e salva in cartelle partX e traccia la data dei video
-def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks):   #, save_to_file=False):
+def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_for_frame):   #, save_to_file=False):
 
     updated_metadata = []
-    
-    # Constants
-    default_offsets_for_frame = calc_tile_offsets()
 
     for img_path, frame_dt in sorted_metadata_files:       
         # recupero la riga corrispondente all'ora intera dell'immagine
@@ -253,7 +250,7 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks):   #, sav
             medicane_name = None
         
         
-        for tile_offset_x, tile_offset_y in default_offsets_for_frame:
+        for tile_offset_x, tile_offset_y in offsets_for_frame:
             found_any = False
             lat = []
             lon = []
