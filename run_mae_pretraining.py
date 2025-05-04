@@ -18,6 +18,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
+import torch._dynamo as dynamo
 from packaging import version
 from timm.models import create_model
 
@@ -265,6 +266,9 @@ def get_model(args):
         with_cp=args.with_checkpoint,
         checkpoint_path=None,  # devo mettere a None perché factory non gestisce un checkpoint con chiave 'model'
         **args.__dict__)
+
+    # questa riga è necessaria per evitare un errore di pytorch (issue 104674)
+    dynamo.config.optimize_ddp = False
 
     if version.parse(torch.__version__) > version.parse('1.13.1'):
         torch.set_float32_matmul_precision('high')

@@ -148,6 +148,7 @@ class HybridVideoMAE(torch.utils.data.Dataset):
         super(HybridVideoMAE, self).__init__()
         self.root = root
         self.setting = setting
+        print(f"File di dati: {self.setting}")
         self.train = train
         self.test_mode = test_mode
         self.is_color = is_color

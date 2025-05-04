@@ -14,7 +14,7 @@ import utils
 from utils import NativeScalerWithGradNormCount as NativeScaler
 from utils import multiple_pretrain_samples_collate
 from optim_factory import create_optimizer
-from dataset import build_pretraining_dataset
+#from dataset import build_pretraining_dataset
 from run_mae_pretraining import get_model
 from engine_for_pretraining import train_one_epoch, test
 from arguments import prepare_args, Args  # NON TOGLIERE: serve a torch.load per caricare il mio modello addestrato
@@ -26,16 +26,23 @@ def launch_specialization_training():
     args = prepare_args()
     device = torch.device(args.device)
 
+    utils.init_distributed_mode(args)
+
     # LOAD MODEL
     pretrained_model = get_model(args)
-    pretrained_model.to(device)
+    pretrained_model.to(device)  # rimane solo sul device generale o va messo nel local_rank?
     model_without_ddp = pretrained_model
     n_parameters = sum(p.numel() for p in pretrained_model.parameters() if p.requires_grad)
     #print("Model = %s" % str(model_without_ddp))
     print('number of params: {} M'.format(n_parameters / 1e6))
 
+    if args.distributed:
+        pretrained_model = torch.nn.parallel.DistributedDataParallel(
+        pretrained_model, device_ids=[args.gpu], find_unused_parameters=False)
+        model_without_ddp = pretrained_model.module
+
     # LOAD DATASET
-    patch_size = pretrained_model.encoder.patch_embed.patch_size
+    patch_size = model_without_ddp.encoder.patch_embed.patch_size
     data_loader_train, dataset_train = get_dataset_dataloader(args, patch_size)
     # per il test set
     args.data_path = './test.csv'
@@ -55,10 +62,7 @@ def launch_specialization_training():
     print("Number of training steps = %d" % num_training_steps_per_epoch)
     print("Number of training examples per epoch = %d" %
           (total_batch_size * num_training_steps_per_epoch))
-    # if args.distributed:
-    #     model = torch.nn.parallel.DistributedDataParallel(
-    #         pretrained_model, device_ids=[args.gpu], find_unused_parameters=False)
-    #     model_without_ddp = model.module
+
 
     optimizer = create_optimizer(args, model_without_ddp)
     loss_scaler = NativeScaler()
