@@ -6,6 +6,7 @@ from PIL import Image
 import json
 import torch
 import torch.nn.functional as F
+import torch.distributed as dist
 
 from utils import multiple_pretrain_samples_collate
 from functools import partial
@@ -24,9 +25,15 @@ from model_analysis import get_dataloader, get_dataset_dataloader
 
 def launch_specialization_training():
     args = prepare_args()
-    device = torch.device(args.device)
+    #device = torch.device(args.device)
 
     utils.init_distributed_mode(args)
+    local_rank = int(os.environ["LOCAL_RANK"])
+    torch.cuda.set_device(local_rank)
+    device = torch.device(f"cuda:{local_rank}")
+    print(device)
+    print(f"[rank {dist.get_rank()}] running on {torch.cuda.current_device()}")
+
 
     # LOAD MODEL
     pretrained_model = get_model(args)
