@@ -393,6 +393,10 @@ def create_tile_videos(df, output_dir=None, tile_size=224, supervised=True):
 
 
 def create_and_save_tile_from_complete_df(df, output_dir, overwrite=False):
+    salvati_ora = 0
+    gia_salvati = 0
+    totali = 0
+
     for idx, row in df.iterrows():
         # crea la cartella di destinazione
         path_name = row.path
@@ -402,13 +406,17 @@ def create_and_save_tile_from_complete_df(df, output_dir, overwrite=False):
         offset_x, offset_y = row.tile_offset_x, row.tile_offset_y
         for k, orig_p in enumerate(row.orig_paths):
             new_name = subfolder / f"img_{k+1:05d}.png"
+            totali += 1
             #print(f"new_name {new_name}")
             if not os.path.isfile(new_name) or overwrite:
                 #print(f"{new_name} lo sto risalvando?!")
                 save_single_tile(orig_p, new_name, offset_x, offset_y, tile_size=224)
+                salvati_ora += 1
             else:
                 #print(f"non c'è stato bisogno di risalvarlo")
-                pass
+                gia_salvati += 1
+
+    print(f"Salvati {salvati_ora} file - Erano già presenti {gia_salvati} file - File totali {totali}")
 
 
 

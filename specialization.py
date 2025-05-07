@@ -25,14 +25,14 @@ from model_analysis import get_dataloader, get_dataset_dataloader
 
 def launch_specialization_training():
     args = prepare_args()
-    #device = torch.device(args.device)
+    device = torch.device(args.device)
 
     utils.init_distributed_mode(args)
-    local_rank = int(os.environ["LOCAL_RANK"])
-    torch.cuda.set_device(local_rank)
-    device = torch.device(f"cuda:{local_rank}")
-    print(device)
-    print(f"[rank {dist.get_rank()}] running on {torch.cuda.current_device()}")
+    #local_rank = int(os.environ["LOCAL_RANK"])
+    #torch.cuda.set_device(local_rank)
+    #device = torch.device(f"cuda:{local_rank}")
+    #print(device)
+    #print(f"[rank {dist.get_rank()}] running on {torch.cuda.current_device()}")
 
 
     # LOAD MODEL
@@ -52,7 +52,7 @@ def launch_specialization_training():
     patch_size = model_without_ddp.encoder.patch_embed.patch_size
     data_loader_train, dataset_train = get_dataset_dataloader(args, patch_size)
     # per il test set
-    args.data_path = './test.csv'
+    args.data_path = args.test_path
     data_loader_test = get_dataloader(args, patch_size)
 
 
@@ -145,7 +145,7 @@ def launch_specialization_training():
 
         log_stats = {
             **{f'train_{k}': v for k, v in train_stats.items()}, 'epoch': epoch,
-            'n_parameters': n_parameters
+            #'n_parameters': n_parameters
         }
 
         if args.output_dir and utils.is_main_process():
@@ -157,11 +157,13 @@ def launch_specialization_training():
         if epoch % args.testing_epochs == 0:
             test_stats = test(pretrained_model, data_loader_test, device, epoch,
                         patch_size=patch_size[0], normlize_target=args.normlize_target, log_writer=log_writer)
-            test_log_stats = {**{f'test_{k}': v for k, v in test_stats.items()}, 'epoch': epoch, 'n_parameters': n_parameters}
-            if log_writer is not None:
-                log_writer.flush()
-            with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
-                f.write(json.dumps(test_log_stats) + "\n")
+            test_log_stats = {**{f'test_{k}': v for k, v in test_stats.items()}, 'epoch': epoch}  #, 'n_parameters': n_parameters}
+
+            if args.output_dir and utils.is_main_process():
+                if log_writer is not None:
+                    log_writer.flush()
+                with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
+                    f.write(json.dumps(test_log_stats) + "\n")
 
 
 
