@@ -20,7 +20,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.distributed as dist
-#from tensorboardX import SummaryWriter
+from tensorboardX import SummaryWriter
 from timm.utils import get_state_dict
 from torch import inf
 from torch.utils.data._utils.collate import default_collate
@@ -29,11 +29,15 @@ from torch.utils.data._utils.collate import default_collate
 class SmoothedValue(object):
     """Track a series of values and provide access to smoothed values over a
     window or the global series average.
+
+    Deque:
+    Once a bounded length deque is full (maxlen), when new items are added, 
+    a corresponding number of items are discarded from the opposite end
     """
 
     def __init__(self, window_size=20, fmt=None):
         if fmt is None:
-            fmt = "{median:.4f} ({global_avg:.4f})"
+            fmt = "{median:.4f} ({global_avg:.4f})" #  - deque: {all_deque} - count: {counter}"
         self.deque = deque(maxlen=window_size)
         self.total = 0.0
         self.count = 0
@@ -84,6 +88,14 @@ class SmoothedValue(object):
     @property
     def value(self):
         return self.deque[-1]
+    
+    @property
+    def all_deque(self):
+        return list(self.deque)
+    
+    @property
+    def counter(self):
+        return self.count
 
     def __str__(self):
         return self.fmt.format(
@@ -92,7 +104,9 @@ class SmoothedValue(object):
             global_avg=self.global_avg,
             max=self.max,
             min=self.min,
-            value=self.value)
+            value=self.value,
+            all_deque=self.all_deque,
+            counter=self.counter)
 
 
 class MetricLogger(object):

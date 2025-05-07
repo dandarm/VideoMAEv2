@@ -18,7 +18,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
-import torch._dynamo as dynamo
+#import torch._dynamo as dynamo
 from packaging import version
 from timm.models import create_model
 
@@ -268,7 +268,7 @@ def get_model(args):
         **args.__dict__)
 
     # questa riga è necessaria per evitare un errore di pytorch (issue 104674)
-    dynamo.config.optimize_ddp = False
+    #dynamo.config.optimize_ddp = False
 
     if version.parse(torch.__version__) > version.parse('1.13.1'):
         torch.set_float32_matmul_precision('high')
