@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import re
+from pathlib import Path
 # import datetime
 # import time
 # import random
@@ -163,6 +164,7 @@ def draw_tiles_and_center(
     tile_size=224,
     cyclone_centers=[],
     labeled_tiles_offsets=None,
+    predicted_tiles=None,
     point_color=(255, 255, 255),
     point_radius=4
 ):
@@ -172,6 +174,8 @@ def draw_tiles_and_center(
 
     `cyclone_center` è una lista di tuple (cx, cy, source), disegna un punto rosso in ogni posizione.
 
+     -->>> AGGIUNGO I RIQUADRI ROSSI : LE PREDIZIONI DEL MODELLO
+    
     Ritorna l'immagine PIL con i disegni sopra.
     """
 
@@ -180,8 +184,9 @@ def draw_tiles_and_center(
     draw = ImageDraw.Draw(out_img)
 
     # Disegniamo i rettangoli
-    present_color = (0, 255, 0)
+    present_color = (0, 255, 0) # verde
     absent_color = (216,216,216)  # grigio 
+    predicted_color = (255, 0, 0) # rosso
     for i, (x_off, y_off) in enumerate(default_offsets):
         x1, y1 = x_off, y_off
         x2, y2 = x_off + tile_size, y_off + tile_size
@@ -190,7 +195,17 @@ def draw_tiles_and_center(
         if labeled_tiles_offsets is not None:
             if labeled_tiles_offsets[i] == '1':
                 color = present_color
-                width = 4            
+                width = 4         
+        # riquadro rosso per la predizione
+        if predicted_tiles is not None:
+            if predicted_tiles[i] == '1':
+                color = predicted_color
+                width = 4      
+                x1 += 2
+                y1 += 2
+                x2 -= 2
+                y2 -= 2
+
         draw.rectangle(
             [(x1, y1), (x2, y2)],
             outline=color,
@@ -398,21 +413,28 @@ def create_mediterranean_video(list_grouped_df, interval=200, dpi=96, width=1290
             axis=1)        
         # print(f"xy_source_list {xy_source_list}", flush=True)
         
-        labeled_tiles_offsets = group_df['label'].values
+        labeled_tiles_offsets = group_df['label'].values # dovrebbe avere tanti valori quante sono le tiles
+        # se ne ha di meno è perché stiamo guardando un sottoinsieme, es. il dataset di test
+        # quindi quelle che mancano dovremmo riempire con un velo grigio
+
+        if 'predictions' in group_df.columns:
+            predicted_tiles_offsets = group_df['predictions'].values
+        
         default_offsets = calc_tile_offsets()
         out_img = draw_tiles_and_center(img, default_offsets,
             cyclone_centers=xy_source_list,
-            labeled_tiles_offsets=labeled_tiles_offsets
+            labeled_tiles_offsets=labeled_tiles_offsets,
+            predicted_tiles=predicted_tiles_offsets
         )
-        time_str = path.split('\\')[-1]        
-        time = extract_dates_pattern_airmass_rgb_20200101_0000(time_str)
-        stamped_img = draw_timestamp_in_bottom_right(out_img, time.strftime(" %H:%M %d-%m-%Y"), margin=15)
+        #time_str = path.split('\\')[-1]    
+        time_str = Path(path).name    
+        tempo = extract_dates_pattern_airmass_rgb_20200101_0000(time_str)
+        stamped_img = draw_timestamp_in_bottom_right(out_img, tempo.strftime(" %H:%M %d-%m-%Y"), margin=15)
 
         im_array_new = np.array(stamped_img)
         norm_array = normalize_01(im_array_new)
         im_obj.set_data(norm_array)
         
-        # Se le coste devono essere ridisegnate, puoi farlo qui, ma se restano fisse non è necessario
         return [im_obj]
 
 
