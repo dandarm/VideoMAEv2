@@ -267,8 +267,8 @@ def prepare_finetuning_args():
     user_args_finetune = {
         'model': 'vit_giant_patch14_224',             #'vit_base_patch16_224'
         'pretrained': True,  # Abilita il caricamento del checkpoint
-        'finetune': './vit_g_hybrid_pt_1200e_k710_ft.pth',
-        'init_ckpt': './vit_g_hybrid_pt_1200e_k710_ft.pth',
+        'finetune': './output/checkpoint_10k.pth', #./vit_g_hybrid_pt_1200e_k710_ft.pth
+        'init_ckpt': './output/checkpoint_10k.pth',
         'data_path': './',
         'log_dir': './output',
         'output_dir': './output',
@@ -289,11 +289,10 @@ def prepare_finetuning_args():
         'lr': 1e-3,
         'opt_betas': [0.9, 0.95],
         'warmup_epochs': 10,
-        'epochs': 350,
+        'epochs': 250,
         'save_ckpt_freq': 100,
         'decoder_depth': 4,
-        'testing_epochs': 3,
-        'VAL_FREQ': 5
+        'testing_epochs': 1,
         #dist_eval
     }
 

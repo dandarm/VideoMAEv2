@@ -1,4 +1,3 @@
-import numpy as np
 import os
 import re
 from pathlib import Path
@@ -6,6 +5,8 @@ from pathlib import Path
 # import time
 # import random
 # import json
+import numpy as np
+import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import matplotlib.pyplot as plt
@@ -51,6 +52,8 @@ PALETTE = {
     'CL9': (128, 128, 0),    # Oliva
     'CL10': (0, 0, 0),        # Nero
 }
+
+filling_missing_tile = 'filled_gray'
 
 
 #################################################################################
@@ -139,32 +142,42 @@ def extract_cl_number(cl):
     return int(match.group(1)) if match else -1
 
 def deduplicate_xy_source(x_list, y_list, source_list):
-    if not x_list or not y_list or not source_list:
+    #print(x_list, y_list, source_list)
+    if not x_list or not y_list or not source_list:        
         return []  # o None, o np.nan
+    #if x_list.isna() or y_list.isna() or source_list.isna():
+    #if np.isnan(source_list):
+    #    return []
 
-    grouped = {}
-    for x, y, src in zip(x_list, y_list, source_list):
-        key = (x, y)
-        if key not in grouped:
-            grouped[key] = []
-        grouped[key].append(src)
-
-    # per ogni gruppo scegli il CL con n più grande
     result = []
-    for (x, y), srcs in grouped.items():
-        max_src = max(srcs, key=extract_cl_number)
-        result.append((x, y, max_src))
+    try:
+        grouped = {}
+        for x, y, src in zip(x_list, y_list, source_list):
+            key = (x, y)
+            if key not in grouped:
+                grouped[key] = []
+            grouped[key].append(src)
+
+        # per ogni gruppo scegli il CL con n più grande
+        for (x, y), srcs in grouped.items():
+            max_src = max(srcs, key=extract_cl_number)
+            result.append((x, y, max_src))
+    except:
+        #print()
+        pass
+        
 
     return result
 
 
 def draw_tiles_and_center(
     pil_image: Image.Image,
-    default_offsets,
+    offsets,
     tile_size=224,
     cyclone_centers=[],
     labeled_tiles_offsets=None,
     predicted_tiles=None,
+    gray_offsets=None,
     point_color=(255, 255, 255),
     point_radius=4
 ):
@@ -178,38 +191,62 @@ def draw_tiles_and_center(
     
     Ritorna l'immagine PIL con i disegni sopra.
     """
-
-    # Creiamo una copia su cui disegnare
     out_img = pil_image.copy()
-    draw = ImageDraw.Draw(out_img)
+    base = out_img.convert("RGBA") 
+
+    # Creiamo una copia su cui disegnare    
+    draw = ImageDraw.Draw(base)
+
+    # Crea un overlay trasparente della stessa misura.
+    overlay = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    draw_ov = ImageDraw.Draw(overlay)
 
     # Disegniamo i rettangoli
     present_color = (0, 255, 0) # verde
     absent_color = (216,216,216)  # grigio 
     predicted_color = (255, 0, 0) # rosso
-    for i, (x_off, y_off) in enumerate(default_offsets):
+    fill_color = (216,216,216, 120) # grigio semi trasparente
+    for i, (x_off, y_off) in enumerate(offsets):
         x1, y1 = x_off, y_off
         x2, y2 = x_off + tile_size, y_off + tile_size
         color = absent_color
         width = 1
-        if labeled_tiles_offsets is not None:
-            if labeled_tiles_offsets[i] == '1':
-                color = present_color
-                width = 4         
-        # riquadro rosso per la predizione
-        if predicted_tiles is not None:
-            if predicted_tiles[i] == '1':
-                color = predicted_color
-                width = 4      
-                x1 += 2
-                y1 += 2
-                x2 -= 2
-                y2 -= 2
-
         draw.rectangle(
             [(x1, y1), (x2, y2)],
             outline=color,
             width=width)
+        
+        #print(f"labeled_tiles_offsets {labeled_tiles_offsets}")
+        if labeled_tiles_offsets is not None:
+            if not pd.isna(labeled_tiles_offsets[i]) and labeled_tiles_offsets[i] == 1:
+                color = present_color
+                width = 4         
+                draw.rectangle(
+                [(x1, y1), (x2, y2)],
+                outline=color,
+                width=width)
+        # riquadro rosso per la predizione
+        #print(f"predicted_tiles {predicted_tiles}")
+        if predicted_tiles is not None:
+            if not pd.isna(predicted_tiles[i]) and predicted_tiles[i] == 1:
+                color = predicted_color
+                width = 4      
+                x1 += 10
+                y1 += 10
+                x2 -= 10
+                y2 -= 10
+                draw.rectangle(
+                    [(x1, y1), (x2, y2)],
+                    outline=color,
+                    width=width)
+            
+        #print(f"gray_offsets {gray_offsets}")
+        if gray_offsets is not None:
+            if gray_offsets[i]:
+                # disegna filling grigio
+                draw_ov.rectangle(
+                [(x1, y1), (x2, y2)],
+                fill=fill_color)
 
     #print(cyclone_centers)
     for center in cyclone_centers:
@@ -228,7 +265,11 @@ def draw_tiles_and_center(
             )
             #draw.text((cx, cy),source,(255,255,255))#,font=font)
 
-    return out_img
+
+    combined = Image.alpha_composite(base, overlay)
+    final_img = combined.convert("RGB")
+
+    return final_img
 
 
 
@@ -280,37 +321,51 @@ def display_video_clip(frames_tensors, interval=200):
 
 
 
+# Disegna tutto i lgframe completo con tile, orario, tracks... di tutto il mediterraneo
 
+def draw_rich_frame(path_img, group_df, basemap_obj, tile_offset_x, tile_offset_y):
+    # Apriamo l'immagine che verrà aggiornata con i vari dati
+    img = Image.open(path_img)
+    
+    #center_px_list = group_df[['x_pix','y_pix']].value_counts().index.values
+    center_px_df = group_df[['x_pix','y_pix', 'source']]
+    # -> center_px_df è un dataframe, con tante righe quante sono le tiles, e tanti elementi per ogni tile
+    # dove source è la CL di Manos
+    center_px_df_parsed = center_px_df.map(safe_literal_eval)
+    xy_source_list = center_px_df_parsed.apply(
+        lambda row: deduplicate_xy_source(row['x_pix'], row['y_pix'], row['source']),
+        axis=1)      
+    
+    labeled_tiles_offsets = group_df['label'].values# dovrebbe avere tanti valori quante sono le tiles
+    # se ne ha di meno è perché stiamo guardando un sottoinsieme, es. il dataset di test
+    # quindi quelle che mancano dovremmo riempire con un velo grigio
+
+    date_str = group_df['datetime'].unique()[0].strftime(" %H:%M %d-%m-%Y")
+    
+    # Disegniamo
+    offsets = calc_tile_offsets(stride_x=tile_offset_x, stride_y=tile_offset_y)
+    out_img = draw_tiles_and_center(img, offsets,
+        cyclone_centers=xy_source_list,
+        labeled_tiles_offsets=labeled_tiles_offsets
+        )
+    stamped_img = draw_timestamp_in_bottom_right(out_img, date_str, margin=15)
+    pi_img = plot_image(stamped_img, basemap_obj, draw_parallels_meridians=True)
+
+    return pi_img    
+    
 
 
 ####### l'ho usata per realizzare l'animazione di tutto il mediterraneo
 
-def create_labeled_images_with_tiles(df_grouped, nome_gif, basemap_obj):
+def create_labeled_images_with_tiles(df_grouped, nome_gif, basemap_obj, tile_offset_x, tile_offset_y):
 # in ogni group abbiamo una sola immagine (un istante temporale)
 # e tutte le tiles con le rispettive label. 
 # possiamo avere più cicloni con le rispettive coordinate, da trovare uniche, perché si ripetono in tutte le tiles vicine
     lista_immagini = []    
 
     for path_img, group_df in df_grouped:
-        # Apriamo l'immagine
-        img = Image.open(path_img)#.convert("RGB")
-        #center_px_list = (x_pix, y_pix)
-        center_px_list = group_df[['x_pix','y_pix']].value_counts().index.values
-        #labeled_tiles_offsets = get_tile_labels(lat, lon)
-        labeled_tiles_offsets = group_df['label'].values
-
-        date_str = group_df['datetime'].unique()[0].strftime(" %H:%M %d-%m-%Y")
-        
-        # Disegniamo
-        default_offsets = calc_tile_offsets()  # TODO: togliere e ricavare in base agli poffsets già costruiti nel dataframe, oppure come argomento 
-        out_img = draw_tiles_and_center(img, default_offsets,
-            cyclone_centers=center_px_list,
-            labeled_tiles_offsets=labeled_tiles_offsets
-            )
-        stamped_img = draw_timestamp_in_bottom_right(out_img, date_str, margin=15)
-        pi_img = plot_image(stamped_img, basemap_obj, draw_parallels_meridians=True)
+        pi_img = draw_rich_frame(path_img, group_df, basemap_obj, tile_offset_x, tile_offset_y)
         lista_immagini.append(pi_img)
-        #display(out_img)
     
     lista_immagini[0].save(nome_gif, save_all=True, append_images=lista_immagini[1:], duration=200, loop=0)
 
@@ -365,7 +420,8 @@ def safe_literal_eval(val):
     return val  # già una lista, None, o qualsiasi altro tipo
     
     
-def create_mediterranean_video(list_grouped_df, interval=200, dpi=96, width=1290, height=420):
+def create_mediterranean_video(list_grouped_df, interval=200, dpi=96, width=1290, height=420, 
+                               tile_offset_x=213, tile_offset_y=196):
 
     #lista_immagini = []
     fig = plt.figure(figsize=(width/dpi, height/dpi), dpi=dpi)
@@ -401,17 +457,21 @@ def create_mediterranean_video(list_grouped_df, interval=200, dpi=96, width=1290
         path, group_df = list_grouped_df[frame_index]
 
         # Carica la nuova immagine e aggiorna i dati dell'oggetto immagine
-        #path = path_list[frame_index]
+
         img = Image.open(path) 
 
-        center_px_df = group_df[['x_pix','y_pix', 'source']]
+        center_px_df = group_df[['x_pix','y_pix', 'source']]        
         # -> center_px_df è un dataframe, con tante righe quante sono le tiles, e tanti elementi per ogni tile
         # dove source è la CL di Manos
         center_px_df_parsed = center_px_df.map(safe_literal_eval)
         xy_source_list = center_px_df_parsed.apply(
             lambda row: deduplicate_xy_source(row['x_pix'], row['y_pix'], row['source']),
             axis=1)        
-        # print(f"xy_source_list {xy_source_list}", flush=True)
+
+        #print(f"center_px_df_parsed, {center_px_df_parsed}")
+        
+        #print(f"xy_source_list {xy_source_list}", flush=True)
+               
         
         labeled_tiles_offsets = group_df['label'].values # dovrebbe avere tanti valori quante sono le tiles
         # se ne ha di meno è perché stiamo guardando un sottoinsieme, es. il dataset di test
@@ -419,12 +479,17 @@ def create_mediterranean_video(list_grouped_df, interval=200, dpi=96, width=1290
 
         if 'predictions' in group_df.columns:
             predicted_tiles_offsets = group_df['predictions'].values
+
+        if filling_missing_tile in group_df.columns:
+            to_be_filled_offsets = group_df[filling_missing_tile].values
         
-        default_offsets = calc_tile_offsets()
-        out_img = draw_tiles_and_center(img, default_offsets,
+        offsets = calc_tile_offsets(stride_x=tile_offset_x, stride_y=tile_offset_y)
+        #print(f"to_be_filled_offsets {to_be_filled_offsets}")
+        out_img = draw_tiles_and_center(img, offsets,
             cyclone_centers=xy_source_list,
             labeled_tiles_offsets=labeled_tiles_offsets,
-            predicted_tiles=predicted_tiles_offsets
+            predicted_tiles=predicted_tiles_offsets,
+            gray_offsets=to_be_filled_offsets
         )
         #time_str = path.split('\\')[-1]    
         time_str = Path(path).name    

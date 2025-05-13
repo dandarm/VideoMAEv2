@@ -530,6 +530,10 @@ def vit_giant_patch14_224(pretrained=False, **kwargs):
         norm_layer=partial(nn.LayerNorm, eps=1e-6),
         **kwargs)
     model.default_cfg = _cfg()
+    if pretrained:
+        #checkpoint = torch.load(kwargs["init_ckpt"], map_location="cpu")
+        #model.load_state_dict(checkpoint["state_dict"])
+        model = load_checkpoint(model, kwargs["init_ckpt"])
     return model
 
 
@@ -561,7 +565,7 @@ def load_checkpoint(model, checkpoint_path):
         checkpoint_model = checkpoint  # Se non ha una chiave specifica, usa tutto il dict
 
     # Rimuove il prefisso "backbone." o "module." se presente
-    new_state_dict = {k.replace("backbone.", "").replace("module.", ""): v for k, v in checkpoint_model.items()}
+    new_state_dict = {k.replace("backbone.", "").replace("module.", "").replace("_orig_mod.",""): v for k, v in checkpoint_model.items()}
 
     # Rinomina la testa di classificazione
     if "cls_head.fc_cls.weight" in new_state_dict and "cls_head.fc_cls.bias" in new_state_dict:
