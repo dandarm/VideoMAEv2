@@ -20,6 +20,7 @@ from dataset import build_dataset
 import torch.backends.cudnn as cudnn
 from engine_for_finetuning import train_one_epoch, validation_one_epoch, final_test
 from optim_factory import create_optimizer
+import models # NON TOGLIERE: serve a torch.load per caricare il mio modello addestrato
 from timm.models import create_model
 from timm.data.mixup import Mixup
 from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
@@ -87,7 +88,6 @@ def launch_finetuning_classification():
     print(f"Creating model: {args.model} (nb_classes={args.nb_classes})")
     model = create_model(
         args.model,
-        #pretrained=True,
         num_classes=args.nb_classes,
         drop_rate=0.0,
         drop_path_rate=args.drop_path,
@@ -207,7 +207,7 @@ def launch_finetuning_classification():
 
         # VAL
         val_stats = {}
-        if (epoch + 1) % args.VAL_FREQ == 0:
+        if (epoch + 1) % args.testing_epochs == 0:
             val_stats = validation_one_epoch(data_loader_val, model, device)
             print(f"[EPOCH {epoch + 1}] val acc1: {val_stats['acc1']:.2f}%")
             if val_stats["acc1"] > max_accuracy:

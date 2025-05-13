@@ -64,7 +64,7 @@ def create_csv(output_dir):
 
 
 
-def calc_tile_offsets(image_width=1290, image_height=420, tile_size=224, stride_x=224, stride_y=196):
+def calc_tile_offsets(image_width=1290, image_height=420, tile_size=224, stride_x=213, stride_y=196):
     """
     Ritorna una lista di (x_off, y_off) 
     """    
@@ -233,7 +233,8 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_f
     for img_path, frame_dt in sorted_metadata_files:       
         # recupero la riga corrispondente all'ora intera dell'immagine
         # devo perci arrotondare (in eccesso o difetto?) l'istante dell'img
-        dt_floor = frame_dt.replace(minute=0, second=0, microsecond=0)
+        # -> sto arrotondando per difetto
+        dt_floor = frame_dt.replace(minute=0, second=0, microsecond=0) # ora con :00 di un'immagine che può avere minuti non :00
         mask = df_tracks["time"] == dt_floor
         df_candidates = df_tracks[mask]
 
@@ -281,7 +282,8 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_f
                 x_pix, y_pix = None, None
             
             #print(lat, lon)
-            
+            # quindi aggiungo un'immagine con minuti anche non :00 e la etichetto
+            # in base al track che ha minuti :00
             updated_metadata.append({
                         "path": img_path,
                         "datetime": frame_dt,
@@ -326,6 +328,7 @@ def create_tile_videos(df, output_dir=None, tile_size=224, supervised=True):
     Ritorna una lista (videos_list) di DataFrame,
     ognuno con 16 righe consecutive. 
     """
+    num_frames = 16
 
     # 1) Ordiniamo il DataFrame per (tile_offset_x, tile_offset_y, datetime)
     df_sorted = df.sort_values(["tile_offset_x", "tile_offset_y", "datetime"])
@@ -341,16 +344,16 @@ def create_tile_videos(df, output_dir=None, tile_size=224, supervised=True):
         # Ordinate già per datetime.
         group_df = group_df.reset_index(drop=True)
         row_count = len(group_df)
-        num_blocks = row_count // 16  # quante volte possiamo formare un blocco di 16
+        num_blocks = row_count // num_frames  # quante volte possiamo formare un blocco di 16
         
         # se row_count non è multiplo di 16, rimarranno righe extra che ignoriamo (oppure gestisci diversamente)
         #         
         for i in range(num_blocks):
-            start_i = i * 16
-            end_i   = start_i + 16
+            start_i = i * num_frames
+            end_i   = start_i + num_frames 
             block_df = group_df.iloc[start_i:end_i]
             start_time = group_df.datetime.iloc[start_i]
-            end_time = group_df.datetime.iloc[end_i]
+            end_time = group_df.datetime.iloc[end_i-1] # -1 perché nell'intervallo in block l'estremo sup non è compreso
             
             # se output dir è passato: salva le tile video in nuove cartelle
             date_str = end_time.strftime("%d-%m-%Y_%H%M")
@@ -370,7 +373,9 @@ def create_tile_videos(df, output_dir=None, tile_size=224, supervised=True):
                     
     
             if supervised:
-                if (block_df['label'] == '1').any():
+                #print(block_df['label'].dtype) l'ho messo a 'int'
+                num_pos_labels = (block_df['label'] == 1).sum()   # non più any()
+                if num_pos_labels > num_frames/3:
                     label = 1
                 else:
                     label = 0
@@ -393,30 +398,34 @@ def create_tile_videos(df, output_dir=None, tile_size=224, supervised=True):
 
 
 def create_and_save_tile_from_complete_df(df, output_dir, overwrite=False):
-    salvati_ora = 0
-    gia_salvati = 0
-    totali = 0
+    num_video = df.shape[0]
+    if num_video > 0:
+        print(f"Creazione delle folder per i {num_video} video...")
 
-    for idx, row in df.iterrows():
-        # crea la cartella di destinazione
-        path_name = row.path
-        subfolder = Path(output_dir) / path_name
-        subfolder.mkdir(parents=True, exist_ok=True)
+        salvati_ora = 0
+        gia_salvati = 0
+        totali = 0
 
-        offset_x, offset_y = row.tile_offset_x, row.tile_offset_y
-        for k, orig_p in enumerate(row.orig_paths):
-            new_name = subfolder / f"img_{k+1:05d}.png"
-            totali += 1
-            #print(f"new_name {new_name}")
-            if not os.path.isfile(new_name) or overwrite:
-                #print(f"{new_name} lo sto risalvando?!")
-                save_single_tile(orig_p, new_name, offset_x, offset_y, tile_size=224)
-                salvati_ora += 1
-            else:
-                #print(f"non c'è stato bisogno di risalvarlo")
-                gia_salvati += 1
+        for idx, row in df.iterrows():
+            # crea la cartella di destinazione
+            path_name = row.path
+            subfolder = Path(output_dir) / path_name
+            subfolder.mkdir(parents=True, exist_ok=True)
 
-    print(f"Salvati {salvati_ora} file - Erano già presenti {gia_salvati} file - File totali {totali}")
+            offset_x, offset_y = row.tile_offset_x, row.tile_offset_y
+            for k, orig_p in enumerate(row.orig_paths):
+                new_name = subfolder / f"img_{k+1:05d}.png"
+                totali += 1
+                #print(f"new_name {new_name}")
+                if not os.path.isfile(new_name) or overwrite:
+                    #print(f"{new_name} lo sto risalvando?!")
+                    save_single_tile(orig_p, new_name, offset_x, offset_y, tile_size=224)
+                    salvati_ora += 1
+                else:
+                    #print(f"non c'è stato bisogno di risalvarlo")
+                    gia_salvati += 1
+
+        print(f"Salvati {salvati_ora} file - Erano già presenti {gia_salvati} file - File totali {totali}")
 
 
 
@@ -432,7 +441,7 @@ def get_gruppi_date(df_data):
     df_data['delta'] = df_data['datetime'].diff()
 
     # Definisci i punti di rottura: True se la differenza è maggiore della frequenza attesa
-    df_data['new_group'] = (df_data['delta'] > pd.Timedelta(minutes=60))  # puoi aumentare il margine se serve
+    df_data['new_group'] = (df_data['delta'] > pd.Timedelta(minutes=60))  # 1h di intervallo massimo
 
     # Crea gli ID di gruppo cumulando i True
     df_data['gruppo'] = df_data['new_group'].cumsum()
@@ -442,8 +451,30 @@ def get_gruppi_date(df_data):
     return gruppi_date
 
 
+def select_period_and_balance(df, output_dir=None):
+    df_videos = create_tile_videos(df)
+
+    mask_cicloni = df_videos.label == 1
+    mask_non_cicloni = df_videos.label == 0
+    df_cicloni = df_videos[mask_cicloni]
+    df_non_cicloni = df_videos[mask_non_cicloni]
+
+    print(f"Num video CON cicloni: {len(df_cicloni)}, Num video SENZA cicloni: {len(df_non_cicloni)}", end="\t")
+    print(f"Totale video tiles: {len(df_videos)}", end="\t\t")
+
+    print(f"Bilanciamento video...")
+    df_0_balanced = df_non_cicloni.sample(len(df_cicloni))
+    print(f" video senza cicloni tenuti: {len(df_0_balanced)}")
+
+    if output_dir is not None:        
+        create_and_save_tile_from_complete_df(df_0_balanced, output_dir)
+        create_and_save_tile_from_complete_df(df_cicloni, output_dir)
+
+    return pd.concat([df_cicloni, df_0_balanced])
+
+
 def create_final_df_csv(df_in, output_dir):
-    df_dataset_csv = df_in[['path', 'label']]
+    df_dataset_csv = df_in[['path', 'label']].copy()
     df_dataset_csv['path'] = output_dir + df_dataset_csv['path']
     df_dataset_csv['start'] = 1
     df_dataset_csv['end'] = 16
@@ -680,11 +711,14 @@ def make_unsup_dataset():
     #df_data = df_data[:1000]
 
     gruppi_date = get_gruppi_date(df_data)
+    all_videos = []
     for df in gruppi_date:
         df_videos = create_tile_videos(df, supervised=False)
+        all_videos.append(df_videos)
         create_and_save_tile_from_complete_df(df_videos, unsup_output_dir)
     
-    df_dataset_csv_unsup = create_final_df_csv(df_videos, unsup_output_dir)
+    all_df_videos = pd.concat(all_videos)
+    df_dataset_csv_unsup = create_final_df_csv(all_df_videos, unsup_output_dir)
     df_dataset_csv_unsup.drop(columns='label').to_csv("./train_UNsupervised.csv", index=False)
 
 

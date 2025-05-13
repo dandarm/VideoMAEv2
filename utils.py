@@ -505,13 +505,14 @@ def auto_load_model(args,
                     optimizer,
                     loss_scaler,
                     model_ema=None):
+    # serve solo a ricaricare un checkpoint di training precedente per proseguirlo
+
     output_dir = Path(args.output_dir)
     if loss_scaler is not None:
         # torch.amp
         if args.auto_resume and len(args.resume) == 0:
             import glob
-            all_checkpoints = glob.glob(
-                os.path.join(output_dir, 'checkpoint-*.pth'))
+            all_checkpoints = glob.glob(os.path.join(output_dir, 'checkpoint-*.pth'))
             latest_ckpt = -1
             for ckpt in all_checkpoints:
                 t = ckpt.split('-')[-1].split('.')[0]

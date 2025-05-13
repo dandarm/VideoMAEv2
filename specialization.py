@@ -36,7 +36,13 @@ def launch_specialization_training():
 
 
     # LOAD MODEL
-    pretrained_model = get_model(args)
+    model = get_model(args)
+    # LOAD checkpoint
+    pretrained_model = None
+    if args.finetune:
+        checkpoint_path = args.finetune
+        
+
     pretrained_model.to(device)  # rimane solo sul device generale o va messo nel local_rank?
     model_without_ddp = pretrained_model
     n_parameters = sum(p.numel() for p in pretrained_model.parameters() if p.requires_grad)
