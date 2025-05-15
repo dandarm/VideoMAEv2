@@ -177,6 +177,17 @@ def inside_tile(lat, lon, tile_x, tile_y,
     else:
         return False
 
+def inside_tile_faster(x_pix, y_pix, tile_x, tile_y,
+                tile_width=224, tile_height=224):
+    # Check se (x_pix, y_pix) cade nel tile 
+    if (tile_x <= x_pix < tile_x + tile_width) and \
+       (tile_y <= y_pix < tile_y + tile_height):
+        return True
+    else:
+        return False
+
+
+
 #endregion
 
 
@@ -230,6 +241,7 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_f
 
     updated_metadata = []
 
+    jj = 0
     for img_path, frame_dt in sorted_metadata_files:       
         # recupero la riga corrispondente all'ora intera dell'immagine
         # devo perci arrotondare (in eccesso o difetto?) l'istante dell'img
@@ -239,7 +251,8 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_f
         df_candidates = df_tracks[mask]
 
 
-        # il nome è sempre quello per tutta l'immagine, perché non esistono medicane contemporanei        
+        # però il nome non dovrebbe essere sempre quello per tutta l'immagine,
+        # perché esistono altri cicloni contemporanei al medicane
         if 'Medicane' in df_candidates.columns:
             med_name = df_candidates['Medicane'].unique()
             if len(med_name) > 0:
@@ -260,13 +273,16 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_f
 
             for row in df_candidates.itertuples(index=False):  
                 # devo considerare il caso in cui ho più cicloni *** anche nella stessa tile! ***
-                lat_, lon_ = row.lat, row.lon
+                #lat_, lon_ = row.lat, row.lon
+                x_pix, y_pix = row.x_pix, row.y_pix
+
                 s_ = row.source
+                id_cyc_unico = row.id_cyc_unico
                 #print(lat_, lon_, tile_offset_x, tile_offset_y, frame_dt)
-                if inside_tile(lat_, lon_, tile_offset_x, tile_offset_y):
+                if inside_tile_faster(x_pix, y_pix, tile_offset_x, tile_offset_y):
                     found_any = True
-                    lat.append(lat_)
-                    lon.append(lon_)
+                    #lat.append(lat_)
+                    #lon.append(lon_)
                     source.append(s_)
 
 
@@ -290,13 +306,17 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_f
                         "tile_offset_x": tile_offset_x,
                         "tile_offset_y": tile_offset_y,
                         "label": label,
-                        "lat": lat,
-                        "lon": lon,
+                        #"lat": lat,
+                        #"lon": lon,
                         "x_pix":xp,
                         "y_pix":yp,
                         "name": medicane_name,
-                        "source": source
+                        "source": source,
+                        "id_cyc_unico": id_cyc_unico
                     })
+        jj += 1
+        if jj % 1000 == 0:
+            print(f"{jj} su {len(sorted_metadata_files)}")
             
     res =  pd.DataFrame(updated_metadata)
     res = res.astype({
@@ -305,12 +325,13 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_f
         "tile_offset_x": 'int16',
         "tile_offset_y": 'int16',
         "label": 'category',
-        "lat": 'object',  # non più float16
-        "lon": 'object',  # non più float16
+        #"lat": 'object',  # non più float16
+        #"lon": 'object',  # non più float16
         "x_pix": 'object', # non più Int16
         "y_pix": 'object', # non più Int16
         "name": 'string',
-        "source": 'string'
+        "source": 'string',
+        "id_cyc_unico":  'int32'
     })
     return res
 
@@ -318,7 +339,7 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_f
 
 
 def create_tile_videos(df, output_dir=None, tile_size=224, supervised=True):
-    """  Crea il MASTER DATAFRAME con le informazioni per ogni video, 
+    """  Crea il VIDEO DATAFRAME con le informazioni per ogni video, 
     subito prima del csv per videoMAE
 
     non salva i video su cartella se non è specificata output_dir

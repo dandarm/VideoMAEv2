@@ -577,7 +577,7 @@ def load_checkpoint(model, checkpoint_path):
         del new_state_dict["head.weight"]
     if "head.bias" in new_state_dict:
         del new_state_dict["head.bias"]
-    print("Testa del modello rimossa dal checkpoint per evitare mismatch.")
+    print("Testa del modello rimossa dal checkpoint per evitare mismatch di numero di classi col preaddestrato.")
 
     # Carica i pesi nel modello
     model.load_state_dict(new_state_dict, strict=False)

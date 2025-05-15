@@ -13,6 +13,8 @@ import torch.utils.checkpoint as cp
 from timm.models.layers import trunc_normal_ as __call_trunc_normal_
 from timm.models.registry import register_model
 
+from models.modeling_finetune import load_checkpoint
+
 from .modeling_finetune import (
     Block,
     PatchEmbed,
@@ -475,8 +477,8 @@ def pretrain_videomae_giant_patch14_224(pretrained=True, **kwargs):
         norm_layer=partial(nn.LayerNorm, eps=1e-6),
         **kwargs)
     model.default_cfg = _cfg()
-    #if pretrained:
-    #    #checkpoint = torch.load(pretrained_checkpoint, map_location="cpu")
-    #    checkpoint = torch.load(kwargs["init_ckpt"], map_location="cpu")
-    #    model.load_state_dict(checkpoint["model"])
+    if pretrained:        
+        #checkpoint = torch.load(kwargs["init_ckpt"], map_location="cpu")
+        #model.load_state_dict(checkpoint["model"])
+        model = load_checkpoint(model, kwargs["init_ckpt"])
     return model
