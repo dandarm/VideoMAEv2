@@ -479,9 +479,13 @@ def create_mediterranean_video(list_grouped_df, interval=200, dpi=96, width=1290
 
         if 'predictions' in group_df.columns:
             predicted_tiles_offsets = group_df['predictions'].values
+        else:
+            predicted_tiles_offsets = None
 
         if filling_missing_tile in group_df.columns:
             to_be_filled_offsets = group_df[filling_missing_tile].values
+        else:
+            to_be_filled_offsets = None
         
         offsets = calc_tile_offsets(stride_x=tile_offset_x, stride_y=tile_offset_y)
         #print(f"to_be_filled_offsets {to_be_filled_offsets}")
