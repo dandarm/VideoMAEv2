@@ -270,34 +270,27 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_f
             lon = []
             source = []
             xp, yp = [], []
+            id_cyc_unico = 0
 
             for row in df_candidates.itertuples(index=False):  
                 # devo considerare il caso in cui ho più cicloni *** anche nella stessa tile! ***
                 #lat_, lon_ = row.lat, row.lon
                 x_pix, y_pix = row.x_pix, row.y_pix
+                s_ = row.source                
 
-                s_ = row.source
-                id_cyc_unico = row.id_cyc_unico
                 #print(lat_, lon_, tile_offset_x, tile_offset_y, frame_dt)
                 if inside_tile_faster(x_pix, y_pix, tile_offset_x, tile_offset_y):
                     found_any = True
                     #lat.append(lat_)
                     #lon.append(lon_)
+                    xp.append(x_pix)
+                    yp.append(y_pix)
                     source.append(s_)
+                    id_cyc_unico = row.id_cyc_unico  # al momento assumo che sia lo stesso ciclone
 
 
             label = 1 if found_any else 0
-            # append UNA sola volta la tile
-            # associando lat/lon di tutti i cicloni trovati (se ci sono)
-            if lat: # se ci sono coordinate
-                for lat_, lon_ in zip(lat, lon):
-                    x_pix, y_pix = get_cyclone_center_pixel(lat_, lon_)
-                    xp.append(x_pix)
-                    yp.append(y_pix)
-            else:
-                x_pix, y_pix = None, None
-            
-            #print(lat, lon)
+            # append UNA sola volta la tile           
             # quindi aggiungo un'immagine con minuti anche non :00 e la etichetto
             # in base al track che ha minuti :00
             updated_metadata.append({
@@ -337,25 +330,28 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_f
 
 
 
-
-def create_tile_videos(df, output_dir=None, tile_size=224, supervised=True):
-    """  Crea il VIDEO DATAFRAME con le informazioni per ogni video, 
-    subito prima del csv per videoMAE
-
-    non salva i video su cartella se non è specificata output_dir
-
-    df contiene:
-      tile_offset_x, tile_offset_y, datetime, path, ...
-    Ritorna una lista (videos_list) di DataFrame,
-    ognuno con 16 righe consecutive. 
-    """
-    num_frames = 16
-
+def group_df_by_offsets(df):
     # 1) Ordiniamo il DataFrame per (tile_offset_x, tile_offset_y, datetime)
     df_sorted = df.sort_values(["tile_offset_x", "tile_offset_y", "datetime"])
 
     # 2) Raggruppiamo per tile_offset
     grouped = df_sorted.groupby(["tile_offset_x", "tile_offset_y"], group_keys=False)
+
+    return grouped
+
+
+
+def create_tile_videos(grouped, output_dir=None, tile_size=224, supervised=True, num_frames = 16):
+    """  Crea il VIDEO DATAFRAME con le informazioni per ogni video, 
+    subito prima del csv per videoMAE
+
+    non salva i video su cartella se non è specificata output_dir
+
+    grouped è il df raggruppato per gli offsets:
+      tile_offset_x, tile_offset_y, datetime, path, ...
+    Ritorna una lista (videos_list) di DataFrame,
+    ognuno con 16 righe consecutive. 
+    """    
     
     results = []
     video_id = 0
@@ -376,11 +372,10 @@ def create_tile_videos(df, output_dir=None, tile_size=224, supervised=True):
             start_time = group_df.datetime.iloc[start_i]
             end_time = group_df.datetime.iloc[end_i-1] # -1 perché nell'intervallo in block l'estremo sup non è compreso
             
-            # se output dir è passato: salva le tile video in nuove cartelle
             date_str = end_time.strftime("%d-%m-%Y_%H%M")
             path_name = f"{date_str}_{offset_x}_{offset_y}"
-            subfolder = path_name
             
+            # se output dir è passato: salva le tile video in nuove cartelle
             if output_dir is not None:  
                 subfolder = Path(output_dir) / path_name                              
                 subfolder.mkdir(parents=True, exist_ok=True)
@@ -407,7 +402,7 @@ def create_tile_videos(df, output_dir=None, tile_size=224, supervised=True):
                 "video_id": video_id,
                 "tile_offset_x": offset_x,
                 "tile_offset_y": offset_y,
-                "path": str(subfolder),
+                "path": str(path_name),
                 "label": label,
                 "start_time": start_time,
                 "end_time": end_time,                
@@ -416,6 +411,8 @@ def create_tile_videos(df, output_dir=None, tile_size=224, supervised=True):
             video_id += 1
 
     return pd.DataFrame(results)
+
+
 
 
 def create_and_save_tile_from_complete_df(df, output_dir, overwrite=False):
@@ -437,7 +434,8 @@ def create_and_save_tile_from_complete_df(df, output_dir, overwrite=False):
             for k, orig_p in enumerate(row.orig_paths):
                 new_name = subfolder / f"img_{k+1:05d}.png"
                 totali += 1
-                #print(f"new_name {new_name}")
+                #print(f"new_name {new_name}", end='\t')
+                #print(f"è un file? {os.path.isfile(new_name)}")
                 if not os.path.isfile(new_name) or overwrite:
                     #print(f"{new_name} lo sto risalvando?!")
                     save_single_tile(orig_p, new_name, offset_x, offset_y, tile_size=224)
@@ -465,15 +463,16 @@ def get_gruppi_date(df_data):
     df_data['new_group'] = (df_data['delta'] > pd.Timedelta(minutes=60))  # 1h di intervallo massimo
 
     # Crea gli ID di gruppo cumulando i True
-    df_data['gruppo'] = df_data['new_group'].cumsum()
+    df_data['gruppo'] = df_data['new_group'].cumsum()    
 
     gruppi_date = [g for _, g in df_data.groupby('gruppo')]
 
     return gruppi_date
 
 
-def select_period_and_balance(df, output_dir=None):
-    df_videos = create_tile_videos(df)
+def balance_time_group(df, output_dir=None):
+    df_offsets_groups = group_df_by_offsets(df)
+    df_videos = create_tile_videos(df_offsets_groups)
 
     mask_cicloni = df_videos.label == 1
     mask_non_cicloni = df_videos.label == 0
@@ -492,6 +491,24 @@ def select_period_and_balance(df, output_dir=None):
         create_and_save_tile_from_complete_df(df_cicloni, output_dir)
 
     return pd.concat([df_cicloni, df_0_balanced])
+
+
+def create_df_video_from_master_df(df_data, idxs=None, output_dir=None):
+    gruppi_date_list = get_gruppi_date(df_data)
+    if idxs is None:
+        idxs = range(len(gruppi_date_list))
+
+    df_videos = []
+    for i, df in enumerate(gruppi_date_list):
+        if i in idxs:
+            df_for_period = balance_time_group(df, output_dir)
+
+            start_time = df_for_period.start_time.iloc[0]
+            end_time = df_for_period.end_time.iloc[0]
+            print(f"{len(df_for_period)} video per il periodo da {start_time} a {end_time}\n")
+            df_videos.append(df_for_period)
+    df_videos = pd.concat(df_videos)
+    return df_videos
 
 
 def create_final_df_csv(df_in, output_dir):
@@ -734,7 +751,8 @@ def make_unsup_dataset():
     gruppi_date = get_gruppi_date(df_data)
     all_videos = []
     for df in gruppi_date:
-        df_videos = create_tile_videos(df, supervised=False)
+        df_offsets_groups = group_df_by_offsets(df)
+        df_videos = create_tile_videos(df_offsets_groups, supervised=False)
         all_videos.append(df_videos)
         create_and_save_tile_from_complete_df(df_videos, unsup_output_dir)
     

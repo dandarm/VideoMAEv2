@@ -533,14 +533,14 @@ def vit_giant_patch14_224(pretrained=False, **kwargs):
     if pretrained:
         #checkpoint = torch.load(kwargs["init_ckpt"], map_location="cpu")
         #model.load_state_dict(checkpoint["state_dict"])
-        model = load_checkpoint(model, kwargs["init_ckpt"])
+        model = load_checkpoint(model, kwargs["init_ckpt"], test_mode=kwargs.get('test_mode'))
     return model
 
 
 
 import torch
 
-def load_checkpoint(model, checkpoint_path):
+def load_checkpoint(model, checkpoint_path, test_mode=False):
     """
     Carica un checkpoint e corregge i nomi dei layer se necessario.
 
@@ -572,12 +572,14 @@ def load_checkpoint(model, checkpoint_path):
         new_state_dict["head.weight"] = new_state_dict.pop("cls_head.fc_cls.weight")
         new_state_dict["head.bias"] = new_state_dict.pop("cls_head.fc_cls.bias")
         print("Rinominata 'cls_head.fc_cls' -> 'head' nel checkpoint.")
-    # ❗ Rimuoviamo la testa del modello per evitare il mismatch
-    if "head.weight" in new_state_dict:
-        del new_state_dict["head.weight"]
-    if "head.bias" in new_state_dict:
-        del new_state_dict["head.bias"]
-    print("Testa del modello rimossa dal checkpoint per evitare mismatch di numero di classi col preaddestrato.")
+
+    if not test_mode:
+            # ❗ Rimuoviamo la testa del modello per evitare il mismatch
+        if "head.weight" in new_state_dict:
+            del new_state_dict["head.weight"]
+        if "head.bias" in new_state_dict:
+            del new_state_dict["head.bias"]
+        print("Testa del modello rimossa dal checkpoint per evitare mismatch di numero di classi col preaddestrato.")
 
     # Carica i pesi nel modello
     model.load_state_dict(new_state_dict, strict=False)

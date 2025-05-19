@@ -268,8 +268,9 @@ def prepare_finetuning_args():
         'model': 'vit_giant_patch14_224',             #'vit_base_patch16_224'
         'pretrained': True,  # Abilita il caricamento del checkpoint
         'finetune': './output/checkpoint_10k.pth', #./vit_g_hybrid_pt_1200e_k710_ft.pth
-        'init_ckpt': './output/checkpoint_10k.pth',
+        'init_ckpt': './output/checkpoint-best.pth',   # checkpoint_10k
         'data_path': './',
+        'test_path': './',
         'log_dir': './output',
         'output_dir': './output',
         'data_set': 'medicanes',
@@ -292,7 +293,7 @@ def prepare_finetuning_args():
         'epochs': 250,
         'save_ckpt_freq': 100,
         'decoder_depth': 4,
-        'testing_epochs': 5,
+        'testing_epochs': 5
         #dist_eval
     }
 

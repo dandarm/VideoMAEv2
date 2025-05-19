@@ -1,6 +1,7 @@
-import numpy as np
 import os
 from PIL import Image
+import numpy as np
+import pandas as pd
 import torch
 import torchvision.transforms as transforms
 #import torchvision.transforms.functional as F
@@ -62,14 +63,6 @@ def load_frame_sequence(frame_dir, transform, num_frames=16, device="cuda"):
     return frames.unsqueeze(0).to(device)  # (1, num_frames, C, H, W)
 
 
-# Funzione per caricare il modello
-# def load_model(model_path, device='cuda'):
-#     config = VideoMAEConfig()
-#     model = VideoMAEForVideoClassification(config)
-#     model.load_state_dict(torch.load(model_path), strict=False)#, **context)
-#
-#     model.eval()
-#     return model.to(device)
 
 # Funzione per calcolare l'errore di ricostruzione (MSE e PSNR)
 def reconstruction_metrics(original, reconstructed):
@@ -82,6 +75,59 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 #pretrained_model_path = './pytorch_model.bin'  # Modello preaddestrato
 #specialized_model_path = './output_old2/checkpoint-149.pth'  # Modello addestrato
 #image_folder = './sequenced_imgs/freq-1.6_part3'  # Cartella con le immagini di test
+
+
+
+
+#region Funzioni per eseguire l'inferenza
+
+def predict_label(model, videos):    
+    with torch.no_grad():
+        logits = model(videos)  # (B, nb_classes)
+        predicted_classes = torch.argmax(logits, dim=1)  # intero con l'indice di classe
+    
+    return predicted_classes
+
+def get_path_pred_label(model, data_loader):
+    all_paths = []
+    all_labels = []
+    all_preds = []
+    for videos, labels, folder_path in data_loader:
+        videos = videos.to(device)
+        predicted_classes = predict_label(model, videos) # shape (batch, num_class)
+        labels = labels.detach().cpu().numpy()
+        pred_classes = predicted_classes.detach().cpu().numpy()
+        
+        all_labels.extend(labels)
+        all_preds.extend(pred_classes)
+        all_paths.extend(folder_path)
+
+    return all_paths, all_preds, all_labels
+
+def create_df_predictions(all_paths, all_preds, all_labels):
+    video_folder_name = pd.Series(all_paths).str.split('/').str.get(-1)
+    predictions_series = pd.Series(all_preds)
+    labels_series = pd.Series(all_labels)
+    res_df = pd.concat([video_folder_name, predictions_series, labels_series], axis=1)
+    res_df.columns = ['path', 'predictions', 'labels']
+
+    return res_df
+
+
+# se non mi servono le predizioni uso questo:
+def get_only_labels(data_loader):    
+    all_labels = []
+    all_paths = []
+    for videos, labels, folder_path in data_loader:
+        labels = labels.detach().cpu().numpy()    
+        all_labels.extend(labels)
+        all_paths.extend(folder_path)
+    
+    all_preds = [0] * len(all_labels)
+    return all_paths, all_preds, all_labels
+
+#endregion
+
 
 
 def get_dataloader(args, patch_size, get_also_dataset=False, **kwargs):
@@ -130,6 +176,8 @@ def get_dataloader(args, patch_size, get_also_dataset=False, **kwargs):
 
 def get_dataset_dataloader(args, patch_size, **kwargs):
     return get_dataloader(args, patch_size, get_also_dataset=True, **kwargs)
+
+
 
 
 def calc_metrics():

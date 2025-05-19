@@ -45,7 +45,7 @@ def build_dataset(is_train, test_mode, args):
         anno_path = os.path.join(args.data_path, 'test_supervised.csv')
     else:
         mode = 'validation'
-        anno_path = os.path.join(args.data_path, 'val_supervised.csv')
+        anno_path = os.path.join(args.data_path, 'val_supervised_oggi3.csv')
 
 
     if args.data_set == 'Kinetics-400':
