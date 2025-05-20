@@ -470,9 +470,7 @@ def get_gruppi_date(df_data):
     return gruppi_date
 
 
-def balance_time_group(df, output_dir=None):
-    df_offsets_groups = group_df_by_offsets(df)
-    df_videos = create_tile_videos(df_offsets_groups)
+def balance_time_group(df_videos, output_dir=None, seed=1):    
 
     mask_cicloni = df_videos.label == 1
     mask_non_cicloni = df_videos.label == 0
@@ -483,7 +481,7 @@ def balance_time_group(df, output_dir=None):
     print(f"Totale video tiles: {len(df_videos)}", end="\t\t")
 
     print(f"Bilanciamento video...")
-    df_0_balanced = df_non_cicloni.sample(len(df_cicloni))
+    df_0_balanced = df_non_cicloni.sample(len(df_cicloni), random_state=seed)
     print(f" video senza cicloni tenuti: {len(df_0_balanced)}")
 
     if output_dir is not None:        
@@ -493,7 +491,7 @@ def balance_time_group(df, output_dir=None):
     return pd.concat([df_cicloni, df_0_balanced])
 
 
-def create_df_video_from_master_df(df_data, idxs=None, output_dir=None):
+def create_df_video_from_master_df(df_data, idxs=None, output_dir=None, is_to_balance=False):
     gruppi_date_list = get_gruppi_date(df_data)
     if idxs is None:
         idxs = range(len(gruppi_date_list))
@@ -501,7 +499,11 @@ def create_df_video_from_master_df(df_data, idxs=None, output_dir=None):
     df_videos = []
     for i, df in enumerate(gruppi_date_list):
         if i in idxs:
-            df_for_period = balance_time_group(df, output_dir)
+            df_offsets_groups = group_df_by_offsets(df)
+            df_for_period = create_tile_videos(df_offsets_groups)
+            
+            if is_to_balance:
+                df_for_period = balance_time_group(df_for_period, output_dir)
 
             start_time = df_for_period.start_time.iloc[0]
             end_time = df_for_period.end_time.iloc[0]
