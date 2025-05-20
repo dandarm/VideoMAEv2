@@ -313,6 +313,8 @@ def display_video_clip(frames_tensors, interval=200):
         frame_np = frames_tensors[i].detach().cpu().numpy() if torch.is_tensor(frames_tensors[i]) else frames_tensors[i]
         # Assumi che sia [H, W, 3] con valori in [0,1]
         im = plt.imshow(frame_np, animated=True)
+        plt.xticks([])
+        plt.yticks([])
         ims.append([im])
 
     ani = animation.ArtistAnimation(fig, ims, interval=interval, blit=True, repeat_delay=1000)
