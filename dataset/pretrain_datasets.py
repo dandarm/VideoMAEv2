@@ -91,7 +91,7 @@ class HybridVideoMAE(torch.utils.data.Dataset):
     ----------
     root : str, required.
         Path to the root folder storing the dataset.
-    setting : str, required.
+    file_path : str, required.
         A text file describing the dataset, each line per video sample.
         There are four items in each line:
         (1) video path; (2) start_idx, (3) total frames and (4) video label.
@@ -137,7 +137,7 @@ class HybridVideoMAE(torch.utils.data.Dataset):
         Number of sampled views for Repeated Augmentation.
     """
 
-    def __init__(self, root, setting,
+    def __init__(self, root, file_path,
                  train=True,
                  test_mode=False,
                  name_pattern='img_{:05}.jpg', video_ext='mp4',
@@ -147,8 +147,8 @@ class HybridVideoMAE(torch.utils.data.Dataset):
 
         super(HybridVideoMAE, self).__init__()
         self.root = root
-        self.setting = setting
-        print(f"File di dati: {self.setting}")
+        self.file_path = file_path
+        print(f"File di dati: {self.file_path}")
         self.train = train
         self.test_mode = test_mode
         self.is_color = is_color
@@ -185,7 +185,7 @@ class HybridVideoMAE(torch.utils.data.Dataset):
         
 
         if not self.lazy_init:
-            self.clips = self._make_dataset(root, setting)
+            self.clips = self._make_dataset(root, self.file_path)
             if len(self.clips) == 0:
                 raise (RuntimeError("Found 0 video clips in subfolders of: " + root + "\n"
                                  "Check your data directory (opt.data-dir)."))
@@ -207,24 +207,14 @@ class HybridVideoMAE(torch.utils.data.Dataset):
                 duration = len(decord_vr)
 
                 segment_indices, skip_offsets = self._sample_train_indices(duration)
-                frame_id_list = self.get_frame_id_list(duration,
-                                                       segment_indices,
-                                                       skip_offsets)
+                frame_id_list = self.get_frame_id_list(duration, segment_indices, skip_offsets)
                 video_data = decord_vr.get_batch(frame_id_list).asnumpy()
                 images = [
                     Image.fromarray(video_data[vid, :, :, :]).convert('RGB')
                     for vid, _ in enumerate(frame_id_list)
                 ]
 
-            else:
-                # ssv2 & ava & other rawframe dataset
-                #if 'SomethingV2' in video_name:
-                #    self.new_step = 2
-                #    self.skip_length = self.new_length * self.new_step
-                #    fname_tmpl = self.ssv2_fname_tmpl
-                #elif 'AVA2.2' in video_name:
-                #    fname_tmpl = self.ava_fname_tmpl
-                #else:
+            else:                
                 fname_tmpl = self.name_pattern
 
                 segment_indices, skip_offsets = self._sample_train_indices(total_frame)
@@ -271,18 +261,18 @@ class HybridVideoMAE(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.clips)
 
-    def _make_dataset(self, root, setting):
-        if not os.path.exists(setting):
-            raise (RuntimeError("Setting file %s doesn't exist. " % (setting)))
+    def _make_dataset(self, root, file_path):
+        if not os.path.exists(file_path):
+            raise (RuntimeError("Data file %s doesn't exist. " % (file_path)))
 
         tile_w = 224
         tile_h = 224
 
-        df = pd.read_csv(setting)
+        df = pd.read_csv(file_path)
         df[['x_off', 'y_off']] = df['path'].str.split('_').str[-2:].apply(pd.Series).astype(int)
 
         # clips = []
-        # with open(setting) as split_f:
+        # with open(file_path) as split_f:
         #     next(split_f)  # Salta l'intestazione
         #     data = split_f.readlines()
         #     for line in data:
@@ -346,7 +336,7 @@ class VideoMAE(torch.utils.data.Dataset):
     ----------
     root : str, required.
         Path to the root folder storing the dataset.
-    setting : str, required.
+    file_path : str, required.
         A text file describing the dataset, each line per video sample.
         There are four items in each line:
         (1) video path; (2) start_idx, (3) total frames and (4) video label.
@@ -394,7 +384,7 @@ class VideoMAE(torch.utils.data.Dataset):
 
     def __init__(self,
                  root,
-                 setting,
+                 file_path,
                  train=True,
                  test_mode=False,
                  name_pattern='img_{:05}.jpg',
@@ -412,7 +402,7 @@ class VideoMAE(torch.utils.data.Dataset):
 
         super(VideoMAE, self).__init__()
         self.root = root
-        self.setting = setting
+        self.file_path = file_path
         self.train = train
         self.test_mode = test_mode
         self.is_color = is_color
@@ -433,7 +423,7 @@ class VideoMAE(torch.utils.data.Dataset):
         self.image_loader = get_image_loader()
 
         if not self.lazy_init:
-            self.clips = self._make_dataset(root, setting)
+            self.clips = self._make_dataset(root, self.file_path)
             if len(self.clips) == 0:
                 raise (
                     RuntimeError("Found 0 video clips in subfolders of: " +
@@ -502,13 +492,13 @@ class VideoMAE(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.clips)
 
-    def _make_dataset(self, root, setting):
-        if not os.path.exists(setting):
+    def _make_dataset(self, root, file_path):
+        if not os.path.exists(file_path):
             raise (RuntimeError(
-                "Setting file %s doesn't exist. Check opt.train-list and opt.val-list. "
-                % (setting)))
+                "Data file %s doesn't exist. Check opt.train-list and opt.val-list. "
+                % (file_path)))
         clips = []
-        with open(setting) as split_f:
+        with open(file_path) as split_f:
             data = split_f.readlines()
             for line in data:
                 line_info = line.split(' ')

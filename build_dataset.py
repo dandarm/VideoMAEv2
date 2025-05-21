@@ -418,7 +418,7 @@ def create_tile_videos(grouped, output_dir=None, tile_size=224, supervised=True,
 def create_and_save_tile_from_complete_df(df, output_dir, overwrite=False):
     num_video = df.shape[0]
     if num_video > 0:
-        print(f"Creazione delle folder per i {num_video} video...")
+        print(f"Creazione delle folder per i {num_video} video...", end='\t')
 
         salvati_ora = 0
         gia_salvati = 0
@@ -505,10 +505,15 @@ def create_df_video_from_master_df(df_data, idxs=None, output_dir=None, is_to_ba
             if is_to_balance:
                 df_for_period = balance_time_group(df_for_period, output_dir)
 
-            start_time = df_for_period.start_time.iloc[0]
-            end_time = df_for_period.end_time.iloc[0]
-            print(f"{len(df_for_period)} video per il periodo da {start_time} a {end_time}\n")
-            df_videos.append(df_for_period)
+            if not df_for_period.empty:
+                start_time = df_for_period.start_time.min()
+                end_time = df_for_period.end_time.max()
+                print(f"{len(df_for_period)} video per il periodo (effettivo) da {start_time} a {end_time}\n")
+                #print(f"start: {df.datetime.iloc[0]} \t end: {df.datetime.iloc[-1]}\n\n")
+                df_videos.append(df_for_period)
+            else:
+                print(f"No video present for period: {df.datetime.iloc[0]} to {df.datetime.iloc[-1]}")
+
     df_videos = pd.concat(df_videos)
     return df_videos
 
@@ -763,6 +768,14 @@ def make_unsup_dataset():
     df_dataset_csv_unsup.drop(columns='label').to_csv("./train_UNsupervised.csv", index=False)
 
 
+def make_sup_dataset():
+    input_dir = "../fromgcloud"
+    output_dir = "../airmassRGB/supervised/"  # uso la stessa cartella, poi cambierà il csv
+    #unsup_output_dir = "../airmassRGB/unsupervised/" 
+
+
+
+
 if __name__ == "__main__":
     make_unsup_dataset()
 
@@ -783,9 +796,6 @@ if __name__ == "__main__":
     print(round((end-start)/60, 2))
     df_data.to_csv("all_data.csv")
     """
-    
-    # Richiediamo gli offset dai tile (non ci serve la lista di sub-tile veri e propri)
-    #default_offsets = calc_tile_offsets()
 
 
 
