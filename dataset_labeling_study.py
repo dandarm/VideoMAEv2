@@ -1,5 +1,5 @@
 import pandas as pd
-from build_dataset import get_gruppi_date, group_df_by_offsets
+from dataset.build_dataset import get_gruppi_date, group_df_by_offsets
 
 def aggiorna_label_distanza_temporale(df, label_col='label', soglia=pd.Timedelta(minutes=30)):
     """

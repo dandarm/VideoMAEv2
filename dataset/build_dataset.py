@@ -494,11 +494,13 @@ def balance_time_group(df_videos, output_dir=None, seed=1):
 def create_df_video_from_master_df(df_data, idxs=None, output_dir=None, is_to_balance=False):
     gruppi_date_list = get_gruppi_date(df_data)
     if idxs is None:
-        idxs = range(len(gruppi_date_list))
+        idxs = range(1, len(gruppi_date_list)+1)
 
     df_videos = []
-    for i, df in enumerate(gruppi_date_list):
+    i = 1
+    for df in gruppi_date_list:
         if i in idxs:
+            print(f"{i})  ->")
             df_offsets_groups = group_df_by_offsets(df)
             df_for_period = create_tile_videos(df_offsets_groups)
             
@@ -513,6 +515,7 @@ def create_df_video_from_master_df(df_data, idxs=None, output_dir=None, is_to_ba
                 df_videos.append(df_for_period)
             else:
                 print(f"No video present for period: {df.datetime.iloc[0]} to {df.datetime.iloc[-1]}")
+        i += 1
 
     df_videos = pd.concat(df_videos)
     return df_videos
@@ -772,6 +775,25 @@ def make_sup_dataset():
     input_dir = "../fromgcloud"
     output_dir = "../airmassRGB/supervised/"  # uso la stessa cartella, poi cambierà il csv
     #unsup_output_dir = "../airmassRGB/unsupervised/" 
+
+    from data_manager import BuildDataset
+
+    #### TRAIN
+    sup_data_train = BuildDataset(type='SUPERVISED', master_df_path="all_data_full_tiles.csv")
+    sup_data_train.load_master_df()
+    sup_data_train.get_sequential_periods()
+    sup_data_train.print_sequential_periods()
+
+    sup_data_train.make_df_video(output_dir, idxs=[1,2,3,4,5,6,7,8], is_to_balance=True)
+    print(sup_data_train.df_video.label.sum(), sup_data_train.df_video.shape[0])
+    sup_data_train.create_final_df_csv(output_dir, "train_dataset_1954.csv")
+
+    #### TEST
+    sup_data_test = BuildDataset(type='SUPERVISED', master_df_path="all_data_full_tiles.csv")
+    sup_data_test.load_master_df()
+    sup_data_test.make_df_video(output_dir, idxs=[9], is_to_balance=True)
+    print(sup_data_test.df_video.label.sum(), sup_data_test.df_video.shape[0],)
+    sup_data_test.create_final_df_csv(output_dir, "test_dataset_2802.csv")
 
 
 
