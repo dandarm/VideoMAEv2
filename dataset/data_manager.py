@@ -53,7 +53,7 @@ class DataManager():
 
 
 
-from build_dataset import create_df_video_from_master_df, get_gruppi_date, create_final_df_csv
+from dataset.build_dataset import create_df_video_from_master_df, get_gruppi_date, create_final_df_csv
 
 
 class BuildDataset():
@@ -92,10 +92,10 @@ class BuildDataset():
         self.master_df.drop(columns="Unnamed: 0", inplace=True)
 
 
-    def make_df_video(self, output_dir=None, is_to_balance=False):
+    def make_df_video(self, output_dir=None, idxs=None, is_to_balance=False):
         if self.master_df is None:
             self.load_master_df()
-        self.df_video = create_df_video_from_master_df(self.master_df, output_dir=output_dir, is_to_balance=is_to_balance)
+        self.df_video = create_df_video_from_master_df(self.master_df, idxs=idxs, output_dir=output_dir, is_to_balance=is_to_balance)
 
     def get_sequential_periods(self):
         gruppi_date = get_gruppi_date(self.master_df)
