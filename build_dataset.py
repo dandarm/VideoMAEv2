@@ -212,6 +212,7 @@ def create_df_unlabeled_tiles_from_metadatafiles(sorted_metadata_files, offsets_
                     })
             
     res =  pd.DataFrame(updated_metadata)
+    print(res)
     res = res.astype({
         "path": 'string',
         "datetime": 'datetime64[ns]',
@@ -395,12 +396,15 @@ def create_tile_videos(df, output_dir=None, tile_size=224, supervised=True):
 
 
 def create_and_save_tile_from_complete_df(df, output_dir, overwrite=False):
+    i = 0
     for idx, row in df.iterrows():
         # crea la cartella di destinazione
         path_name = row.path
         subfolder = Path(output_dir) / path_name
         subfolder.mkdir(parents=True, exist_ok=True)
-
+        if i% 100 == 0:
+            print(f"Salvate {i} cartelle video")
+        i += 1
         offset_x, offset_y = row.tile_offset_x, row.tile_offset_y
         for k, orig_p in enumerate(row.orig_paths):
             new_name = subfolder / f"img_{k+1:05d}.png"
@@ -649,10 +653,18 @@ def main():
 
 
 def make_unsup_dataset():
+    import os 
 
-    input_dir = "../fromgcloud"
-    output_dir = "../airmassRGB/supervised/" 
-    unsup_output_dir = "../airmassRGB/unsupervised/" 
+    input_dir = "$FAST/Medicanes_Data/from_gcloud"
+    input_dir = os.path.expandvars(input_dir)
+    output_dir = "$FAST/airmass/" 
+    #undir = "$FAST/Medicanes_Data/airmassRGB/unsupervised/" 
+    output_dir = os.path.expandvars(output_dir)
+
+    sorted_metadata_files = load_all_images(input_dir)
+    offsets = calc_tile_offsets(stride_x=213, stride_y=196)
+    df_data_unsup = create_df_unlabeled_tiles_from_metadatafiles(sorted_metadata_files, offsets)
+    df_data_unsup.to_csv("all_data_unsup.csv")
 
     nome_file = "all_data_unsup.csv"
     df_data = pd.read_csv(nome_file, dtype={
@@ -661,16 +673,23 @@ def make_unsup_dataset():
             "tile_offset_y": 'int16',
         }, parse_dates=['datetime'])
     df_data.drop(columns="Unnamed: 0", inplace=True)
-
+    print(f"DataFrame totale: {len(df_data)} righe")
     #df_data = df_data[:1000]
 
     gruppi_date = get_gruppi_date(df_data)
+
+    all_videos = []
     for df in gruppi_date:
         df_videos = create_tile_videos(df, supervised=False)
-        create_and_save_tile_from_complete_df(df_videos, unsup_output_dir)
-    
-    df_dataset_csv_unsup = create_final_df_csv(df_videos, unsup_output_dir)
-    df_dataset_csv_unsup.drop(columns='label').to_csv("./train_UNsupervised.csv", index=False)
+        all_videos.append(df_videos)
+        print(f"creati {len(df_videos)} video")
+        create_and_save_tile_from_complete_df(df_videos, output_dir)
+        
+    print("Salviamo il csv finale...")
+    all_df_videos = pd.concat(all_videos)
+    num_vid = len(all_df_videos)
+    df_dataset_csv_unsup = create_final_df_csv(all_df_videos, output_dir)
+    df_dataset_csv_unsup.drop(columns='label').to_csv(f"./train_{num_vid}_UNsupervised.csv", index=False)
 
 
 if __name__ == "__main__":

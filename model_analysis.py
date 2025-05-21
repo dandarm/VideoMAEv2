@@ -104,23 +104,27 @@ def get_dataloader(args, patch_size, get_also_dataset=False, **kwargs):
     num_tasks = utils.get_world_size()
     global_rank = utils.get_rank()
     sampler_rank = global_rank
-    #sampler = torch.utils.data.DistributedSampler(
-    #    dataset_test, num_replicas=num_tasks, rank=sampler_rank, shuffle=True)
-    #print("Sampler_train = %s" % str(sampler))
-
+    
     dataset = build_pretraining_dataset(args, train=train)
+
+    sampler = torch.utils.data.DistributedSampler(
+        dataset, num_replicas=num_tasks, rank=sampler_rank, shuffle=True, drop_last=True)
+
+    print("Sampler_train = %s" % str(sampler))
+
 
     print(f"Batch_size: {args.batch_size}")
     data_loader = DataLoader(dataset,
         batch_size=args.batch_size,
         shuffle=False,
-        num_workers=24,
+        num_workers=args.num_workers,
         pin_memory=True,
         drop_last=True,
         collate_fn=collate_func,
         worker_init_fn=utils.seed_worker,
-        persistent_workers=True
-    )#sampler=sampler,
+        persistent_workers=True,
+        sampler=sampler
+        )
     if not get_also_dataset:
         return data_loader
     else:

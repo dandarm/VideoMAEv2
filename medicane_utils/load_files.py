@@ -64,6 +64,7 @@ def load_cyclones_track_noheader(path_tracks):
 def get_files_from_folder(folder, extension):
     folder = Path(folder)
     files = list(folder.rglob(f"*.{extension}"))
+    print(f"vedo {len(files)} files.")
     return files
     
 def extract_dates_pattern_airmass_rgb_20200101_0000(filename):

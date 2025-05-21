@@ -2,6 +2,7 @@ import os
 import random
 
 import numpy as np
+import pandas as pd
 import torch
 from PIL import Image
 from torchvision import transforms
@@ -190,7 +191,14 @@ class HybridVideoMAE(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         try:
-            video_name, start_idx, total_frame, x_off, y_off = self.clips[index]
+            #video_name, start_idx, total_frame, x_off, y_off = self.clips[index]
+            row = self.clips.iloc[index]
+            video_name = row['path']
+            start_idx = row['start']
+            total_frame = row['end']
+            x_off, y_off = row['x_off'], row['y_off']            
+            
+            
             self.skip_length = self.orig_skip_length
             self.new_step = self.orig_new_step
             
@@ -266,6 +274,11 @@ class HybridVideoMAE(torch.utils.data.Dataset):
     def _make_dataset(self, root, setting):
         if not os.path.exists(setting):
             raise (RuntimeError("Setting file %s doesn't exist. " % (setting)))
+
+        print(f"File di origine {setting}")
+        df = pd.read_csv(setting)
+        df[['x_off', 'y_off']] = df['path'].str.split('_').str[-2:].apply(pd.Series).astype(int)
+        return df
 
         tile_w = 224
         tile_h = 224
