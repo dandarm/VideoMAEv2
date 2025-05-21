@@ -98,12 +98,13 @@ def prepare_args():
         'eval': False,
         'validation': False,
         'dist_eval': False,
-        'num_workers': 20,
+        'num_workers': 10,
         'pin_mem': True,
         'world_size': 1,
         'local_rank': -1,
         'dist_on_itp': False,
         'dist_url': 'env://',
+        'dist_backend': 'nccl',
         'enable_deepspeed': False,
         ### solo per pretraining,
         'normlize_target': True
@@ -114,7 +115,8 @@ def prepare_args():
         'pretrained': True,  # Abilita il caricamento del checkpoint
         'finetune': './vit_g_hybrid_pt_1200e.pth',
         'init_ckpt': './vit_g_hybrid_pt_1200e.pth',
-        'data_path': './train_UNsupervised.csv',
+        'data_path': './UNtrain.csv',   #train_UNsupervised.csv',
+        'test_path': './UNtest.csv',
         'log_dir': './output',
         'output_dir': './output',
         'data_set': 'medicanes',
@@ -122,19 +124,18 @@ def prepare_args():
         'mask_ratio': 0.75,
         'decoder_mask_type': 'run_cell',
         'decoder_mask_ratio': 0.5,
-        'batch_size': 32,
-        'num_sample': 1,
+        'batch_size': 6,
         'num_frames': 16,
         'sampling_rate': 1,  # voglio tutti i frame temporali
-        'num_workers': 10,
+        'num_workers': 1,
         'opt': 'adamw',
         'lr': 1e-3,
         'opt_betas': [0.9, 0.95],
-        'warmup_epochs': 15,
+        'warmup_epochs': 0,
         'epochs': 150,
         'save_ckpt_freq': 20,
         'decoder_depth': 4,
-        'testing_epochs': 3
+        'testing_epochs': 5
     }
     # user_args = {
     #     'model': 'vit_base_patch16_224',
@@ -288,10 +289,10 @@ def prepare_finetuning_args():
         'lr': 1e-3,
         'opt_betas': [0.9, 0.95],
         'warmup_epochs': 10,
-        'epochs': 350,
-        'save_ckpt_freq': 100,
+        'epochs': 500,
+        'save_ckpt_freq': 50,
         'decoder_depth': 4,
-        'testing_epochs': 3,
+        'testing_epochs': 5,
         'VAL_FREQ': 5
         #dist_eval
     }

@@ -17,6 +17,16 @@ from pathlib import Path
 
 import numpy as np
 import torch
+import torch._dynamo as dynamo
+try:
+    from triton.runtime.jit import get_cuda_stream
+except ImportError:
+    # nuova API: usiamo lo stream di Torch
+    import torch
+    def get_cuda_stream(device=None):
+        # restituisce lo stream CUDA nativo
+        return torch.cuda.current_stream(device).cuda_stream
+
 import torch.backends.cudnn as cudnn
 from packaging import version
 from timm.models import create_model
@@ -266,9 +276,10 @@ def get_model(args):
         checkpoint_path=None,  # devo mettere a None perché factory non gestisce un checkpoint con chiave 'model'
         **args.__dict__)
 
+    dynamo.config.optimize_ddp = False
     if version.parse(torch.__version__) > version.parse('1.13.1'):
         torch.set_float32_matmul_precision('high')
-        model = torch.compile(model)
+        model = torch.compile(model, backend='eager')        # backend="inductor", mode="reduce-overhead")
 
     return model
 

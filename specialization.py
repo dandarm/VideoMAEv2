@@ -6,6 +6,7 @@ from PIL import Image
 import json
 import torch
 import torch.nn.functional as F
+import torch.distributed as dist
 
 from utils import multiple_pretrain_samples_collate
 from functools import partial
@@ -13,6 +14,7 @@ from functools import partial
 import utils
 from utils import NativeScalerWithGradNormCount as NativeScaler
 from utils import multiple_pretrain_samples_collate
+from utils import setup_for_distributed
 from optim_factory import create_optimizer
 from dataset import build_pretraining_dataset
 from run_mae_pretraining import get_model
@@ -24,23 +26,47 @@ from model_analysis import get_dataloader, get_dataset_dataloader
 
 def launch_specialization_training():
     args = prepare_args()
-    device = torch.device(args.device)
+
+    #utils.init_distributed_mode(args)
+    #utils.init_dist(args)
+    rank, local_rank, world_size, local_size, num_workers = utils.get_resources()
+    print(f"rank, local_rank, world_size, local_size, num_workers: {rank, local_rank, world_size, local_size, num_workers}")
+
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)    
+    torch.cuda.set_device(local_rank)
+
+    args.distributed = True
+    args.gpu = local_rank
+    args.world_size = world_size
+    args.rank = rank
+    
+    device = torch.device(f"cuda:{local_rank}")
+    print(device)
+    #print(f"[rank {dist.get_rank()}] running on {torch.cuda.current_device()}")
 
     # LOAD MODEL
     pretrained_model = get_model(args)
     pretrained_model.to(device)
+    
+    #print(f"[{time.strftime('%H:%M:%S')}] [rank {rank}] dopo del loading modello")
     model_without_ddp = pretrained_model
     n_parameters = sum(p.numel() for p in pretrained_model.parameters() if p.requires_grad)
     #print("Model = %s" % str(model_without_ddp))
-    print('number of params: {} M'.format(n_parameters / 1e6))
+    #print('number of params: {} M'.format(n_parameters / 1e6))
+    if args.distributed:
+        pretrained_model = torch.nn.parallel.DistributedDataParallel(
+             pretrained_model, device_ids=[args.gpu],output_device=args.gpu, find_unused_parameters=False)
+        model_without_ddp = pretrained_model.module
 
+    #print(f"[{time.strftime('%H:%M:%S')}] [rank {rank}] prima del loading dataset")
     # LOAD DATASET
-    patch_size = pretrained_model.encoder.patch_embed.patch_size
+    patch_size = model_without_ddp.encoder.patch_embed.patch_size
     data_loader_train, dataset_train = get_dataset_dataloader(args, patch_size)
-    args.data_path = './test.csv'
+
+    args.data_path = args.test_path  #'./test_UN_short.csv'
     data_loader_test = get_dataloader(args, patch_size)
 
-
+    #print(f"[{time.strftime('%H:%M:%S')}] [rank {rank}] dopo del loading dataset")
     # SET HYPER PARAMETERS
     num_tasks = utils.get_world_size()
     total_batch_size = args.batch_size * num_tasks
@@ -54,11 +80,7 @@ def launch_specialization_training():
     print("Number of training steps = %d" % num_training_steps_per_epoch)
     print("Number of training examples per epoch = %d" %
           (total_batch_size * num_training_steps_per_epoch))
-    # if args.distributed:
-    #     model = torch.nn.parallel.DistributedDataParallel(
-    #         pretrained_model, device_ids=[args.gpu], find_unused_parameters=False)
-    #     model_without_ddp = model.module
-
+    
     optimizer = create_optimizer(args, model_without_ddp)
     loss_scaler = NativeScaler()
 
@@ -73,6 +95,7 @@ def launch_specialization_training():
     )
     if args.weight_decay_end is None:
         args.weight_decay_end = args.weight_decay
+    print(f"lr_schedule_values: {lr_schedule_values}")
     wd_schedule_values = utils.cosine_scheduler(args.weight_decay,
                                                 args.weight_decay_end,
                                                 args.epochs,
@@ -95,6 +118,8 @@ def launch_specialization_training():
         log_writer = utils.TensorboardLogger(log_dir=args.log_dir)
     else:
         log_writer = None
+
+    setup_for_distributed(rank == 0)
 
     ############################################
     ########################### START TRAINING #
@@ -133,7 +158,7 @@ def launch_specialization_training():
 
         log_stats = {
             **{f'train_{k}': v for k, v in train_stats.items()}, 'epoch': epoch,
-            'n_parameters': n_parameters
+            #'n_parameters': n_parameters
         }
 
         if args.output_dir and utils.is_main_process():
@@ -145,11 +170,13 @@ def launch_specialization_training():
         if epoch % args.testing_epochs == 0:
             test_stats = test(pretrained_model, data_loader_test, device, epoch,
                         patch_size=patch_size[0], normlize_target=args.normlize_target, log_writer=log_writer)
-            test_log_stats = {**{f'test_{k}': v for k, v in test_stats.items()}, 'epoch': epoch, 'n_parameters': n_parameters}
-            if log_writer is not None:
-                log_writer.flush()
-            with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
-                f.write(json.dumps(test_log_stats) + "\n")
+            test_log_stats = {**{f'test_{k}': v for k, v in test_stats.items()}, 'epoch': epoch}  # , 'n_parameters': n_parameters}
+
+            if args.output_dir and utils.is_main_process():
+                if log_writer is not None:
+                    log_writer.flush()
+                with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
+                    f.write(json.dumps(test_log_stats) + "\n")
 
 
 
