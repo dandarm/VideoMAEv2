@@ -6,8 +6,9 @@ import random
 import json
 import torch
 import torch.nn.functional as F
+import torch.distributed as dist
 
-from utils import multiple_pretrain_samples_collate
+from utils import multiple_pretrain_samples_collate, setup_for_distributed
 from functools import partial
 
 import utils
@@ -33,12 +34,29 @@ warnings.filterwarnings('ignore')
 def launch_finetuning_classification():
     args = prepare_finetuning_args()
 
-    device = torch.device(args.device)
+    #device = torch.device(args.device)
     seed = args.seed
     torch.manual_seed(seed)
     np.random.seed(seed)
     random.seed(seed)
     cudnn.benchmark = True
+
+
+    # training distribuito
+    rank, local_rank, world_size, local_size, num_workers = utils.get_resources()
+    print(f"rank, local_rank, world_size, local_size, num_workers: {rank, local_rank, world_size, local_size, num_workers}")
+
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)    
+    torch.cuda.set_device(local_rank)
+
+    args.distributed = True
+    args.gpu = local_rank
+    args.world_size = world_size
+    args.rank = rank
+    
+    device = torch.device(f"cuda:{local_rank}")
+    print(device)
+    
 
     #print("=============== ARGS ===============")
     # Se vuoi stampare i parametri
@@ -86,8 +104,9 @@ def launch_finetuning_classification():
     # build model
     # -------------------------------------------
     print(f"Creating model: {args.model} (nb_classes={args.nb_classes})")
-    model = create_model(
+    pretrained_model = create_model(
         args.model,
+        pretrained=True,
         num_classes=args.nb_classes,
         drop_rate=0.0,
         drop_path_rate=args.drop_path,
@@ -111,12 +130,20 @@ def launch_finetuning_classification():
     # else:
     #     print("[WARN] No pretrained weights loaded (args.finetune non trovato)")
 
-    model.to(device)
-    n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print("number of params:", n_parameters)
+    pretrained_model.to(device)
+    model_without_ddp = pretrained_model
+    n_parameters = sum(p.numel() for p in pretrained_model.parameters() if p.requires_grad)
+    #print("number of params:", n_parameters)
+
+    if args.distributed:
+        pretrained_model = torch.nn.parallel.DistributedDataParallel(
+            pretrained_model, device_ids=[args.gpu], output_device=args.gpu, 
+            find_unused_parameters=False)
+        model_without_ddp = pretrained_model.module
+
 
     # costruiamo l’optimizer
-    optimizer = create_optimizer(args, model)
+    optimizer = create_optimizer(args, model_without_ddp)
     loss_scaler = NativeScaler()  # per amp
 
     # scheduler lr e wd
@@ -164,9 +191,20 @@ def launch_finetuning_classification():
         )
         print("[INFO] Mixup is activated")
 
+
+    utils.auto_load_model(
+        args=args,
+        model=pretrained_model,
+        model_without_ddp=model_without_ddp,
+        optimizer=optimizer,
+        loss_scaler=loss_scaler)
+    torch.cuda.empty_cache()
+
     # logging
     if args.log_dir and not os.path.exists(args.log_dir):
         os.makedirs(args.log_dir)
+
+    setup_for_distributed(rank == 0)
 
     max_accuracy = 0.0
     start_time = time.time()
@@ -175,7 +213,7 @@ def launch_finetuning_classification():
     for epoch in range(args.start_epoch, args.epochs):
         # TRAIN
         train_stats = train_one_epoch(
-            model=model,
+            model=pretrained_model,
             criterion=criterion,
             data_loader=data_loader_train,
             optimizer=optimizer,
@@ -208,7 +246,7 @@ def launch_finetuning_classification():
         # VAL
         val_stats = {}
         if (epoch + 1) % args.testing_epochs == 0:
-            val_stats = validation_one_epoch(data_loader_val, model, device)
+            val_stats = validation_one_epoch(data_loader_val, pretrained_model, device)
             print(f"[EPOCH {epoch + 1}] val acc1: {val_stats['acc1']:.2f}%")
             if val_stats["acc1"] > max_accuracy:
                 max_accuracy = val_stats["acc1"]
@@ -216,7 +254,7 @@ def launch_finetuning_classification():
                 # se vuoi salvare un "best" checkpoint
                 best_ckpt_path = os.path.join(args.output_dir, "checkpoint-best.pth")
                 torch.save({
-                    "model": model.state_dict(),
+                    "model": model_without_ddp.state_dict(),
                     "optimizer": optimizer.state_dict(),
                     "epoch": epoch,
                     "scaler": loss_scaler.state_dict(),

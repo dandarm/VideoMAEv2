@@ -7,6 +7,8 @@
 # --------------------------------------------------------'
 import math
 import os
+os.environ["INDUCTOR_DISABLE_CUDAGRAPHS"] = "1"
+
 import sys
 from multiprocessing import Pool
 from typing import Iterable, Optional

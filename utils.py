@@ -327,10 +327,109 @@ def init_distributed_mode(args):
         init_method=args.dist_url,
         world_size=args.world_size,
         rank=args.rank)
+    rank = dist.get_rank()
+    print(f"[{time.strftime('%H:%M:%S')}] [rank {rank}] after init_process_group, before barrier!")
     torch.cuda.empty_cache()
     torch.distributed.barrier()
+    print(f"[{time.strftime('%H:%M:%S')}] [rank {rank}] after barrier!")
+
     assert torch.distributed.is_initialized()
     setup_for_distributed(args.rank == 0)
+
+
+def init_dist(args):
+    node_list = os.environ['SLURM_NODELIST']
+    rank = os.environ['RANK']
+    SLURM_PROCID = int(os.environ['SLURM_PROCID'])
+    LOCAL_RANK = int(os.environ["LOCAL_RANK"])
+    SLURM_LOCALID = int(os.environ["SLURM_LOCALID"])
+    SLURM_NTASKS = int(os.environ['SLURM_NTASKS'])    
+    world_size = SLURM_NTASKS
+    master_addr = os.environ['MASTER_ADDR']
+    master_port = os.environ['MASTER_PORT']
+    
+    # localid o procid dicono l’indice del processo sul nodo, da 0 a NTASKS−1.
+    # SLURM_NTASKS è uguale a --ntasks
+    print(f"SLURM_PROCID: {SLURM_PROCID} - SLURM_LOCALID: {SLURM_LOCALID} - LOCAL_RANK: {LOCAL_RANK} - RANK: {rank} - SLURM_NTASKS: {SLURM_NTASKS} - world_size: {world_size}")
+    print(f"MASTER_ADDR: {master_addr} - MASTER_PORT: {master_port}")
+
+    #comando = f'scontrol show hostname {node_list} | head -n1'
+    #print(comando)
+    #addr = subprocess.getoutput(comando)
+    #print(f"address: {addr}")
+    #if 'MASTER_ADDR' not in os.environ:
+    #    os.environ['MASTER_ADDR'] = addr
+    # aggiunta - altrimenti generava errore
+    
+
+    torch.cuda.set_device(LOCAL_RANK)
+
+    print(f"before init_process_group")
+    torch.distributed.init_process_group(
+        backend=args.dist_backend,
+        init_method=args.dist_url)
+        #world_size=world_size,
+        #rank=rank)
+    print(f"after init_process_group")
+
+    rank       = dist.get_rank()
+    world_size = dist.get_world_size()
+    print(f"world size: {world_size}")
+    print(f"[rank {rank}] running on GPU (LOCAL_RANK) {LOCAL_RANK} - (SLURM_LOCALID:{SLURM_LOCALID}) - SLURM_PROCID:{SLURM_PROCID}")
+
+    
+
+    torch.cuda.empty_cache()
+    print("prima di barrier")
+    torch.distributed.barrier()
+    print("dopo di barrier")
+
+    args.distributed = True
+    args.gpu = LOCAL_RANK
+    args.world_size = world_size
+    args.rank = rank
+
+
+
+def get_resources():
+
+    rank = 0
+    local_rank = 0
+    world_size = 1
+
+    if os.environ.get("RANK"):
+        # launched with torchrun (python -m torch.distributed.run)
+        rank = int(os.getenv("RANK"))
+        local_rank = int(os.getenv("LOCAL_RANK"))
+        world_size = int(os.getenv("WORLD_SIZE"))
+        local_size = int(os.getenv("LOCAL_WORLD_SIZE"))
+        if rank == 0:
+            print("launch with torchrun")
+
+    elif os.environ.get("OMPI_COMMAND"):
+        # launched with mpirun
+        rank = int(os.environ["OMPI_COMM_WORLD_RANK"])
+        local_rank = int(os.environ["OMPI_COMM_WORLD_LOCAL_RANK"])
+        world_size = int(os.environ["OMPI_COMM_WORLD_SIZE"])
+        local_size = int(os.environ["OMPI_COMM_WORLD_LOCAL_SIZE"])
+        if rank == 0:
+            print("launch with mpirun")
+
+    else:
+        # launched with srun (SLURM)
+        rank = int(os.environ["SLURM_PROCID"])
+        local_rank = int(os.environ["SLURM_LOCALID"])
+        world_size = int(os.environ["SLURM_NPROCS"])
+        local_size = int(os.environ["SLURM_NTASKS_PER_NODE"])
+        if rank == 0:
+           print("launch with srun")
+
+    num_workers = int(os.environ["SLURM_CPUS_PER_TASK"])
+
+    return rank, local_rank, world_size, local_size, num_workers
+
+
+
 
 
 def load_state_dict(model,

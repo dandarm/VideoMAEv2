@@ -165,3 +165,5 @@ airmass*
 run_classification.sh
 log_train*
 nohup.out
+myJob*
+slurm*

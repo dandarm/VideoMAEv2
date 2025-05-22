@@ -19,11 +19,22 @@ from pathlib import Path
 import deepspeed
 import numpy as np
 import torch
+
+import torch._dynamo as dynamo
+try:
+    from triton.runtime.jit import get_cuda_stream
+except ImportError:
+    # nuova API: usiamo lo stream di Torch
+    def get_cuda_stream(device=None):
+        # restituisce lo stream CUDA nativo
+        return torch.cuda.current_stream(device).cuda_stream
+
 import torch.backends.cudnn as cudnn
 from timm.data.mixup import Mixup
 from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
 from timm.models import create_model
 from timm.utils import ModelEma
+from packaging import version
 
 # NOTE: Do not comment `import models`, it is used to register models
 import models  # noqa: F401
@@ -528,6 +539,15 @@ def main(args, ds_init):
         init_scale=args.init_scale,
         with_cp=args.with_checkpoint,
     )
+
+    # questa riga è necessaria per evitare un errore di pytorch (issue 104674)
+    dynamo.config.optimize_ddp = False
+
+    # l'ho ricopiata da run mae pretraining, prima non c'era in finteuning
+    if version.parse(torch.__version__) > version.parse('1.13.1'):
+        torch.set_float32_matmul_precision('high')
+        model = torch.compile(model, backend='eager')  
+
 
     patch_size = model.patch_embed.patch_size
     print("Patch size = %s" % str(patch_size))

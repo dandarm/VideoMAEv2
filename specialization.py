@@ -13,7 +13,7 @@ from functools import partial
 
 import utils
 from utils import NativeScalerWithGradNormCount as NativeScaler
-from utils import multiple_pretrain_samples_collate
+from utils import multiple_pretrain_samples_collate, setup_for_distributed
 from optim_factory import create_optimizer
 #from dataset import build_pretraining_dataset
 from run_mae_pretraining import get_model
@@ -25,18 +25,33 @@ from model_analysis import get_dataloader, get_dataset_dataloader
 
 def launch_specialization_training():
     args = prepare_args()
-    device = torch.device(args.device)
+    
 
-    utils.init_distributed_mode(args)
+    #utils.init_distributed_mode(args)
     #local_rank = int(os.environ["LOCAL_RANK"])
     #torch.cuda.set_device(local_rank)
     #device = torch.device(f"cuda:{local_rank}")
     #print(device)
     #print(f"[rank {dist.get_rank()}] running on {torch.cuda.current_device()}")
 
+    rank, local_rank, world_size, local_size, num_workers = utils.get_resources()
+    print(f"rank, local_rank, world_size, local_size, num_workers: {rank, local_rank, world_size, local_size, num_workers}")
+
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)    
+    torch.cuda.set_device(local_rank)
+
+    args.distributed = True
+    args.gpu = local_rank
+    args.world_size = world_size
+    args.rank = rank
+    
+    device = torch.device(f"cuda:{local_rank}")
+    print(device)
+
 
     # LOAD MODEL
     pretrained_model = get_model(args)
+
     # LOAD checkpoint
     #pretrained_model = None
     #if args.finetune:
@@ -47,12 +62,15 @@ def launch_specialization_training():
     model_without_ddp = pretrained_model
     n_parameters = sum(p.numel() for p in pretrained_model.parameters() if p.requires_grad)
     #print("Model = %s" % str(model_without_ddp))
-    print('number of params: {} M'.format(n_parameters / 1e6))
+    #print('number of params: {} M'.format(n_parameters / 1e6))
 
     if args.distributed:
         pretrained_model = torch.nn.parallel.DistributedDataParallel(
-        pretrained_model, device_ids=[args.gpu], find_unused_parameters=False)
+            pretrained_model, device_ids=[args.gpu], output_device=args.gpu, 
+            find_unused_parameters=False)
         model_without_ddp = pretrained_model.module
+
+
 
     # LOAD DATASET
     patch_size = model_without_ddp.encoder.patch_embed.patch_size
@@ -113,6 +131,9 @@ def launch_specialization_training():
         log_writer = utils.TensorboardLogger(log_dir=args.log_dir)
     else:
         log_writer = None
+
+    
+    setup_for_distributed(rank == 0)
 
     ############################################
     ########################### START TRAINING #

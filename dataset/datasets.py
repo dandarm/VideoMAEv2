@@ -650,7 +650,7 @@ class MedicanesClsDataset(Dataset):
         return len(self.df)
 
     def __getitem__(self, idx):
-        print(f"INDICE: {idx}")
+        #print(f"INDICE: {idx}")
         row = self.df.iloc[idx]
         folder_path = row['path']
         label = int(row['label'])

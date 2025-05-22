@@ -17,8 +17,20 @@ from pathlib import Path
 
 import numpy as np
 import torch
+
+import torch._dynamo as dynamo
+try:
+    from triton.runtime.jit import get_cuda_stream
+except ImportError:
+    # nuova API: usiamo lo stream di Torch
+    def get_cuda_stream(device=None):
+        # restituisce lo stream CUDA nativo
+        return torch.cuda.current_stream(device).cuda_stream
+
+
+
 import torch.backends.cudnn as cudnn
-#import torch._dynamo as dynamo
+
 from packaging import version
 from timm.models import create_model
 
@@ -257,7 +269,7 @@ def get_model(args):
     print(f"Creating model: {args.model}")
     model = create_model(
         args.model,
-        #pretrained=True,
+        pretrained=True,
         drop_path_rate=args.drop_path,
         drop_block_rate=None,
         all_frames=args.num_frames,
@@ -268,11 +280,11 @@ def get_model(args):
         **args.__dict__)
 
     # questa riga è necessaria per evitare un errore di pytorch (issue 104674)
-    #dynamo.config.optimize_ddp = False
+    dynamo.config.optimize_ddp = False
 
     if version.parse(torch.__version__) > version.parse('1.13.1'):
         torch.set_float32_matmul_precision('high')
-        model = torch.compile(model)
+        model = torch.compile(model, backend='eager')  # introdotto eager per risolvere un bug con il grafo computazoionale
 
     return model
 

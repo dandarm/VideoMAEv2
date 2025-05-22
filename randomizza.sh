@@ -7,11 +7,11 @@ if [ $# -ne 1 ]; then
 fi
 
 INPUT="$1"
-N=30  # <-- Qui puoi impostare il numero di righe da estrarre a caso
+N=70000  # <-- Qui puoi impostare il numero di righe da estrarre a caso
 
 # Crea nomi per gli output
-OUTPUT1="train.csv"
-OUTPUT2="test.csv"
+OUTPUT1="UNtrain.csv"
+OUTPUT2="UNtest.csv"
 TEMP="shuffled.txt"
 
 # Controlla che il file esista
