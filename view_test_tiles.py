@@ -30,7 +30,7 @@ from arguments import prepare_finetuning_args, Args  # NON TOGLIERE: serve a tor
 
 # from engine_for_finetuning import train_one_epoch, validation_one_epoch, final_test
 # from optim_factory import create_optimizer
-import models # NECESSARIO ALTRIMENTI NON CARICA IL MODELLO (? è come Args? )
+import models # NECESSARIO ALTRIMENTI NON CARICA IL MODELLO 
 from timm.models import create_model
 # from timm.data.mixup import Mixup
 # from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy

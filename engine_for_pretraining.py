@@ -15,6 +15,9 @@ from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 
 import utils
 
+import os
+os.environ["INDUCTOR_DISABLE_CUDAGRAPHS"] = "1"
+
 
 def train_one_epoch(model: torch.nn.Module,
                     data_loader: Iterable,
@@ -222,7 +225,7 @@ def test(model: torch.nn.Module,
             print("Loss is {}, stopping training".format(loss_value))
             sys.exit(2)
 
-        torch.cuda.synchronize()
+        #torch.cuda.synchronize()   mi sembra che questo non è indispensabile
 
         metric_logger.update(loss=loss_value)
         if log_writer is not None:
@@ -233,6 +236,6 @@ def test(model: torch.nn.Module,
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)
 
-    torch.cuda.empty_cache()
+    #torch.cuda.empty_cache()  # TODO: serve o no?
 
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}

@@ -98,12 +98,13 @@ def prepare_args():
         'eval': False,
         'validation': False,
         'dist_eval': False,
-        'num_workers': 20,
+        'num_workers': 10,
         'pin_mem': True,
         'world_size': 1,
         'local_rank': -1,
         'dist_on_itp': False,
         'dist_url': 'env://',
+        'dist_backend': 'nccl',
         'enable_deepspeed': False,
         ### solo per pretraining,
         'normlize_target': True
@@ -114,8 +115,8 @@ def prepare_args():
         'pretrained': True,  # Abilita il caricamento del checkpoint
         'finetune': './vit_g_hybrid_pt_1200e.pth',
         'init_ckpt': './vit_g_hybrid_pt_1200e.pth',
-        'data_path': './train.csv',
-        'test_path': './test.csv',
+        'data_path': './UNtrain.csv',  #train_UNsupervised.csv',
+        'test_path': './UNtest.csv',
         'log_dir': './output',
         'output_dir': './output',
         'data_set': 'medicanes',
@@ -127,15 +128,15 @@ def prepare_args():
         'num_sample': 1,
         'num_frames': 16,
         'sampling_rate': 1,  # voglio tutti i frame temporali
-        'num_workers': 10,
+        'num_workers': 1,     # TODO: verificare se deve stare a 1 o può aumentare
         'opt': 'adamw',
         'lr': 1e-3,
         'opt_betas': [0.9, 0.95],
-        'warmup_epochs': 1,
-        'epochs': 70,
+        'warmup_epochs': 10,
+        'epochs': 150,
         'save_ckpt_freq': 20,
         'decoder_depth': 4,
-        'testing_epochs': 1
+        'testing_epochs': 5
     }
     # user_args = {
     #     'model': 'vit_base_patch16_224',
@@ -267,7 +268,7 @@ def prepare_finetuning_args():
     user_args_finetune = {
         'model': 'vit_giant_patch14_224',             #'vit_base_patch16_224'
         'pretrained': True,  # Abilita il caricamento del checkpoint
-        'finetune': './output/checkpoint_10k.pth', #./vit_g_hybrid_pt_1200e_k710_ft.pth
+        #'finetune': './output/checkpoint_10k.pth', #./vit_g_hybrid_pt_1200e_k710_ft.pth
         'init_ckpt': './output/checkpoint-best.pth',   # checkpoint_10k
         'data_path': './',
         'test_path': './',
@@ -290,8 +291,8 @@ def prepare_finetuning_args():
         'lr': 1e-3,
         'opt_betas': [0.9, 0.95],
         'warmup_epochs': 10,
-        'epochs': 250,
-        'save_ckpt_freq': 100,
+        'epochs': 500,
+        'save_ckpt_freq': 50,
         'decoder_depth': 4,
         'testing_epochs': 5
         #dist_eval
