@@ -106,7 +106,7 @@ def launch_finetuning_classification():
     print(f"Creating model: {args.model} (nb_classes={args.nb_classes})")
     pretrained_model = create_model(
         args.model,
-        pretrained=True,
+        #pretrained=True,
         num_classes=args.nb_classes,
         drop_rate=0.0,
         drop_path_rate=args.drop_path,
@@ -191,13 +191,13 @@ def launch_finetuning_classification():
         )
         print("[INFO] Mixup is activated")
 
-
-    utils.auto_load_model(
-        args=args,
-        model=pretrained_model,
-        model_without_ddp=model_without_ddp,
-        optimizer=optimizer,
-        loss_scaler=loss_scaler)
+    if args.auto_resume:
+        utils.auto_load_model(
+                args=args,
+                model=pretrained_model,
+                model_without_ddp=model_without_ddp,
+                optimizer=optimizer,
+                loss_scaler=loss_scaler)
     torch.cuda.empty_cache()
 
     # logging

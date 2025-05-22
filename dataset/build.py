@@ -39,13 +39,13 @@ def build_pretraining_dataset(args, train=True):
 def build_dataset(is_train, test_mode, args):
     if is_train:
         mode = 'train'
-        anno_path = os.path.join(args.data_path, 'train_supervised.csv')
+        anno_path = os.path.join(args.data_path, args.train_path)
     elif test_mode:
         mode = 'test'
-        anno_path = os.path.join(args.data_path, 'test_supervised.csv')
+        anno_path = os.path.join(args.data_path, args.test_path)
     else:
         mode = 'validation'
-        anno_path = os.path.join(args.data_path, 'val_supervised_oggi3.csv')
+        anno_path = os.path.join(args.data_path, args.test_path)
 
 
     if args.data_set == 'Kinetics-400':

@@ -231,7 +231,7 @@ def prepare_finetuning_args():
         'init_scale': 0.001,
         'use_mean_pooling': True,
         'data_path': '/your/data/path/',
-        'data_root': '',
+        'data_root': './',
         'eval_data_path': None,
         'nb_classes': 400,
         'imagenet_default_mean_and_std': True,
@@ -269,9 +269,11 @@ def prepare_finetuning_args():
         'model': 'vit_giant_patch14_224',             #'vit_base_patch16_224'
         'pretrained': True,  # Abilita il caricamento del checkpoint
         #'finetune': './output/checkpoint_10k.pth', #./vit_g_hybrid_pt_1200e_k710_ft.pth
-        'init_ckpt': './output/checkpoint-best.pth',   # checkpoint_10k
+        'init_ckpt': './output/checkpoint-149.pth',   # 'data_path': './checkpoint_10k
+        'auto_resume': False,
         'data_path': './',
-        'test_path': './',
+        'train_path': './train_dataset_1954.csv',
+        'test_path': './test_dataset_2802.csv',
         'log_dir': './output',
         'output_dir': './output',
         'data_set': 'medicanes',
@@ -280,7 +282,7 @@ def prepare_finetuning_args():
         'mask_ratio': 0.8,
         'decoder_mask_type': 'run_cell',
         'decoder_mask_ratio': 0.5,
-        'batch_size': 1,
+        'batch_size': 12,
         'num_sample': 1,
         'num_frames': 16,
         'sampling_rate': 1,  # voglio tutti i frame temporali
