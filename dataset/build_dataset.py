@@ -13,13 +13,13 @@ import pandas as pd
 from PIL import Image
 #from mpl_toolkits.basemap import Basemap
 
-from medicane_utils.load_files import load_cyclones_track_noheader, get_files_from_folder, extract_dates_pattern_airmass_rgb_20200101_0000
-from medicane_utils.geo_const import latcorners, loncorners, x_center, y_center, default_basem_obj
-from medicane_utils.geo_const import get_lon_lat_grid_2_pixel, trova_indici_vicini
+#from medicane_utils.load_files import load_cyclones_track_noheader, get_files_from_folder, extract_dates_pattern_airmass_rgb_20200101_0000
+#from medicane_utils.geo_const import latcorners, loncorners, x_center, y_center, default_basem_obj
+#from medicane_utils.geo_const import get_lon_lat_grid_2_pixel, trova_indici_vicini
 
 
-from medicane_utils.load_files import load_all_images, get_all_cyclones
-from medicane_utils.load_files import load_cyclones_track_noheader
+#from medicane_utils.load_files import load_all_images, get_all_cyclones
+#from medicane_utils.load_files import load_cyclones_track_noheader
 
 #from view_test_tiles import plot_image, draw_tiles_and_center, create_gif_pil
 
@@ -143,7 +143,7 @@ def coord2px(lat, lon, px_per_m_x, px_per_m_y, Xmin, Ymin):
 
 # il codice di sopra è vecchio (e sbagliato)
 # ->
-lon_grid, lat_grid, x, y = get_lon_lat_grid_2_pixel(image_w=1290, image_h=420)
+#lon_grid, lat_grid, x, y = get_lon_lat_grid_2_pixel(image_w=1290, image_h=420)
 
 def get_cyclone_center_pixel(lat, lon, image_h=420):
     #Xmin, Ymin, px_scale_x, px_scale_y = compute_pixel_scale()
@@ -772,8 +772,8 @@ def make_unsup_dataset():
 
 
 def make_sup_dataset():
-    input_dir = "../fromgcloud"
-    output_dir = "../airmassRGB/supervised/"  # uso la stessa cartella, poi cambierà il csv
+    input_dir = "$FAST/Medicanes_Data/fromgcloud"
+    output_dir = "$FAST/airmass/"  # uso la stessa cartella, poi cambierà il csv
     #unsup_output_dir = "../airmassRGB/unsupervised/" 
 
     from data_manager import BuildDataset
@@ -799,7 +799,7 @@ def make_sup_dataset():
 
 
 if __name__ == "__main__":
-    make_unsup_dataset()
+    make_sup_dataset()
 
 
 
