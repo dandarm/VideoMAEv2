@@ -18,7 +18,11 @@ from pathlib import Path
 import numpy as np
 import torch
 
-import torch._dynamo as dynamo
+try:
+    import torch._dynamo as dynamo
+except:
+    print(f"Impossibile caricare la libreria torch dynamo")
+
 try:
     from triton.runtime.jit import get_cuda_stream
 except ImportError:
@@ -280,7 +284,10 @@ def get_model(args):
         **args.__dict__)
 
     # questa riga è necessaria per evitare un errore di pytorch (issue 104674)
-    dynamo.config.optimize_ddp = False
+    try:
+        dynamo.config.optimize_ddp = False
+    except:
+        print(f"Impossibile usare dynamo config optimize_ddp")
 
     if version.parse(torch.__version__) > version.parse('1.13.1'):
         torch.set_float32_matmul_precision('high')

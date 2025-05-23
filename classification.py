@@ -46,7 +46,12 @@ def launch_finetuning_classification():
     rank, local_rank, world_size, local_size, num_workers = utils.get_resources()
     print(f"rank, local_rank, world_size, local_size, num_workers: {rank, local_rank, world_size, local_size, num_workers}")
 
-    dist.init_process_group("nccl", rank=rank, world_size=world_size)    
+    if world_size > 1:
+        dist.init_process_group("nccl", rank=rank, world_size=world_size)    
+    else:
+        args.distributed = False
+
+    
     torch.cuda.set_device(local_rank)
 
     args.distributed = True

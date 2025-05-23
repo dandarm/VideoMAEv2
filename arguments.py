@@ -282,7 +282,7 @@ def prepare_finetuning_args():
         'mask_ratio': 0.8,
         'decoder_mask_type': 'run_cell',
         'decoder_mask_ratio': 0.5,
-        'batch_size': 12,
+        'batch_size': 12,  # 16 GPU *12 = 96  era il training di specializazione
         'num_sample': 1,
         'num_frames': 16,
         'sampling_rate': 1,  # voglio tutti i frame temporali

@@ -415,7 +415,7 @@ def get_resources():
         if rank == 0:
             print("launch with mpirun")
 
-    else:
+    elif os.environ.get("SLURM_PROCID"):
         # launched with srun (SLURM)
         rank = int(os.environ["SLURM_PROCID"])
         local_rank = int(os.environ["SLURM_LOCALID"])
@@ -423,8 +423,14 @@ def get_resources():
         local_size = int(os.environ["SLURM_NTASKS_PER_NODE"])
         if rank == 0:
            print("launch with srun")
+        num_workers = int(os.environ["SLURM_CPUS_PER_TASK"])
 
-    num_workers = int(os.environ["SLURM_CPUS_PER_TASK"])
+    else:
+        rank = 0
+        local_rank = rank
+        world_size = 1
+        local_size=1
+        num_workers=10
 
     return rank, local_rank, world_size, local_size, num_workers
 

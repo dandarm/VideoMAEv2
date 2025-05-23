@@ -13,13 +13,13 @@ import pandas as pd
 from PIL import Image
 #from mpl_toolkits.basemap import Basemap
 
-#from medicane_utils.load_files import load_cyclones_track_noheader, get_files_from_folder, extract_dates_pattern_airmass_rgb_20200101_0000
-#from medicane_utils.geo_const import latcorners, loncorners, x_center, y_center, default_basem_obj
-#from medicane_utils.geo_const import get_lon_lat_grid_2_pixel, trova_indici_vicini
+from medicane_utils.load_files import load_cyclones_track_noheader, get_files_from_folder, extract_dates_pattern_airmass_rgb_20200101_0000
+from medicane_utils.geo_const import latcorners, loncorners, x_center, y_center, default_basem_obj
+from medicane_utils.geo_const import get_lon_lat_grid_2_pixel, trova_indici_vicini
 
 
-#from medicane_utils.load_files import load_all_images, get_all_cyclones
-#from medicane_utils.load_files import load_cyclones_track_noheader
+from medicane_utils.load_files import load_all_images, get_all_cyclones
+from medicane_utils.load_files import load_cyclones_track_noheader
 
 #from view_test_tiles import plot_image, draw_tiles_and_center, create_gif_pil
 
@@ -143,7 +143,7 @@ def coord2px(lat, lon, px_per_m_x, px_per_m_y, Xmin, Ymin):
 
 # il codice di sopra è vecchio (e sbagliato)
 # ->
-#lon_grid, lat_grid, x, y = get_lon_lat_grid_2_pixel(image_w=1290, image_h=420)
+lon_grid, lat_grid, x, y = get_lon_lat_grid_2_pixel(image_w=1290, image_h=420)
 
 def get_cyclone_center_pixel(lat, lon, image_h=420):
     #Xmin, Ymin, px_scale_x, px_scale_y = compute_pixel_scale()
@@ -733,11 +733,11 @@ def main():
     )
 
 
-def make_unsup_dataset():
+def make_unsup_dataset(input_dir, output_dir):
 
-    input_dir = "../fromgcloud"
-    output_dir = "../airmassRGB/supervised/" 
-    unsup_output_dir = "../airmassRGB/unsupervised/" 
+    #input_dir = "../fromgcloud"
+    #output_dir = "../airmassRGB/supervised/" 
+    #unsup_output_dir = "../airmassRGB/unsupervised/" 
 
     #expanded_path = os.path.expandvars(path)
 
@@ -771,9 +771,9 @@ def make_unsup_dataset():
     df_dataset_csv_unsup.drop(columns='label').to_csv("./train_UNsupervised.csv", index=False)
 
 
-def make_sup_dataset():
-    input_dir = "$FAST/Medicanes_Data/fromgcloud"
-    output_dir = "$FAST/airmass/"  # uso la stessa cartella, poi cambierà il csv
+def make_sup_dataset(input_dir, output_dir):
+    #input_dir = "$FAST/Medicanes_Data/fromgcloud"
+    #output_dir = "$FAST/airmass/"  # uso la stessa cartella, poi cambierà il csv
     #unsup_output_dir = "../airmassRGB/unsupervised/" 
 
     from data_manager import BuildDataset
@@ -795,30 +795,3 @@ def make_sup_dataset():
     print(sup_data_test.df_video.label.sum(), sup_data_test.df_video.shape[0],)
     sup_data_test.create_final_df_csv(output_dir, "test_dataset_2802.csv")
 
-
-
-
-if __name__ == "__main__":
-    make_sup_dataset()
-
-
-
-
-
-
-
-
-
-    """
-    tracks_df = get_all_cyclones()
-    sorted_metadata_files = load_all_images(input_dir = "../fromgcloud")
-    start = time()
-    df_data = labeled_tiles_from_metadatafiles(sorted_metadata_files, tracks_df)
-    end = time()
-    print(round((end-start)/60, 2))
-    df_data.to_csv("all_data.csv")
-    """
-
-
-
-    
