@@ -269,7 +269,7 @@ def prepare_finetuning_args():
         'model': 'vit_giant_patch14_224',             #'vit_base_patch16_224'
         'pretrained': True,  # Abilita il caricamento del checkpoint
         #'finetune': './output/checkpoint_10k.pth', #./vit_g_hybrid_pt_1200e_k710_ft.pth
-        'init_ckpt': './output/checkpoint-149.pth',   # 'data_path': './checkpoint_10k
+        'init_ckpt': './output/checkpoint_88k.pth',   # 'data_path': './checkpoint_10k
         'auto_resume': False,
         'data_path': './',
         'train_path': './train_dataset_1954.csv',
@@ -282,7 +282,7 @@ def prepare_finetuning_args():
         'mask_ratio': 0.8,
         'decoder_mask_type': 'run_cell',
         'decoder_mask_ratio': 0.5,
-        'batch_size': 12,  # 16 GPU *12 = 96  era il training di specializazione
+        'batch_size': 1,  # 16 GPU *12 = 96  era il training di specializazione
         'num_sample': 1,
         'num_frames': 16,
         'sampling_rate': 1,  # voglio tutti i frame temporali

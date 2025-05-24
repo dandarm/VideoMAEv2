@@ -48,13 +48,12 @@ def launch_finetuning_classification():
 
     if world_size > 1:
         dist.init_process_group("nccl", rank=rank, world_size=world_size)    
+        args.distributed = True
     else:
         args.distributed = False
 
     
-    torch.cuda.set_device(local_rank)
-
-    args.distributed = True
+    torch.cuda.set_device(local_rank)    
     args.gpu = local_rank
     args.world_size = world_size
     args.rank = rank
