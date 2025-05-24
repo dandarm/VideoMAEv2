@@ -9,8 +9,8 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 
 from . import video_transforms, volume_transforms
-from loader import get_image_loader, get_video_loader
-from random_erasing import RandomErasing
+from .loader import get_image_loader, get_video_loader
+from .random_erasing import RandomErasing
 
 from PIL import Image
 
