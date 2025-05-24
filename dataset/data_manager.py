@@ -1,8 +1,8 @@
 import pandas as pd
 
-from pretrain_datasets import (  # noqa: F401
+from .pretrain_datasets import (  # noqa: F401
     DataAugmentationForVideoMAEv2, HybridVideoMAE, VideoMAE)
-from datasets import MedicanesClsDataset  # RawFrameClsDataset, VideoClsDataset,
+from .datasets import MedicanesClsDataset  # RawFrameClsDataset, VideoClsDataset,
 
 class DataManager():
     def __init__(self, mode, type, args):
@@ -53,7 +53,7 @@ class DataManager():
 
 
 
-from build_dataset import create_df_video_from_master_df, get_gruppi_date, create_final_df_csv
+from .build_dataset import create_df_video_from_master_df, get_gruppi_date, create_final_df_csv
 
 
 class BuildDataset():

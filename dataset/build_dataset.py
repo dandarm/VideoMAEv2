@@ -776,7 +776,7 @@ def make_sup_dataset(input_dir, output_dir):
     #output_dir = "$FAST/airmass/"  # uso la stessa cartella, poi cambierà il csv
     #unsup_output_dir = "../airmassRGB/unsupervised/" 
 
-    from data_manager import BuildDataset
+    from .data_manager import BuildDataset
 
     #### TRAIN
     sup_data_train = BuildDataset(type='SUPERVISED', master_df_path="all_data_full_tiles.csv")
