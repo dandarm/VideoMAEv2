@@ -19,7 +19,7 @@ class Args:
         return None
 
 
-def prepare_args():
+def prepare_args(machine=None):
     # Default arguments from get_args()
     default_args = {
         'batch_size': 64,
@@ -174,7 +174,10 @@ def prepare_args():
 
 
 
-def prepare_finetuning_args():
+def prepare_finetuning_args(machine=None):
+    # machine può essere 'ewc' o 'leonardo'
+
+
     # Default arguments from get_args()
     default_args = {
         'batch_size': 64,
@@ -282,7 +285,7 @@ def prepare_finetuning_args():
         'mask_ratio': 0.8,
         'decoder_mask_type': 'run_cell',
         'decoder_mask_ratio': 0.5,
-        'batch_size': 1,  # 16 GPU *12 = 96  era il training di specializazione
+        'batch_size': 1,  # 16 GPU *6 = 96  era il training di specializazione
         'num_sample': 1,
         'num_frames': 16,
         'sampling_rate': 1,  # voglio tutti i frame temporali
@@ -300,9 +303,18 @@ def prepare_finetuning_args():
         #dist_eval
     }
 
+    
+
     # Merge dictionaries (user_args overrides default_args)
     # args_dict = {**default_args, **user_args}
     args_dict = {**default_args, **user_args_finetune}
+
+    if machine:
+        machine_args_override = {}
+        if machine == 'leonardo':
+            machine_args_override['batch_size'] = 2
+        args_dict = {**args_dict, **machine_args_override}
+
     # Convert args_dict to an Args object
     args = Args(**args_dict)
     return args
