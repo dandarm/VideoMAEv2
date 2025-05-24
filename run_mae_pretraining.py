@@ -271,9 +271,10 @@ def get_args():
 
 def get_model(args):
     print(f"Creating model: {args.model}")
+    print(f"From pretrained model? {args.pretrained}")
     model = create_model(
         args.model,
-        pretrained=True,
+        #pretrained=True,
         drop_path_rate=args.drop_path,
         drop_block_rate=None,
         all_frames=args.num_frames,

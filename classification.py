@@ -31,8 +31,9 @@ import warnings
 warnings.filterwarnings('ignore')
 
 
-def launch_finetuning_classification():
-    args = prepare_finetuning_args()
+def launch_finetuning_classification(terminal_args):
+    
+    args = prepare_finetuning_args(machine=terminal_args.on)
 
     #device = torch.device(args.device)
     seed = args.seed
@@ -288,4 +289,17 @@ def launch_finetuning_classification():
 
 
 if __name__ == '__main__':
-    launch_finetuning_classification()
+    import argparse
+    parser = argparse.ArgumentParser(
+        'Lancia il training supervisionato di classificazione',
+        add_help=False)
+    parser.add_argument('--on',
+        type=str,
+        default='leonardo',
+        #metavar='NAME',
+        help='[ewc, leonardo]'
+    ),
+    args =  parser.parse_args()
+
+
+    launch_finetuning_classification(args)
