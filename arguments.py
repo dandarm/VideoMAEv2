@@ -313,6 +313,7 @@ def prepare_finetuning_args(machine=None):
         machine_args_override = {}
         if machine == 'leonardo':
             machine_args_override['batch_size'] = 2
+            machine_args_override['init_ckpt'] = '$FAST/checkpoint-149.pth',
         args_dict = {**args_dict, **machine_args_override}
 
     # Convert args_dict to an Args object
