@@ -11,7 +11,7 @@
 module load profile/deeplrn
 module load cineca-ai/4.3.0
 module load openmpi 
-source ../videomae/bin/activate
+source $HOME/videomae/bin/activate
 
 export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
 export MASTER_PORT=12340
