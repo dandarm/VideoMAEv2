@@ -40,7 +40,7 @@ class DataManager():
         self.collate_func = collate_func
 
         self.dataset = None
-        self.dataloader = None
+        self.data_loader = None
 
         self.dataset_len = -1
 

@@ -262,7 +262,7 @@ def launch_finetuning_classification(terminal_args):
         # VAL
         val_stats = {}
         if (epoch + 1) % args.testing_epochs == 0:
-            val_stats = validation_one_epoch(test_m.dataloader, pretrained_model, device)
+            val_stats = validation_one_epoch(test_m.data_loader, pretrained_model, device)
             print(f"[EPOCH {epoch + 1}] val acc1: {val_stats['acc1']:.2f}%")
             if val_stats["acc1"] > max_accuracy:
                 max_accuracy = val_stats["acc1"]
