@@ -14,7 +14,6 @@ from functools import partial
 import utils
 from engine_for_pretraining import train_one_epoch, test
 from arguments import prepare_finetuning_args, Args  # NON TOGLIERE: serve a torch.load per caricare il mio modello addestrato
-from model_analysis import get_dataloader, get_dataset_dataloader
 
 
 from dataset import build_dataset
@@ -26,6 +25,8 @@ from timm.models import create_model
 from timm.data.mixup import Mixup
 from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
 from utils import NativeScalerWithGradNormCount as NativeScaler
+
+from dataset.data_manager import DataManager
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -69,33 +70,41 @@ def launch_finetuning_classification(terminal_args):
     #    print(f"{attr} = {value}")
     #print("=====================================")
 
+    train_m = DataManager(is_train=True, args=args, type_t='supervised', world_size=world_size, rank=rank)
+    test_m = DataManager(is_train=False, args=args, type_t='supervised', world_size=world_size, rank=rank)
+
+    train_m.create_classif_dataloader(args)
+    test_m.create_classif_dataloader(args)
+
     # -------------------------------------------
-    print("BUILDING DATASET...") 
+    #print("BUILDING DATASET...") 
     # -------------------------------------------
     # Carichiamo train, val, test
-    dataset_train, nb_classes_train = build_dataset(is_train=True, test_mode=False, args=args)
-    dataset_val, nb_classes_val = build_dataset(is_train=False, test_mode=False, args=args)
+    #dataset_train, nb_classes_train = build_dataset(is_train=True, test_mode=False, args=args)
+    #dataset_val, nb_classes_val = build_dataset(is_train=False, test_mode=False, args=args)
     #dataset_test, nb_classes_test = build_dataset(is_train=False, test_mode=True, args=args)
-    print(f"DATASET: train: {len(dataset_train)}, val: {len(dataset_val)}")  #, test: {len(dataset_test)}")
+    #print(f"DATASET: train: {len(dataset_train)}, val: {len(dataset_val)}")  #, test: {len(dataset_test)}")
 
     # Dato che NB_CLASSES deve essere coerente...
     #print(f"[INFO] dataset_train classes: {nb_classes_train}, dataset_val classes: {nb_classes_val}, dataset_test classes: {nb_classes_test}")
 
-    data_loader_train = torch.utils.data.DataLoader(
-        dataset_train,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-        pin_memory=args.pin_mem,
-        drop_last=True
-    )
-
-    data_loader_val = torch.utils.data.DataLoader(
-        dataset_val,
-        batch_size=int(args.batch_size * 1.5),  # un po' più grande in val
-        num_workers=args.num_workers,
-        pin_memory=args.pin_mem,
-        drop_last=False
-    )
+    
+    #
+    #data_loader_train = torch.utils.data.DataLoader(
+    #    dataset_train,
+    #    batch_size=args.batch_size,
+    #    num_workers=args.num_workers,
+    #    pin_memory=args.pin_mem,
+    #    drop_last=True
+    #)
+    #
+    #data_loader_val = torch.utils.data.DataLoader(
+    #    dataset_val,
+    #    batch_size=int(args.batch_size * 1.5),  # un po' più grande in val
+    #    num_workers=args.num_workers,
+    #    pin_memory=args.pin_mem,
+    #    drop_last=False
+    #)
 
     # data_loader_test = torch.utils.data.DataLoader(
     #     dataset_test,
@@ -104,6 +113,8 @@ def launch_finetuning_classification(terminal_args):
     #     pin_memory=args.pin_mem,
     #     drop_last=False
     # )
+
+
 
     # -------------------------------------------
     # build model
@@ -153,7 +164,7 @@ def launch_finetuning_classification(terminal_args):
 
     # scheduler lr e wd
     total_batch_size = args.batch_size
-    num_training_steps_per_epoch = len(dataset_train) // total_batch_size
+    num_training_steps_per_epoch = train_m.dataset_len// total_batch_size
     args.lr = args.lr * total_batch_size / 256
     args.min_lr = args.min_lr * total_batch_size / 256
     args.warmup_lr = args.warmup_lr * total_batch_size / 256
@@ -220,7 +231,7 @@ def launch_finetuning_classification(terminal_args):
         train_stats = train_one_epoch(
             model=pretrained_model,
             criterion=criterion,
-            data_loader=data_loader_train,
+            data_loader=train_m.data_loader,
             optimizer=optimizer,
             device=device,
             epoch=epoch,
@@ -251,7 +262,7 @@ def launch_finetuning_classification(terminal_args):
         # VAL
         val_stats = {}
         if (epoch + 1) % args.testing_epochs == 0:
-            val_stats = validation_one_epoch(data_loader_val, pretrained_model, device)
+            val_stats = validation_one_epoch(test_m.dataloader, pretrained_model, device)
             print(f"[EPOCH {epoch + 1}] val acc1: {val_stats['acc1']:.2f}%")
             if val_stats["acc1"] > max_accuracy:
                 max_accuracy = val_stats["acc1"]
