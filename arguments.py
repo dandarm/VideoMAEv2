@@ -299,7 +299,7 @@ def prepare_finetuning_args(machine=None):
         'epochs': 500,
         'save_ckpt_freq': 50,
         'decoder_depth': 4,
-        'testing_epochs': 1
+        'testing_epochs': 5
         #dist_eval
     }
 
