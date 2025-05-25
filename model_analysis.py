@@ -7,12 +7,10 @@ import torchvision.transforms as transforms
 #import torchvision.transforms.functional as F
 import torch.nn.functional as F
 
-from utils import multiple_pretrain_samples_collate
-from functools import partial
 
-import utils
+
 from utils import NativeScalerWithGradNormCount as NativeScaler
-from utils import multiple_pretrain_samples_collate
+
 from dataset import build_pretraining_dataset
 from torch.utils.data import DataLoader
 from run_mae_pretraining import get_model
@@ -127,55 +125,6 @@ def get_only_labels(data_loader):
     return all_paths, all_preds, all_labels
 
 #endregion
-
-
-
-def get_dataloader(args, patch_size, get_also_dataset=False, **kwargs):
-    train = kwargs.get('train', True)
-
-    #sistema parametri del patching
-    print("Patch size = %s" % str(patch_size))
-    args.window_size = (args.num_frames // args.tubelet_size,
-                        args.input_size // patch_size[0],
-                        args.input_size // patch_size[1])
-    print(f"Window size : {args.window_size}")
-    args.patch_size = patch_size
-
-
-    if args.num_sample > 1:
-        collate_func = partial(multiple_pretrain_samples_collate, fold=False)
-    else:
-        collate_func = None
-
-    num_tasks = utils.get_world_size()
-    global_rank = utils.get_rank()
-    sampler_rank = global_rank    
-
-    dataset = build_pretraining_dataset(args, train=train)
-
-    sampler = torch.utils.data.DistributedSampler(
-        dataset, num_replicas=num_tasks, rank=sampler_rank, shuffle=True)
-    print("Sampler_train = %s" % str(sampler))
-
-    print(f"Batch_size: {args.batch_size}")
-    data_loader = DataLoader(dataset,
-        batch_size=args.batch_size,
-        shuffle=False,
-        num_workers=args.num_workers,
-        pin_memory=True,
-        drop_last=True,
-        collate_fn=collate_func,
-        worker_init_fn=utils.seed_worker,
-        persistent_workers=True,
-        sampler=sampler,
-    )
-    if not get_also_dataset:
-        return data_loader
-    else:
-        return data_loader, dataset
-
-def get_dataset_dataloader(args, patch_size, **kwargs):
-    return get_dataloader(args, patch_size, get_also_dataset=True, **kwargs)
 
 
 
