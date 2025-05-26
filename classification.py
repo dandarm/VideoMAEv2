@@ -63,6 +63,11 @@ def launch_finetuning_classification(terminal_args):
     device = torch.device(f"cuda:{local_rank}")
     print(device)
     
+    # logging
+    if args.log_dir and not os.path.exists(args.log_dir):
+        os.makedirs(args.log_dir)
+
+    setup_for_distributed(rank == 0)
 
     #print("=============== ARGS ===============")
     # Se vuoi stampare i parametri
@@ -217,11 +222,7 @@ def launch_finetuning_classification(terminal_args):
                 loss_scaler=loss_scaler)
     torch.cuda.empty_cache()
 
-    # logging
-    if args.log_dir and not os.path.exists(args.log_dir):
-        os.makedirs(args.log_dir)
-
-    setup_for_distributed(rank == 0)
+    
 
     max_accuracy = 0.0
     start_time = time.time()
