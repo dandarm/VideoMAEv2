@@ -1,4 +1,4 @@
-
+import os
 
 class Args:
     def __init__(self, **kwargs):
@@ -313,7 +313,12 @@ def prepare_finetuning_args(machine=None):
         machine_args_override = {}
         if machine == 'leonardo':
             machine_args_override['batch_size'] = 2
-            machine_args_override['init_ckpt'] = '$FAST/checkpoint-149.pth'
+
+            ckpath = '$FAST/checkpoint-149.pth'
+            exp_path = os.path.expandvars(ckpath)
+            if "$HOME" in exp_path:
+                raise EnvironmentError("La variabile d'ambiente HOME non è definita.")
+            machine_args_override['init_ckpt'] = exp_path
             machine_args_override['pretrained'] = False
         args_dict = {**args_dict, **machine_args_override}
 
