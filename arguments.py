@@ -319,7 +319,7 @@ def prepare_finetuning_args(machine=None):
             if "$HOME" in exp_path:
                 raise EnvironmentError("La variabile d'ambiente HOME non è definita.")
             machine_args_override['init_ckpt'] = exp_path
-            machine_args_override['pretrained'] = False
+            machine_args_override['pretrained'] = True
         args_dict = {**args_dict, **machine_args_override}
 
     # Convert args_dict to an Args object
