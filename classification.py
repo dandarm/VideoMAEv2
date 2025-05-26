@@ -120,6 +120,7 @@ def launch_finetuning_classification(terminal_args):
     # build model
     # -------------------------------------------
     print(f"Creating model: {args.model} (nb_classes={args.nb_classes})")
+    print(f"is pretrained? {args.pretrained}")
     pretrained_model = create_model(
         args.model,
         #pretrained=True,
