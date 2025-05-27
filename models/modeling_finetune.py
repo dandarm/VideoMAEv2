@@ -573,7 +573,7 @@ def load_checkpoint(model, checkpoint_path, test_mode=False):
         new_state_dict["head.bias"] = new_state_dict.pop("cls_head.fc_cls.bias")
         print("Rinominata 'cls_head.fc_cls' -> 'head' nel checkpoint.")
 
-    if not test_mode:
+    if not test_mode: # TODO: or 'resume'
             # ❗ Rimuoviamo la testa del modello per evitare il mismatch
         if "head.weight" in new_state_dict:
             del new_state_dict["head.weight"]

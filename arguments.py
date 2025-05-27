@@ -275,8 +275,8 @@ def prepare_finetuning_args(machine=None):
         'init_ckpt': './output/checkpoint_88k.pth',   # 'data_path': './checkpoint_10k
         'auto_resume': False,
         'data_path': './',
-        'train_path': 'train_dataset_1954.csv',
-        'test_path': 'test_dataset_2802.csv',
+        'train_path': 'cloudy_train_853.csv',   #'train_dataset_1954.csv',
+        'test_path': 'cloudy_test_351.csv',  # 'test_dataset_2802.csv',
         'log_dir': './output',
         'output_dir': './output',
         'data_set': 'medicanes',
