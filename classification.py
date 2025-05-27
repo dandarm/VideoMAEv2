@@ -46,22 +46,20 @@ def launch_finetuning_classification(terminal_args):
 
     # training distribuito
     rank, local_rank, world_size, local_size, num_workers = utils.get_resources()
-    print(f"rank, local_rank, world_size, local_size, num_workers: {rank, local_rank, world_size, local_size, num_workers}")
+    #print(f"rank, local_rank, world_size, local_size, num_workers: {rank, local_rank, world_size, local_size, num_workers}")
 
     if world_size > 1:
         dist.init_process_group("nccl", rank=rank, world_size=world_size)    
         args.distributed = True
     else:
-        args.distributed = False
-
-    
+        args.distributed = False   
     torch.cuda.set_device(local_rank)    
     args.gpu = local_rank
     args.world_size = world_size
     args.rank = rank
     
     device = torch.device(f"cuda:{local_rank}")
-    print(device)
+    #print(device)
     
     # logging
     if args.log_dir and not os.path.exists(args.log_dir):

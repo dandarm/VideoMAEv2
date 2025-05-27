@@ -23,8 +23,8 @@ from model_analysis import get_dataloader, get_dataset_dataloader
 
 
 
-def launch_specialization_training():
-    args = prepare_args()
+def launch_specialization_training(terminal_args):
+    args = prepare_args(machine=terminal_args.on)
     
 
     #utils.init_distributed_mode(args)
@@ -35,27 +35,31 @@ def launch_specialization_training():
     #print(f"[rank {dist.get_rank()}] running on {torch.cuda.current_device()}")
 
     rank, local_rank, world_size, local_size, num_workers = utils.get_resources()
-    print(f"rank, local_rank, world_size, local_size, num_workers: {rank, local_rank, world_size, local_size, num_workers}")
+    #print(f"rank, local_rank, world_size, local_size, num_workers: {rank, local_rank, world_size, local_size, num_workers}")
 
-    dist.init_process_group("nccl", rank=rank, world_size=world_size)    
+    if world_size > 1:
+        dist.init_process_group("nccl", rank=rank, world_size=world_size)    
+        args.distributed = True
+    else:
+        args.distributed = False   
     torch.cuda.set_device(local_rank)
-
     args.distributed = True
     args.gpu = local_rank
     args.world_size = world_size
     args.rank = rank
     
     device = torch.device(f"cuda:{local_rank}")
-    print(device)
+    #print(device)
+
+    # logging
+    if args.log_dir and not os.path.exists(args.log_dir):
+        os.makedirs(args.log_dir)
+
+    setup_for_distributed(rank == 0)
 
 
     # LOAD MODEL
     pretrained_model = get_model(args)
-
-    # LOAD checkpoint
-    #pretrained_model = None
-    #if args.finetune:
-    #    checkpoint_path = args.finetune
 
 
     pretrained_model.to(device)  # rimane solo sul device generale o va messo nel local_rank?

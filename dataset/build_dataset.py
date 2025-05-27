@@ -9,6 +9,8 @@ from collections import defaultdict
 from datetime import datetime
 from time import time
 
+import cv2
+
 import pandas as pd
 from PIL import Image
 #from mpl_toolkits.basemap import Basemap
@@ -231,6 +233,36 @@ def create_df_unlabeled_tiles_from_metadatafiles(sorted_metadata_files, offsets_
         "tile_offset_y": 'int16',
     })
     return res
+
+
+
+
+
+# region CLOUD INDEX copertura nuvolosa delle tile
+
+def threshold_image(img, thresh_val=150):
+    green_channel = img[:,:,1]    
+    cloud_mask = green_channel > thresh_val
+    return cloud_mask
+
+def cloud_idx(cloud_mask):
+    v = cloud_mask.sum()/cloud_mask.size
+    return round(v, 3)
+
+def get_cloud_idx_from_image_path(image_path):
+    #img = Image.open(image_path)
+    img = cv2.imread(image_path) 
+    mask = threshold_image(img)
+    idx = cloud_idx(mask)
+    return idx
+
+def get_cloud_idx_from_img(img):
+    mask = threshold_image(img)
+    idx = cloud_idx(mask)
+    return idx
+
+
+# endregion
 
 
 

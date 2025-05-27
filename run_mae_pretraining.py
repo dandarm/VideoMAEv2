@@ -172,7 +172,7 @@ def get_args():
         type=float,
         default=1e-5,
         metavar='LR',
-        help='lower lr bound for cyclic schedulecreate_modelrs that hit 0 (1e-5)')
+        help='lower lr bound for cyclic schedulers that hit 0 (1e-5)')
 
     parser.add_argument(
         '--warmup_epochs',
