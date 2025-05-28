@@ -185,7 +185,7 @@ class HybridVideoMAE(torch.utils.data.Dataset):
         
 
         if not self.lazy_init:
-            self.clips = self._make_dataset(root, self.file_path)
+            self.clips = self._make_dataset()
             if len(self.clips) == 0:
                 raise (RuntimeError("Found 0 video clips in subfolders of: " + root + "\n"
                                  "Check your data directory (opt.data-dir)."))
@@ -261,14 +261,14 @@ class HybridVideoMAE(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.clips)
 
-    def _make_dataset(self, root, file_path):
-        if not os.path.exists(file_path):
-            raise (RuntimeError("Data file %s doesn't exist. " % (file_path)))
+    def _make_dataset(self):
+        if not os.path.exists(self.file_path):
+            raise (RuntimeError("Data file %s doesn't exist. " % (self.file_path)))
 
         tile_w = 224
         tile_h = 224
 
-        df = pd.read_csv(file_path)
+        df = pd.read_csv(self.file_path)
         df[['x_off', 'y_off']] = df['path'].str.split('_').str[-2:].apply(pd.Series).astype(int)
 
         # clips = []

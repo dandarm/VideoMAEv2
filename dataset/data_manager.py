@@ -18,7 +18,7 @@ class DataManager():
         if self.is_train:
             self.file_path = args.train_path
         else:
-            self.file_path = args.test_path
+            self.file_path = args.test_path        
 
         self.world_size = world_size 
         self.rank = rank
@@ -50,7 +50,7 @@ class DataManager():
         transform = DataAugmentationForVideoMAEv2(args)
         dataset = HybridVideoMAE(
             root=args.data_root,
-            file_path=args.file_path,
+            file_path=self.file_path,
             train=self.is_train,
             test_mode=not self.is_train,
             name_pattern=args.fname_tmpl,

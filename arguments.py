@@ -274,6 +274,7 @@ def prepare_finetuning_args(machine=None):
         #'finetune': './output/checkpoint_10k.pth', #./vit_g_hybrid_pt_1200e_k710_ft.pth
         'init_ckpt': './output/checkpoint_88k.pth',   # 'data_path': './checkpoint_10k
         'auto_resume': False,
+        'load_for_test_mode': False,
         'data_path': './',
         'train_path': 'cloudy_train_853.csv',   #'train_dataset_1954.csv',
         'test_path': 'cloudy_test_351.csv',  # 'test_dataset_2802.csv',
