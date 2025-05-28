@@ -462,23 +462,25 @@ def pretrain_videomae_huge_patch16_224(pretrained=False, **kwargs):
 
 @register_model
 def pretrain_videomae_giant_patch14_224(pretrained=True, **kwargs):
-    model = PretrainVisionTransformer(
-        img_size=224,
-        patch_size=14,
-        encoder_embed_dim=1408,
-        encoder_depth=40,
-        encoder_num_heads=16,
-        encoder_num_classes=0,
-        decoder_num_classes=1176,  # 14 * 14 * 3 * 2,
-        decoder_embed_dim=512,
-        decoder_num_heads=8,
-        mlp_ratio=48 / 11,
-        qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6),
-        **kwargs)
+    known_args = {
+        'img_size':224,
+        'patch_size':14,
+        'encoder_embed_dim':1408,
+        'encoder_depth':40,
+        'encoder_num_heads':16,
+        'encoder_num_classes':0,
+        'decoder_num_classes':1176,  # 14 * 14 * 3 * 2,
+        'decoder_embed_dim':512,
+        'decoder_num_heads':8,
+        'mlp_ratio':48 / 11,
+        'qkv_bias':True,
+        'norm_layer':partial(nn.LayerNorm, eps=1e-6),
+    }
+    args = {**kwargs, **known_args} # così ho risolto il problema della definzione di patch_size prima (negli kwargs)
+    model = PretrainVisionTransformer(**args)
     model.default_cfg = _cfg()
     if pretrained:        
         #checkpoint = torch.load(kwargs["init_ckpt"], map_location="cpu")
         #model.load_state_dict(checkpoint["model"])
-        model = load_checkpoint(model, kwargs["init_ckpt"])
+        model = load_checkpoint(model, kwargs["init_ckpt"], kwargs['load_for_test_mode'])
     return model
