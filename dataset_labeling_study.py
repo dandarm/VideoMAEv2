@@ -1,17 +1,18 @@
 import pandas as pd
 from dataset.build_dataset import get_gruppi_date, group_df_by_offsets
 
-def aggiorna_label_distanza_temporale(df, label_col='label', soglia=pd.Timedelta(minutes=30)):
+def aggiorna_label_distanza_temporale(df, label_col='label', soglia=pd.Timedelta(minutes=30), sub_lab=0):
     """
     Modifica la colonna `label` di un DataFrame: pone a 0 le righe in cui `delta_time`
     è maggiore di una soglia specificata.
+    sub_lab è la label sostituta: -1 se si vuole segnare la riga come da togliere
     """
     #label_updated_df = df.copy()
     # definisco la nuova colonna
     r = format_td_short(soglia)
     new_label_col = f"{label_col}_{r}"
     df[new_label_col] = df.apply(
-        lambda row: 0 if pd.notna(row['delta_time']) and row['delta_time'] < soglia else row[label_col],
+        lambda row: sub_lab if pd.notna(row['delta_time']) and row['delta_time'] < soglia else row[label_col],
         axis=1
     )
     print(f"Colonna {new_label_col} aggiunta")
