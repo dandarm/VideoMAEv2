@@ -12,6 +12,7 @@ from time import time
 import cv2
 
 import pandas as pd
+from IPython.display import display, HTML
 from PIL import Image
 #from mpl_toolkits.basemap import Basemap
 
@@ -282,39 +283,20 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_f
         mask = df_tracks["time"] == dt_floor
         df_candidates = df_tracks[mask]
 
-
-        # però il nome non dovrebbe essere sempre quello per tutta l'immagine,
-        # perché esistono altri cicloni contemporanei al medicane
-        if 'Medicane' in df_candidates.columns:
-            med_name = df_candidates['Medicane'].unique()
-            if len(med_name) > 0:
-                #print(med_name, flush=True)
-                medicane_name = med_name[0]
-            else:
-                medicane_name = med_name
-        else:
-            medicane_name = None
-        
         
         for tile_offset_x, tile_offset_y in offsets_for_frame:
             found_any = False
-            lat = []
-            lon = []
             source = []
             xp, yp = [], []
             id_cyc_unico = 0
 
             for row in df_candidates.itertuples(index=False):  
                 # devo considerare il caso in cui ho più cicloni *** anche nella stessa tile! ***
-                #lat_, lon_ = row.lat, row.lon
                 x_pix, y_pix = row.x_pix, row.y_pix
                 s_ = row.source                
 
-                #print(lat_, lon_, tile_offset_x, tile_offset_y, frame_dt)
                 if inside_tile_faster(x_pix, y_pix, tile_offset_x, tile_offset_y):
                     found_any = True
-                    #lat.append(lat_)
-                    #lon.append(lon_)
                     xp.append(x_pix)
                     yp.append(y_pix)
                     source.append(s_)
@@ -331,11 +313,8 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_f
                         "tile_offset_x": tile_offset_x,
                         "tile_offset_y": tile_offset_y,
                         "label": label,
-                        #"lat": lat,
-                        #"lon": lon,
                         "x_pix":xp,
                         "y_pix":yp,
-                        "name": medicane_name,
                         "source": source,
                         "id_cyc_unico": id_cyc_unico
                     })
@@ -350,8 +329,6 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_f
         "tile_offset_x": 'int16',
         "tile_offset_y": 'int16',
         "label": 'category',
-        #"lat": 'object',  # non più float16
-        #"lon": 'object',  # non più float16
         "x_pix": 'object', # non più Int16
         "y_pix": 'object', # non più Int16
         "name": 'string',
@@ -360,6 +337,120 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_f
     })
     return res
 
+
+
+def labeled_tiles_from_metadatafiles_maxfast(sorted_metadata_files, df_tracks, offsets_for_frame, tile_width=224, tile_height=224):
+    """
+    Versione massimamente vettorizzata di labeled_tiles_from_metadatafiles.
+    - Prodotto cartesiano immagini × offset
+    - Merge su "dt_floor" == "time"
+    - Boolean indexing puro per inside
+    - GroupBy per aggregare liste e label
+    """
+    # Assicura tipo datetime su df_tracks['time']
+    df_tracks = df_tracks.copy()
+    df_tracks['time'] = pd.to_datetime(df_tracks['time'])
+    
+    # 1) Metadata → DataFrame
+    meta = pd.DataFrame(sorted_metadata_files, columns=['path', 'datetime'])
+    meta['datetime'] = pd.to_datetime(meta['datetime'])
+    meta['dt_floor'] = meta['datetime'].dt.floor('h')
+
+    # 2) Offsets → DataFrame
+    offs = pd.DataFrame(offsets_for_frame, columns=['tile_offset_x', 'tile_offset_y'])
+    offs['key'] = 1
+    meta['key'] = 1
+
+    # 3) Prodotto cartesiano immagini × offsets
+    meta_off = meta.merge(offs, on='key').drop('key', axis=1)
+
+    # sample = meta_off.sample(5)
+    # display(HTML(sample.to_html()))
+
+    # display(HTML(df_tracks[df_tracks['time'].isin(sample['dt_floor'])].to_html()))
+
+
+    # 4) Merge con df_tracks su dt_floor → time
+    merged = meta_off.merge(
+        df_tracks,
+        left_on='dt_floor',
+        right_on='time',
+        how='left',
+        #suffixes=('', '_track')
+    )
+    #display(HTML( merged[ merged['path'].isin(sample['path']) ].head().to_html() ))
+
+    # 5) Calcola vettorialmente la maschera "inside"
+    cond_x = (merged['x_pix'] >= merged['tile_offset_x']) & \
+             (merged['x_pix'] <  merged['tile_offset_x'] + tile_width)
+    cond_y = (merged['y_pix'] >= merged['tile_offset_y']) & \
+             (merged['y_pix'] <  merged['tile_offset_y'] + tile_height)
+    merged['inside'] = cond_x & cond_y
+
+    # 6) Filtra solo i punti dentro la tile
+    hits = merged[merged['inside']].copy()
+
+    # 7) Raggruppa per costruire liste di xp, yp, source e prende il primo id
+    grp = hits.groupby(
+        ['path','datetime','tile_offset_x','tile_offset_y'],
+        as_index=False
+    ).agg({
+        'x_pix': list,
+        'y_pix': list,
+        'source': list,
+        'id_cyc_unico': 'first',
+        'start_time': 'first',
+        'end_time': 'first'
+    })
+    grp['label'] = 1
+
+    # 8) Unisce con tutte le combinazioni per avere anche label=0
+    all_tiles = meta_off[['path','datetime','tile_offset_x','tile_offset_y']].drop_duplicates()
+    res = all_tiles.merge(
+        grp,
+        on=['path','datetime','tile_offset_x','tile_offset_y'],
+        how='left'
+    )
+
+    # 9) Fillna e creazione colonne x_pix, y_pix, source per i tile vuoti
+    res['label'] = res['label'].fillna(0)#.astype('category')
+    for col in ['x_pix', 'y_pix', 'source']:
+        res[col] = res[col].apply(lambda x: x if isinstance(x, list) else [])
+    res['id_cyc_unico'] = res['id_cyc_unico'].fillna(0).astype('int32')
+    res['start_time'] = res['start_time'].fillna(pd.NaT)
+    res['end_time']   = res['end_time'].fillna(pd.NaT)
+
+
+    # 10) Tipizza tutte le colonne per corrispondenza all'originale
+    return res.astype({
+        'path': 'string',
+        'datetime': 'datetime64[ns]',
+        'start_time': 'datetime64[ns]',
+        'end_time': 'datetime64[ns]',
+        'tile_offset_x': 'int16',
+        'tile_offset_y': 'int16',
+        'label': 'int8',
+        'x_pix': 'object',
+        'y_pix': 'object',
+        'source': 'string',
+        'id_cyc_unico': 'int32'
+    })
+
+
+
+#### temp
+        # # però il nome non dovrebbe essere sempre quello per tutta l'immagine,
+        # # perché esistono altri cicloni contemporanei al medicane
+        # if 'Medicane' in df_candidates.columns:
+        #     med_name = df_candidates['Medicane'].unique()
+        #     if len(med_name) > 0:
+        #         #print(med_name, flush=True)
+        #         medicane_name = med_name[0]
+        #     else:
+        #         medicane_name = med_name
+        # else:
+        #     medicane_name = None
+####
 
 
 def group_df_by_offsets(df):
@@ -763,6 +854,15 @@ def main():
         px_scale_y=px_scale_y,
         out_csv=out_csv_label
     )
+
+
+def make_master_df(sorted_metadata_files, df_tracks):
+    start = time()
+    offsets_for_frame = calc_tile_offsets(stride_x=213, stride_y=196)
+    df_data = labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_for_frame)  # [10000:10020]
+    end = time()
+    print(f"Durata calcolo: {round((end-start)/60/60,2)} ore")
+    return df_data
 
 
 def make_unsup_dataset(input_dir, output_dir):

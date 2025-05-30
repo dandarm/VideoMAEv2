@@ -157,15 +157,16 @@ class BuildDataset():
             "path": 'string',
             "tile_offset_x": 'int16',
             "tile_offset_y": 'int16',
-            "label": 'int16',
-            "lat": 'object',
-            "lon": 'object',
+            "label": 'int8',
             "x_pix": 'object',
             "y_pix": 'object',
-            "name": 'string',
-            "source": 'string'
-        }, parse_dates=['datetime'])
+            "source": 'string',
+            'id_cyc_unico': 'int32'
+        }, parse_dates=['datetime', 'start_time', 'end_time'])
         self.master_df.drop(columns="Unnamed: 0", inplace=True)
+
+    def calc_delta_time(self):
+        self.master_df['delta_time'] = self.master_df.apply(calcola_delta_time, axis=1)
 
 
     def make_df_video(self, output_dir=None, idxs=None, is_to_balance=False):
@@ -204,3 +205,18 @@ class BuildDataset():
         df_dataset_csv.to_csv(path_csv, index=False)
 
         
+
+
+
+
+
+# Calcola distanza minima rispetto all'intervallo [start_time, end_time]
+
+def calcola_delta_time(row):
+    dt = row['datetime']
+    start = row['start_time']
+    end = row['end_time']
+    
+    if pd.isna(dt) or pd.isna(start) or pd.isna(end):
+        return pd.NaT  # oppure np.nan o pd.Timedelta.max, a seconda della logica
+    return min(abs(dt - start), abs(dt - end))
