@@ -1,6 +1,6 @@
 
 import argparse
-from dataset.build_dataset import make_sup_dataset, make_unsup_dataset
+from dataset.build_dataset import make_sup_dataset, make_unsup_dataset, make_master_df
 
 
 if __name__ == "__main__":
@@ -12,6 +12,11 @@ if __name__ == "__main__":
         default='leonardo',
         #metavar='NAME',
         help='imposta i path sulla macchina')
+    parser.add_argument('--master_df',
+        type=str,
+        default=False,
+        #metavar='NAME',
+        help='se creare il master dataframe')
 
     args = parser.parse_args()
 
@@ -22,5 +27,7 @@ if __name__ == "__main__":
         input_dir = "../fromgcloud"
         output_dir = "../airmassRGB/supervised/"
 
-
-    make_sup_dataset(input_dir, output_dir)
+    if args.master_df:
+        make_master_df(input_dir, output_dir)
+    else:
+        make_sup_dataset(input_dir, output_dir)
