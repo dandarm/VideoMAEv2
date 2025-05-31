@@ -932,6 +932,6 @@ def make_master_df(input_dir, output_dir):
     sorted_metadata_files = load_all_images(input_dir)
     offsets_for_frame = calc_tile_offsets(stride_x=213, stride_y=196)
     df_data_CL7 = labeled_tiles_from_metadatafiles_maxfast(sorted_metadata_files, tracks_df_MED_CL7, offsets_for_frame)
-    df_data_CL7.to_csv("./all_data_CL7_tracks_complete_fast.csv", date_format="%Y-%m-%d %H:%M")
+    df_data_CL7.to_csv("./all_data_CL7_tracks_complete_fast2.csv", date_format="%Y-%m-%d %H:%M")
 
 

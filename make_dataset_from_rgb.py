@@ -13,9 +13,9 @@ if __name__ == "__main__":
         #metavar='NAME',
         help='imposta i path sulla macchina')
     parser.add_argument('--master_df',
-        type=str,
-        default=False,
-        #metavar='NAME',
+        action='store_true',
+        #type=bool,
+        #default=False,
         help='se creare il master dataframe')
 
     args = parser.parse_args()
