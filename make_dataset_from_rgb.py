@@ -21,7 +21,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.on == 'leonardo':
-        input_dir = "$FAST/Medicanes_Data/fromgcloud"
+        input_dir = "$FAST/Medicanes_Data/from_gcloud"
         output_dir = "$FAST/airmass/" 
     elif args.on == 'ewc':
         input_dir = "../fromgcloud"
