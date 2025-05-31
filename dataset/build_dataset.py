@@ -907,6 +907,7 @@ def make_sup_dataset(input_dir, output_dir):
     #input_dir = "$FAST/Medicanes_Data/fromgcloud"
     #output_dir = "$FAST/airmass/"  # uso la stessa cartella, poi cambierà il csv
     #unsup_output_dir = "../airmassRGB/unsupervised/" 
+    output_dir = solve_paths(output_dir)
 
     from .data_manager import BuildDataset
 
@@ -928,6 +929,7 @@ def make_sup_dataset(input_dir, output_dir):
     sup_data_test.create_final_df_csv(output_dir, "test_dataset_2802.csv")
 
 def make_master_df(input_dir, output_dir):
+    input_dir = solve_paths(input_dir)
     tracks_df_MED_CL7 = pd.read_csv("./manos_CL7_pixel.csv", parse_dates=['time', 'start_time', 'end_time'])
     sorted_metadata_files = load_all_images(input_dir)
     offsets_for_frame = calc_tile_offsets(stride_x=213, stride_y=196)
@@ -935,3 +937,8 @@ def make_master_df(input_dir, output_dir):
     df_data_CL7.to_csv("./all_data_CL7_tracks_complete_fast2.csv", date_format="%Y-%m-%d %H:%M")
 
 
+def solve_paths(path):
+    exp_path = os.path.expandvars(path)
+    if '$' in exp_path:
+        raise EnvironmentError(f"Errore con una variabile d'ambiente in {exp_path}")
+    return exp_path
