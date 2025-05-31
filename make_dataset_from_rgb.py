@@ -11,10 +11,9 @@ if __name__ == "__main__":
         type=str,
         default='leonardo',
         #metavar='NAME',
-        help='imposta i path sulla macchina'
-    ),
+        help='imposta i path sulla macchina')
 
-    args =  parser.parse_args()
+    args = parser.parse_args()
 
     if args.on == 'leonardo':
         input_dir = "$FAST/Medicanes_Data/fromgcloud"

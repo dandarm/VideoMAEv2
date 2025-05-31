@@ -169,7 +169,9 @@ class BuildDataset():
         self.master_df['delta_time'] = self.master_df.apply(calcola_delta_time, axis=1)
 
 
-    def make_df_video(self, output_dir=None, idxs=None, is_to_balance=False):
+    def make_df_video(self, output_dir=None, idxs=None, is_to_balance=False, new_master_df=None):
+        if new_master_df is not None:
+           self.master_df = new_master_df 
         if self.master_df is None:
             self.load_master_df()
         self.df_video = create_df_video_from_master_df(self.master_df, idxs=idxs, output_dir=output_dir, is_to_balance=is_to_balance)

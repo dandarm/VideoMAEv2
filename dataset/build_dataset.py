@@ -927,3 +927,11 @@ def make_sup_dataset(input_dir, output_dir):
     print(sup_data_test.df_video.label.sum(), sup_data_test.df_video.shape[0],)
     sup_data_test.create_final_df_csv(output_dir, "test_dataset_2802.csv")
 
+def make_master_df(input_dir, output_dir):
+    tracks_df_MED_CL7 = pd.read_csv("./manos_CL7_pixel.csv", parse_dates=['time', 'start_time', 'end_time'])
+    sorted_metadata_files = load_all_images(input_dir)
+    offsets_for_frame = calc_tile_offsets(stride_x=213, stride_y=196)
+    df_data_CL7 = labeled_tiles_from_metadatafiles_maxfast(sorted_metadata_files, tracks_df_MED_CL7, offsets_for_frame)
+    df_data_CL7.to_csv("./all_data_CL7_tracks_complete_fast.csv", date_format="%Y-%m-%d %H:%M")
+
+
