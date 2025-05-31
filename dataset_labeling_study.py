@@ -16,7 +16,7 @@ def aggiorna_label_distanza_temporale(df, label_col='label', soglia=pd.Timedelta
         axis=1
     )
     print(f"Colonna {new_label_col} aggiunta")
-    #return label_updated_df
+    return new_label_col
 
 def format_timedelta_for_name(td):
     if pd.isna(td):
