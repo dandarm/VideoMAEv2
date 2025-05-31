@@ -807,6 +807,9 @@ def label_subfolders_with_cyclones_df(
 
 
 
+
+######## CODE FOR TERMINAL EXECUTION 
+
 def main():
  
     Xmin, Ymin, px_scale_x, px_scale_y = compute_pixel_scale(default_basem_obj, latcorners, loncorners,
@@ -912,21 +915,25 @@ def make_sup_dataset(input_dir, output_dir):
     from .data_manager import BuildDataset
 
     #### TRAIN
-    sup_data_train = BuildDataset(type='SUPERVISED', master_df_path="all_data_full_tiles.csv")
+    sup_data_train = BuildDataset(type='SUPERVISED', master_df_path="all_data_CL7_tracks_complete_fast2.csv")
     sup_data_train.load_master_df()
     sup_data_train.get_sequential_periods()
     sup_data_train.print_sequential_periods()
 
     sup_data_train.make_df_video(output_dir, idxs=[1,2,3,4,5,6,7,8], is_to_balance=True)
-    print(sup_data_train.df_video.label.sum(), sup_data_train.df_video.shape[0])
-    sup_data_train.create_final_df_csv(output_dir, "train_dataset_1954.csv")
+    cicloni = sup_data_train.df_video.label.sum()
+    totali = sup_data_train.df_video.shape[0]
+    print(cicloni, totali)
+    sup_data_train.create_final_df_csv(output_dir, f"train_dataset_{totali}.csv")
 
     #### TEST
-    sup_data_test = BuildDataset(type='SUPERVISED', master_df_path="all_data_full_tiles.csv")
+    sup_data_test = BuildDataset(type='SUPERVISED', master_df_path="all_data_CL7_tracks_complete_fast2.csv")
     sup_data_test.load_master_df()
     sup_data_test.make_df_video(output_dir, idxs=[9], is_to_balance=True)
-    print(sup_data_test.df_video.label.sum(), sup_data_test.df_video.shape[0],)
-    sup_data_test.create_final_df_csv(output_dir, "test_dataset_2802.csv")
+    cicloni = sup_data_train.df_video.label.sum()
+    totali = sup_data_train.df_video.shape[0]
+    print(cicloni, totali)
+    sup_data_test.create_final_df_csv(output_dir, f"test_dataset_{totali}.csv")
 
 def make_master_df(input_dir, output_dir):
     input_dir = solve_paths(input_dir)
