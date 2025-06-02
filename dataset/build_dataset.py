@@ -936,7 +936,21 @@ def make_sup_dataset(input_dir, output_dir):
     print(cicloni, totali)
     sup_data_test.create_final_df_csv(output_dir, f"test_dataset_{totali}.csv")
 
-def make_relabeled_dataset(input_dir, output_dir):
+
+def calc_avg_cld_idx(video_subfolder):
+    frames_cld_idx = []
+    for k in range(16):
+        frame_path = Path(video_subfolder) / f"img_{k+1:05d}.png"
+        #display(Image.open(frame_path))
+        cidx = get_cloud_idx_from_image_path(frame_path)
+        #print(cidx)
+        frames_cld_idx.append(cidx)
+    frames_cld_idx = np.array(frames_cld_idx)
+
+    avg = frames_cld_idx.mean()
+    return avg
+
+def make_relabeled_dataset(input_dir, output_dir, cloudy=False):
     output_dir = solve_paths(output_dir)
     from .data_manager import BuildDataset
     from dataset.dataset_labeling_study import aggiorna_label_distanza_temporale
@@ -948,15 +962,22 @@ def make_relabeled_dataset(input_dir, output_dir):
     m = sup_data.master_df[new_label] == -1
     df_mod = sup_data.master_df[~m].copy().drop(columns='label').rename(columns={new_label:'label'})
     sup_data.make_df_video(new_master_df=df_mod, output_dir=output_dir,  is_to_balance=True) #, idxs=[1,2,3,4,5,6,7,8])
+    df_v = sup_data.df_video.copy()
+
+    if cloudy:
+
+        new_col_name = "avg_cloud_idx"
+        sup_data.df_video[new_col_name] = sup_data.df_video.path.apply(calc_avg_cld_idx)
+        mask_cloud = sup_data.df_video.avg_cloud_idx > 0.2
+        df_video_cloudy = sup_data.df_video[mask_cloud]
+        df_v = df_video_cloudy.copy()
 
     #train e test
-    df_v = sup_data.df_video.copy()
     train_p = 0.7
     len_p = int(train_p*df_v.shape[0])
     df_video_train = df_v.sort_values('start_time').iloc[:len_p]
     df_video_test = df_v.sort_values('start_time').iloc[len_p:]
     print(f"Train e test lengths: {df_video_train.shape[0]}, {df_video_test.shape[0]}")
-
     # salva i csv
     df_dataset_csv = create_final_df_csv(df_video_train, output_dir)
     df_dataset_csv.to_csv(f"train_dataset_12h_{df_video_train.shape[0]}.csv", index=False)
