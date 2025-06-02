@@ -913,6 +913,7 @@ def make_sup_dataset(input_dir, output_dir):
     output_dir = solve_paths(output_dir)
 
     from .data_manager import BuildDataset
+    from dataset.dataset_labeling_study import aggiorna_label_distanza_temporale
 
     #### TRAIN
     sup_data_train = BuildDataset(type='SUPERVISED', master_df_path="all_data_CL7_tracks_complete_fast2.csv")
@@ -935,13 +936,41 @@ def make_sup_dataset(input_dir, output_dir):
     print(cicloni, totali)
     sup_data_test.create_final_df_csv(output_dir, f"test_dataset_{totali}.csv")
 
+def make_relabeled_dataset(input_dir, output_dir):
+    output_dir = solve_paths(output_dir)
+    from .data_manager import BuildDataset
+    from dataset.dataset_labeling_study import aggiorna_label_distanza_temporale
+    sup_data = BuildDataset(type='SUPERVISED', master_df_path="all_data_CL7_tracks_complete_fast.csv")
+    sup_data.load_master_df()
+    sup_data.calc_delta_time()
+    
+    new_label = aggiorna_label_distanza_temporale(sup_data .master_df, soglia=pd.Timedelta(hours=12), sub_lab=-1)
+    m = sup_data.master_df[new_label] == -1
+    df_mod = sup_data.master_df[~m].copy().drop(columns='label').rename(columns={new_label:'label'})
+    sup_data.make_df_video(new_master_df=df_mod, output_dir=output_dir,  is_to_balance=True) #, idxs=[1,2,3,4,5,6,7,8])
+
+    #train e test
+    df_v = sup_data.df_video.copy()
+    train_p = 0.7
+    len_p = int(train_p*df_v.shape[0])
+    df_video_train = df_v.sort_values('start_time').iloc[:len_p]
+    df_video_test = df_v.sort_values('start_time').iloc[len_p:]
+    print(f"Train e test lengths: {df_video_train.shape[0]}, {df_video_test.shape[0]}")
+
+    # salva i csv
+    df_dataset_csv = create_final_df_csv(df_video_train, output_dir)
+    df_dataset_csv.to_csv(f"train_dataset_12h_{df_video_train.shape[0]}.csv", index=False)
+    df_dataset_csv = create_final_df_csv(df_video_test, output_dir)
+    df_dataset_csv.to_csv(f"test_dataset_12h_{df_video_test.shape[0]}.csv", index=False)
+
+
 def make_master_df(input_dir, output_dir):
     input_dir = solve_paths(input_dir)
     tracks_df_MED_CL7 = pd.read_csv("./manos_CL7_pixel.csv", parse_dates=['time', 'start_time', 'end_time'])
     sorted_metadata_files = load_all_images(input_dir)
     offsets_for_frame = calc_tile_offsets(stride_x=213, stride_y=196)
     df_data_CL7 = labeled_tiles_from_metadatafiles_maxfast(sorted_metadata_files, tracks_df_MED_CL7, offsets_for_frame)
-    df_data_CL7.to_csv("./all_data_CL7_tracks_complete_fast2.csv", date_format="%Y-%m-%d %H:%M")
+    df_data_CL7.to_csv("./all_data_CL7_tracks_complete_fast.csv", date_format="%Y-%m-%d %H:%M")
 
 
 def solve_paths(path):
