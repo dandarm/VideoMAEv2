@@ -36,7 +36,9 @@ if __name__ == "__main__":
     elif args.relabeled_df:        
         make_relabeled_dataset(input_dir, output_dir)
     elif args.cloudy:
-        make_relabeled_dataset(input_dir, output_dir, cloudy=True)
+        #make_relabeled_dataset(input_dir, output_dir, cloudy=True)
+        make_relabeled_dataset(input_dir, output_dir, cloudy=True, 
+                               master_df_path="all_data_CL7_tracks_SHORT4TEST.csv")
 
     else:
         make_sup_dataset(input_dir, output_dir)
