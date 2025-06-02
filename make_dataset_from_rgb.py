@@ -1,6 +1,6 @@
 
 import argparse
-from dataset.build_dataset import make_sup_dataset, make_unsup_dataset, make_master_df
+from dataset.build_dataset import make_sup_dataset, make_unsup_dataset, make_master_df, make_relabeled_dataset
 
 
 if __name__ == "__main__":
@@ -14,8 +14,9 @@ if __name__ == "__main__":
         help='imposta i path sulla macchina')
     parser.add_argument('--master_df',
         action='store_true',
-        #type=bool,
-        #default=False,
+        help='se creare il master dataframe')
+    parser.add_argument('--relabeled_df',
+        action='store_true',
         help='se creare il master dataframe')
 
     args = parser.parse_args()
@@ -29,5 +30,8 @@ if __name__ == "__main__":
 
     if args.master_df:
         make_master_df(input_dir, output_dir)
+    elif args.relabeled_df:
+        make_relabeled_dataset(input_dir, output_dir)
+
     else:
         make_sup_dataset(input_dir, output_dir)
