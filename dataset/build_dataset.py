@@ -941,8 +941,8 @@ def calc_avg_cld_idx(video_subfolder):
     frames_cld_idx = []
     for k in range(16):
         frame_path = Path(video_subfolder) / f"img_{k+1:05d}.png"
-        #print(f"file esistente? {frame_path}")
-        #print(os.path.exists(frame_path))
+        print(f"file esistente? {frame_path}")
+        print(os.path.exists(frame_path))
         #display(Image.open(frame_path))
         cidx = get_cloud_idx_from_image_path(frame_path)
         #print(cidx)
