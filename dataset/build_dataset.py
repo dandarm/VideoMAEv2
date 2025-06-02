@@ -252,7 +252,7 @@ def cloud_idx(cloud_mask):
 
 def get_cloud_idx_from_image_path(image_path):
     #img = Image.open(image_path)
-    img = cv2.imread(image_path) 
+    img = cv2.imread(str(image_path))
     mask = threshold_image(img)
     idx = cloud_idx(mask)
     return idx
@@ -941,8 +941,8 @@ def calc_avg_cld_idx(video_subfolder):
     frames_cld_idx = []
     for k in range(16):
         frame_path = Path(video_subfolder) / f"img_{k+1:05d}.png"
-        print(f"file esistente? {frame_path}")
-        print(os.path.exists(frame_path))
+        #print(f"file esistente? {frame_path}")
+        #print(os.path.exists(frame_path))
         #display(Image.open(frame_path))
         cidx = get_cloud_idx_from_image_path(frame_path)
         #print(cidx)
