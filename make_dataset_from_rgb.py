@@ -17,7 +17,7 @@ if __name__ == "__main__":
         help='se creare il master dataframe')
     parser.add_argument('--relabeled_df',
         action='store_true',
-        help='se creare il master dataframe')
+        help='se modificare le label')
 
     args = parser.parse_args()
 

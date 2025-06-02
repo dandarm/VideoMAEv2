@@ -6,6 +6,8 @@ from torch.utils.data import DataLoader, DistributedSampler
 from .pretrain_datasets import (  # noqa: F401
     DataAugmentationForVideoMAEv2, HybridVideoMAE, VideoMAE)
 from .datasets import MedicanesClsDataset  # RawFrameClsDataset, VideoClsDataset,
+from medicane_utils.load_files import  load_all_images
+from dataset.build_dataset import calc_tile_offsets, labeled_tiles_from_metadatafiles_maxfast
 
 import utils
 from utils import multiple_pretrain_samples_collate
@@ -146,8 +148,13 @@ class BuildDataset():
 
         self.string_format_time = '%Y-%m-%d %H:%M'
 
-    def create_master_df(self):
-        pass
+    def create_master_df(self, manos_file, input_dir_images):
+        tracks_df = pd.read_csv(manos_file, parse_dates=['time', 'start_time', 'end_time'])
+        sorted_metadata_files = load_all_images(input_dir_images)
+
+        offsets_for_frame = calc_tile_offsets(stride_x=213, stride_y=196)
+        self.master_df = labeled_tiles_from_metadatafiles_maxfast(sorted_metadata_files, tracks_df, offsets_for_frame)
+        
 
     def load_master_df(self, master_df_path=None):
         if master_df_path:
