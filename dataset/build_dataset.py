@@ -10,7 +10,7 @@ from datetime import datetime
 from time import time
 
 import cv2
-
+import numpy as np
 import pandas as pd
 from IPython.display import display, HTML
 from PIL import Image
@@ -941,6 +941,8 @@ def calc_avg_cld_idx(video_subfolder):
     frames_cld_idx = []
     for k in range(16):
         frame_path = Path(video_subfolder) / f"img_{k+1:05d}.png"
+        #print(f"file esistente? {frame_path}")
+        #print(os.path.exists(frame_path))
         #display(Image.open(frame_path))
         cidx = get_cloud_idx_from_image_path(frame_path)
         #print(cidx)
@@ -950,11 +952,12 @@ def calc_avg_cld_idx(video_subfolder):
     avg = frames_cld_idx.mean()
     return avg
 
-def make_relabeled_dataset(input_dir, output_dir, cloudy=False):
+def make_relabeled_dataset(input_dir, output_dir, cloudy=False, 
+                           master_df_path="all_data_CL7_tracks_complete_fast.csv"):
     output_dir = solve_paths(output_dir)
     from .data_manager import BuildDataset
     from dataset.dataset_labeling_study import aggiorna_label_distanza_temporale
-    sup_data = BuildDataset(type='SUPERVISED', master_df_path="all_data_CL7_tracks_complete_fast.csv")
+    sup_data = BuildDataset(type='SUPERVISED', master_df_path=master_df_path)
     sup_data.load_master_df()
     sup_data.calc_delta_time()
     
@@ -965,12 +968,13 @@ def make_relabeled_dataset(input_dir, output_dir, cloudy=False):
     df_v = sup_data.df_video.copy()
 
     if cloudy:
-
+        sup_data.df_video.path = output_dir + sup_data.df_video.path
         new_col_name = "avg_cloud_idx"
         sup_data.df_video[new_col_name] = sup_data.df_video.path.apply(calc_avg_cld_idx)
         mask_cloud = sup_data.df_video.avg_cloud_idx > 0.2
         df_video_cloudy = sup_data.df_video[mask_cloud]
         df_v = df_video_cloudy.copy()
+        df_v.path = df_v.path.str.split('/').str[-1]
 
     #train e test
     train_p = 0.7
