@@ -18,6 +18,9 @@ if __name__ == "__main__":
     parser.add_argument('--relabeled_df',
         action='store_true',
         help='se modificare le label')
+    parser.add_argument('--cloudy',
+        action='store_true',
+        help='se escludere il cielo sereno')
 
     args = parser.parse_args()
 
@@ -30,8 +33,10 @@ if __name__ == "__main__":
 
     if args.master_df:
         make_master_df(input_dir, output_dir)
-    elif args.relabeled_df:
+    elif args.relabeled_df:        
         make_relabeled_dataset(input_dir, output_dir)
+    elif args.cloudy:
+        make_relabeled_dataset(input_dir, output_dir, cloudy=True)
 
     else:
         make_sup_dataset(input_dir, output_dir)
