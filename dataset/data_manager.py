@@ -7,7 +7,8 @@ from .pretrain_datasets import (  # noqa: F401
     DataAugmentationForVideoMAEv2, HybridVideoMAE, VideoMAE)
 from .datasets import MedicanesClsDataset  # RawFrameClsDataset, VideoClsDataset,
 from medicane_utils.load_files import  load_all_images
-from dataset.build_dataset import calc_tile_offsets, labeled_tiles_from_metadatafiles_maxfast
+from dataset.build_dataset import calc_tile_offsets, labeled_tiles_from_metadatafiles_maxfast, make_relabeled_master_df
+
 
 import utils
 from utils import multiple_pretrain_samples_collate
@@ -148,8 +149,10 @@ class BuildDataset():
 
         self.string_format_time = '%Y-%m-%d %H:%M'
 
-    def create_master_df(self, manos_file, input_dir_images):
-        tracks_df = pd.read_csv(manos_file, parse_dates=['time', 'start_time', 'end_time'])
+    def create_master_df(self, manos_file, input_dir_images, tracks_df=None):
+        if tracks_df is None:
+            tracks_df = pd.read_csv(manos_file, parse_dates=['time', 'start_time', 'end_time'])
+
         sorted_metadata_files = load_all_images(input_dir_images)
 
         offsets_for_frame = calc_tile_offsets(stride_x=213, stride_y=196)
@@ -212,6 +215,15 @@ class BuildDataset():
         # outputdir serve per completare il path dei nomi file video nel csv
         df_dataset_csv = create_final_df_csv(self.df_video, output_dir)
         df_dataset_csv.to_csv(path_csv, index=False)
+
+
+    def get_data_ready(self, df_tracks, input_dir, output_dir):
+        self.create_master_df(manos_file=None, input_dir_images=input_dir, tracks_df=df_tracks)
+
+        # cambia le etichette per togliere le fasi iniziali e finali dei cicloni
+        df_mod = make_relabeled_master_df(self)
+        self.make_df_video(new_master_df=df_mod, output_dir=output_dir,  is_to_balance=True)
+        self.create_final_df_csv(output_dir, "train_CL10.csv")
 
         
 

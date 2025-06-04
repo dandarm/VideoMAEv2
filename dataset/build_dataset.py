@@ -551,6 +551,7 @@ def create_and_save_tile_from_complete_df(df, output_dir, overwrite=False):
             # crea la cartella di destinazione
             path_name = row.path
             subfolder = Path(output_dir) / path_name
+            print(subfolder)
             subfolder.mkdir(parents=True, exist_ok=True)
 
             offset_x, offset_y = row.tile_offset_x, row.tile_offset_y
@@ -916,7 +917,7 @@ def make_sup_dataset(input_dir, output_dir):
     from dataset.dataset_labeling_study import aggiorna_label_distanza_temporale
 
     #### TRAIN
-    sup_data_train = BuildDataset(type='SUPERVISED', master_df_path="all_data_CL7_tracks_complete_fast2.csv")
+    sup_data_train = BuildDataset(type='SUPERVISED', master_df_path="all_data_CL7_tracks_complete_fast.csv")
     sup_data_train.load_master_df()
     sup_data_train.get_sequential_periods()
     sup_data_train.print_sequential_periods()
@@ -928,7 +929,7 @@ def make_sup_dataset(input_dir, output_dir):
     sup_data_train.create_final_df_csv(output_dir, f"train_dataset_{totali}.csv")
 
     #### TEST
-    sup_data_test = BuildDataset(type='SUPERVISED', master_df_path="all_data_CL7_tracks_complete_fast2.csv")
+    sup_data_test = BuildDataset(type='SUPERVISED', master_df_path="all_data_CL7_tracks_complete_fast.csv")
     sup_data_test.load_master_df()
     sup_data_test.make_df_video(output_dir, idxs=[9], is_to_balance=True)
     cicloni = sup_data_train.df_video.label.sum()
@@ -940,9 +941,9 @@ def make_sup_dataset(input_dir, output_dir):
 def calc_avg_cld_idx(video_subfolder):
     frames_cld_idx = []
     for k in range(16):
-        frame_path = Path(video_subfolder) / f"img_{k+1:05d}.png"
-        #print(f"file esistente? {frame_path}")
-        #print(os.path.exists(frame_path))
+        frame_path = Path(video_subfolder) / f"img_{k+1:05d}.png"        
+        if not os.path.exists(frame_path):
+            print(f"file non esistente? {frame_path}")
         #display(Image.open(frame_path))
         cidx = get_cloud_idx_from_image_path(frame_path)
         #print(cidx)
@@ -952,29 +953,39 @@ def calc_avg_cld_idx(video_subfolder):
     avg = frames_cld_idx.mean()
     return avg
 
+
+def make_relabeled_master_df(data_manager):
+    from dataset.dataset_labeling_study import aggiorna_label_distanza_temporale
+    data_manager.calc_delta_time()    
+    new_label = aggiorna_label_distanza_temporale(data_manager.master_df, soglia=pd.Timedelta(hours=12), sub_lab=-1)
+    m = data_manager.master_df[new_label] == -1
+    df_mod = data_manager.master_df[~m].copy().drop(columns='label').rename(columns={new_label:'label'})
+    return df_mod
+
 def make_relabeled_dataset(input_dir, output_dir, cloudy=False, 
                            master_df_path="all_data_CL7_tracks_complete_fast.csv"):
     output_dir = solve_paths(output_dir)
     from .data_manager import BuildDataset
-    from dataset.dataset_labeling_study import aggiorna_label_distanza_temporale
+    
     sup_data = BuildDataset(type='SUPERVISED', master_df_path=master_df_path)
     sup_data.load_master_df()
-    sup_data.calc_delta_time()
-    
-    new_label = aggiorna_label_distanza_temporale(sup_data .master_df, soglia=pd.Timedelta(hours=12), sub_lab=-1)
-    m = sup_data.master_df[new_label] == -1
-    df_mod = sup_data.master_df[~m].copy().drop(columns='label').rename(columns={new_label:'label'})
+
+    df_mod = make_relabeled_master_df(sup_data)
     sup_data.make_df_video(new_master_df=df_mod, output_dir=output_dir,  is_to_balance=True) #, idxs=[1,2,3,4,5,6,7,8])
     df_v = sup_data.df_video.copy()
 
+    suffix = "_12h"
     if cloudy:
         sup_data.df_video.path = output_dir + sup_data.df_video.path
         new_col_name = "avg_cloud_idx"
+        print(f"Calcolando l'indice di nuvolosità...")
         sup_data.df_video[new_col_name] = sup_data.df_video.path.apply(calc_avg_cld_idx)
         mask_cloud = sup_data.df_video.avg_cloud_idx > 0.2
         df_video_cloudy = sup_data.df_video[mask_cloud]
         df_v = df_video_cloudy.copy()
         df_v.path = df_v.path.str.split('/').str[-1]
+        suffix += "_cloudy"
+
 
     #train e test
     train_p = 0.7
@@ -984,9 +995,9 @@ def make_relabeled_dataset(input_dir, output_dir, cloudy=False,
     print(f"Train e test lengths: {df_video_train.shape[0]}, {df_video_test.shape[0]}")
     # salva i csv
     df_dataset_csv = create_final_df_csv(df_video_train, output_dir)
-    df_dataset_csv.to_csv(f"train_dataset_12h_{df_video_train.shape[0]}.csv", index=False)
+    df_dataset_csv.to_csv(f"train_dataset{suffix}_{df_video_train.shape[0]}.csv", index=False)
     df_dataset_csv = create_final_df_csv(df_video_test, output_dir)
-    df_dataset_csv.to_csv(f"test_dataset_12h_{df_video_test.shape[0]}.csv", index=False)
+    df_dataset_csv.to_csv(f"test_dataset{suffix}_{df_video_test.shape[0]}.csv", index=False)
 
 
 def make_master_df(input_dir, output_dir):

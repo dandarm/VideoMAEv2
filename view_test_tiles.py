@@ -478,6 +478,7 @@ def create_mediterranean_video(list_grouped_df, interval=200, dpi=96, width=1290
         labeled_tiles_offsets = group_df['label'].values # dovrebbe avere tanti valori quante sono le tiles
         # se ne ha di meno è perché stiamo guardando un sottoinsieme, es. il dataset di test
         # quindi quelle che mancano dovremmo riempire con un velo grigio
+        #print(labeled_tiles_offsets)
 
         if 'predictions' in group_df.columns:
             predicted_tiles_offsets = group_df['predictions'].values
