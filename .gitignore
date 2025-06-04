@@ -167,3 +167,4 @@ log_train*
 nohup.out
 myJob*
 slurm*
+ffmpeg*
