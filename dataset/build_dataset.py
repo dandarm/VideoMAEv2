@@ -551,7 +551,7 @@ def create_and_save_tile_from_complete_df(df, output_dir, overwrite=False):
             # crea la cartella di destinazione
             path_name = row.path
             subfolder = Path(output_dir) / path_name
-            print(subfolder)
+            #print(subfolder)
             subfolder.mkdir(parents=True, exist_ok=True)
 
             offset_x, offset_y = row.tile_offset_x, row.tile_offset_y
@@ -809,64 +809,9 @@ def label_subfolders_with_cyclones_df(
 
 
 
-######## CODE FOR TERMINAL EXECUTION 
-
-def main():
+#region ######## CODE FOR TERMINAL EXECUTION 
  
-    Xmin, Ymin, px_scale_x, px_scale_y = compute_pixel_scale(default_basem_obj, latcorners, loncorners,
-        big_image_w=1290, big_image_h=420)
 
-    ######################################  carica i files e le date
-    input_dir = "../fromgcloud"  # Cambia questo percorso
-    output_dir = "../airmassRGB/supervised"
-    #os.makedirs(output_dir, exist_ok=True)
-    
-    filenames = get_files_from_folder(folder=input_dir, extension="png")
-    #print(f"Trovati {len(filenames)} files")
-    file_metadata = []  # contiene i nomi e le date
-    for fname in filenames:
-        start_dt = extract_dates_pattern_airmass_rgb_20200101_0000(fname.name)
-        file_metadata.append((fname, start_dt))
-
-    sorted_metadata = sorted(file_metadata, key=lambda x: x[1])  # Ordina per start_dt
-    #random_fnames =  [item[0] for item in file_metadata]
-    sorted_filenames = [item[0] for item in sorted_metadata]
-    print(f" Ci sono {len(sorted_filenames)} files.")
-    
-    #sorted_filenames = sorted_filenames[:32]
-
-    # 1) Abbiamo gia' i sorted_filenames caricati, e output_dir definito
-    #sf = [(p, dt) for p, dt in zip(sorted_filenames, [f[1] for f in sorted_files])]
-    #print(f"sorted filenames, len = {len(sf)}")
-    subfolder_info = split_into_tiles_subfolders_and_track_dates(sorted_filenames=sf, output_dir=output_dir)
-    print(f"Creati {len(subfolder_info)} tile-video in total.")
-
-    # 2) Carico i ciclonici
-    tracks_file = "./TRACKS_CL7.dat"  
-    df_tracks = load_cyclones_track_noheader(tracks_file)
-
-
-    # 4) label subfolders
-    out_csv_label = os.path.join(output_dir, "label_tiles.csv")
-    df = label_subfolders_with_cyclones_df(
-        subfolder_info,
-        df_tracks,
-        basemap_obj=default_basem_obj,
-        x_center=x_center,
-        y_center=y_center,
-        px_scale_x=px_scale_x,
-        px_scale_y=px_scale_y,
-        out_csv=out_csv_label
-    )
-
-
-def make_master_df(sorted_metadata_files, df_tracks):
-    start = time()
-    offsets_for_frame = calc_tile_offsets(stride_x=213, stride_y=196)
-    df_data = labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_for_frame)  # [10000:10020]
-    end = time()
-    print(f"Durata calcolo: {round((end-start)/60/60,2)} ore")
-    return df_data
 
 
 def make_unsup_dataset(input_dir, output_dir):
@@ -1000,6 +945,31 @@ def make_relabeled_dataset(input_dir, output_dir, cloudy=False,
     df_dataset_csv.to_csv(f"test_dataset{suffix}_{df_video_test.shape[0]}.csv", index=False)
 
 
+def make_CL10_dataset(input_dir, output_dir):
+    from dataset.data_manager import BuildDataset
+
+    tracks_df_MED_CL10 = pd.read_csv("manos_CL10_pixel.csv", parse_dates=['time', 'start_time', 'end_time'])
+
+    # divido le track di Manos in train e test
+    cicloni_unici = tracks_df_MED_CL10.id_cyc_unico.unique()
+    train_p = 0.7
+    len_p = int(train_p*cicloni_unici.shape[0])
+    cicloni_unici_train = cicloni_unici[:len_p]
+    cicloni_unici_test = cicloni_unici[len_p:]
+    cicloni_unici_train.shape, cicloni_unici_test.shape
+
+    tracks_df_train = tracks_df_MED_CL10[tracks_df_MED_CL10.id_cyc_unico.isin(cicloni_unici_train)]
+    tracks_df_test = tracks_df_MED_CL10[tracks_df_MED_CL10.id_cyc_unico.isin(cicloni_unici_test)]
+
+    train_m = BuildDataset(type='SUPERVISED')
+    train_m.get_data_ready(tracks_df_train, input_dir, output_dir, csv_file="train_CL10")
+
+    test_m = BuildDataset(type='SUPERVISED')
+    test_m.get_data_ready(tracks_df_test, input_dir, output_dir, csv_file="test_CL10")
+
+
+
+
 def make_master_df(input_dir, output_dir):
     input_dir = solve_paths(input_dir)
     tracks_df_MED_CL7 = pd.read_csv("./manos_CL7_pixel.csv", parse_dates=['time', 'start_time', 'end_time'])
@@ -1014,3 +984,8 @@ def solve_paths(path):
     if '$' in exp_path:
         raise EnvironmentError(f"Errore con una variabile d'ambiente in {exp_path}")
     return exp_path
+
+
+
+
+# endregion
