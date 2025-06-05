@@ -947,7 +947,8 @@ def make_relabeled_dataset(input_dir, output_dir, cloudy=False,
 
 def make_CL10_dataset(input_dir, output_dir):
     from dataset.data_manager import BuildDataset
-
+    output_dir = solve_paths(output_dir)
+    input_dir = solve_paths(input_dir)
     tracks_df_MED_CL10 = pd.read_csv("manos_CL10_pixel.csv", parse_dates=['time', 'start_time', 'end_time'])
 
     # divido le track di Manos in train e test
