@@ -143,6 +143,7 @@ class BuildDataset():
         self.master_df = None
         self.path_master_df = master_df_path
         self.df_video = None
+        self.csv_file = None
 
         self.date_inizio_fine_gruppi = None
 
@@ -215,15 +216,20 @@ class BuildDataset():
         # outputdir serve per completare il path dei nomi file video nel csv
         df_dataset_csv = create_final_df_csv(self.df_video, output_dir)
         df_dataset_csv.to_csv(path_csv, index=False)
+        self.csv_file = path_csv
 
 
-    def get_data_ready(self, df_tracks, input_dir, output_dir):
+    def get_data_ready(self, df_tracks, input_dir, output_dir, csv_file=None):
         self.create_master_df(manos_file=None, input_dir_images=input_dir, tracks_df=df_tracks)
 
         # cambia le etichette per togliere le fasi iniziali e finali dei cicloni
         df_mod = make_relabeled_master_df(self)
         self.make_df_video(new_master_df=df_mod, output_dir=output_dir,  is_to_balance=True)
-        self.create_final_df_csv(output_dir, "train_CL10.csv")
+        if csv_file is None:
+            csv_file = f"data_{self.df_video.shape[0]}.csv"
+        else:
+            csv_file = csv_file + f"_{self.df_video.shape[0]}.csv"
+        self.create_final_df_csv(output_dir, csv_file)
 
         
 
