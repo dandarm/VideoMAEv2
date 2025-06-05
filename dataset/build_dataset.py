@@ -551,7 +551,7 @@ def create_and_save_tile_from_complete_df(df, output_dir, overwrite=False):
             # crea la cartella di destinazione
             path_name = row.path
             subfolder = Path(output_dir) / path_name
-            print(subfolder)
+            #print(subfolder)
             subfolder.mkdir(parents=True, exist_ok=True)
 
             offset_x, offset_y = row.tile_offset_x, row.tile_offset_y
