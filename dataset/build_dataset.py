@@ -460,7 +460,7 @@ def group_df_by_offsets(df):
 
     # 2) Raggruppiamo per tile_offset
     grouped = df_sorted.groupby(["tile_offset_x", "tile_offset_y"], group_keys=False)
-    assert 'label' in (list(grouped)[0]).columns, "Manca la colonna label"
+    assert 'label' in (list(grouped)[0])[1].columns, "Manca la colonna label"
 
     return grouped
 
