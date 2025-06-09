@@ -158,6 +158,7 @@ data/
 *.dat
 *.png
 *.ttf
+*.mp4
 from_gcloud/
 output*
 .aider*

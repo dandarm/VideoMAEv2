@@ -124,6 +124,28 @@ def get_only_labels(data_loader):
     all_preds = [0] * len(all_labels)
     return all_paths, all_preds, all_labels
 
+
+
+def video_pred_2_img_pred(df_video_w_predictions):
+    # Espando dataframe con le associazioni (path X offsets) -> predictions
+    records = []
+    for _, row in df_video_w_predictions.iterrows():
+        for orig_path in row['orig_paths']:
+            records.append({
+                'path': orig_path,
+                'predictions': row['predictions'],
+                'tmp_label': row['labels'],
+                'tile_offset_x': row['tile_offset_x'],
+                'tile_offset_y': row['tile_offset_y']
+            })
+
+    # Li trasformiamo in un nuovo DataFrame
+    df_mapping = pd.DataFrame(records)
+
+    #df_mapping[['path', 'tile_offset_x', 'tile_offset_y']].duplicated().sum()
+    # se ci sono path duplicati in combinazione con gli offsets
+    return df_mapping
+
 #endregion
 
 
