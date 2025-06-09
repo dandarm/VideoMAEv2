@@ -480,7 +480,7 @@ def create_tile_videos(grouped, output_dir=None, tile_size=224, supervised=True,
     video_id = 0
     
     for (offset_x, offset_y), group_df in grouped:
-        assert 'label' in group_df.columns, "Manca la colonna label"
+        #assert 'label' in group_df.columns, "Manca la colonna label"
         # group_df è un sotto-DataFrame con tutte le righe di quella tile
         # Ordinate già per datetime.
         group_df = group_df.reset_index(drop=True)
