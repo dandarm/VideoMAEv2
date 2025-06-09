@@ -612,6 +612,7 @@ def balance_time_group(df_videos, seed=1):
 
 
 def create_df_video_from_master_df(df_data, idxs=None, output_dir=None, is_to_balance=False):
+    assert 'label' in df_data.columns, "Manca la colonna label"
     gruppi_date_list = get_gruppi_date(df_data)
     if idxs is None:
         idxs = range(1, len(gruppi_date_list)+1)
@@ -619,6 +620,7 @@ def create_df_video_from_master_df(df_data, idxs=None, output_dir=None, is_to_ba
     df_videos = []
     i = 1
     for df in gruppi_date_list:
+        assert 'label' in df.columns, "Manca la colonna label"
         if i in idxs:
             print(f"{i})  ->")
             df_offsets_groups = group_df_by_offsets(df)
