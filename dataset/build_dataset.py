@@ -623,6 +623,7 @@ def create_df_video_from_master_df(df_data, idxs=None, output_dir=None, is_to_ba
             print(f"{i})  ->")
             df_offsets_groups = group_df_by_offsets(df)
             df_for_period = create_tile_videos(df_offsets_groups)
+            assert 'label' in df_for_period.columns, "Manca la colonna label"
             
             if is_to_balance:
                 df_for_period = balance_time_group(df_for_period)
