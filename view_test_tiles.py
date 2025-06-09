@@ -1,4 +1,5 @@
 import os
+from time import time
 import re
 from pathlib import Path
 # import datetime
@@ -143,6 +144,8 @@ def extract_cl_number(cl):
 
 def deduplicate_xy_source(x_list, y_list, source_list):
     #print(x_list, y_list, source_list)
+    if pd.isna(source_list):
+        return []
     if not x_list or not y_list or not source_list:        
         return []  # o None, o np.nan
     #if x_list.isna() or y_list.isna() or source_list.isna():
@@ -422,8 +425,7 @@ def safe_literal_eval(val):
     return val  # già una lista, None, o qualsiasi altro tipo
     
     
-def create_mediterranean_video(list_grouped_df, interval=200, dpi=96, width=1290, height=420, 
-                               tile_offset_x=213, tile_offset_y=196):
+def create_mediterranean_video(list_grouped_df, interval=200, dpi=96, width=1290, height=420):
 
     #lista_immagini = []
     fig = plt.figure(figsize=(width/dpi, height/dpi), dpi=dpi)
@@ -490,7 +492,10 @@ def create_mediterranean_video(list_grouped_df, interval=200, dpi=96, width=1290
         else:
             to_be_filled_offsets = None
         
-        offsets = calc_tile_offsets(stride_x=tile_offset_x, stride_y=tile_offset_y)
+        #offsets = calc_tile_offsets(stride_x=tile_offset_x, stride_y=tile_offset_y)
+        offsets = list(group_df[['tile_offset_x','tile_offset_y']].value_counts().index.values)
+        #print(list_grouped_df)  #[['tile_offset_x','tile_offset_y']])
+
         #print(f"to_be_filled_offsets {to_be_filled_offsets}")
         out_img = draw_tiles_and_center(img, offsets,
             cyclone_centers=xy_source_list,
@@ -525,37 +530,28 @@ def create_mediterranean_video(list_grouped_df, interval=200, dpi=96, width=1290
     return ani
 
     
+def get_writer4animation():
+    from matplotlib.animation import FFMpegWriter
+
+    writer = FFMpegWriter(
+        fps=10,
+        codec='libx264',
+        bitrate=None,             # se usi crf, puoi lasciare bitrate a None
+        extra_args=[
+            '-crf', '18',         # qualità alta (visualmente quasi lossless)
+            '-preset', 'slow',    # migliore compressione
+            '-pix_fmt', 'yuv420p' # formato compatibile con la maggior parte dei player
+        ])
+    #writer = FFMpegWriter(fps=10, codec='libx264', extra_args=['-pix_fmt', 'yuv420p'], bitrate=1800) #, executable=r'C:\ffmpeg\bin\ffmpeg.exe')
+    return writer
 
 
-
-
-
-
-
-import warnings
-warnings.filterwarnings('ignore')
-
-
-if __name__ == '__main__':
-    args = prepare_finetuning_args()
-    # dataset_val, _ = build_dataset(is_train=False, test_mode=False, args=args)
-
-    # data_loader_val = DataLoader(
-    # dataset_val,
-    # batch_size=args.batch_size,
-    # shuffle=True,         # Per estrarre sample casuali
-    # num_workers=args.num_workers,
-    # pin_memory=args.pin_mem,
-    # drop_last=False
-    # )
-
-    print(f"Creating model: {args.model} (nb_classes={args.nb_classes})")
-
-    model = create_model(
-        args.model,
-        num_classes=args.nb_classes,
-        drop_rate=0.0,
-        drop_path_rate=args.drop_path,
-        drop_block_rate=None,
-        **args.__dict__
-    )
+def make_animation(df, nomefile='predictions_validation3.gif', writer='pillow'):
+    grouped = df.groupby("path", dropna=False)
+    print(f" abbiamo {len(list(grouped))} gruppi", flush=True)
+    start = time()
+    video = create_mediterranean_video(list(grouped))
+    video.save(nomefile, writer=writer)
+    end = time()
+    print(f"{round((end-start)/60.0, 2)} minuti")
+    print(f"Video salvato: {nomefile}")
