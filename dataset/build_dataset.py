@@ -456,9 +456,11 @@ def labeled_tiles_from_metadatafiles_maxfast(sorted_metadata_files, df_tracks, o
 def group_df_by_offsets(df):
     # 1) Ordiniamo il DataFrame per (tile_offset_x, tile_offset_y, datetime)
     df_sorted = df.sort_values(["tile_offset_x", "tile_offset_y", "datetime"])
+    assert 'label' in df_for_period.columns, "Manca la colonna label"
 
     # 2) Raggruppiamo per tile_offset
     grouped = df_sorted.groupby(["tile_offset_x", "tile_offset_y"], group_keys=False)
+    assert 'label' in df_for_period.columns, "Manca la colonna label"
 
     return grouped
 
