@@ -904,6 +904,7 @@ def make_relabeled_master_df(data_manager):
     new_label = aggiorna_label_distanza_temporale(data_manager.master_df, soglia=pd.Timedelta(hours=12), sub_lab=-1)
     m = data_manager.master_df[new_label] == -1
     df_mod = data_manager.master_df[~m].copy().drop(columns='label').rename(columns={new_label:'label'})
+    assert 'label' in df_mod.columns, "Manca la colonna label"
     return df_mod
 
 def make_relabeled_dataset(input_dir, output_dir, cloudy=False, 
