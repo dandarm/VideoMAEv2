@@ -37,11 +37,11 @@ def launch_finetuning_classification(terminal_args):
     args = prepare_finetuning_args(machine=terminal_args.on)
 
     #device = torch.device(args.device)
-    seed = args.seed
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-    cudnn.benchmark = True
+    # seed = args.seed
+    # torch.manual_seed(seed)
+    # np.random.seed(seed)
+    # random.seed(seed)
+    # cudnn.benchmark = True
 
 
     # training distribuito
