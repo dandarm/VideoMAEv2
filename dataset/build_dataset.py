@@ -480,6 +480,7 @@ def create_tile_videos(grouped, output_dir=None, tile_size=224, supervised=True,
     video_id = 0
     
     for (offset_x, offset_y), group_df in grouped:
+        assert 'label' in group_df.columns, "Manca la colonna label"
         # group_df è un sotto-DataFrame con tutte le righe di quella tile
         # Ordinate già per datetime.
         group_df = group_df.reset_index(drop=True)
@@ -621,8 +622,7 @@ def create_df_video_from_master_df(df_data, idxs=None, output_dir=None, is_to_ba
     for df in gruppi_date_list:
         if i in idxs:
             print(f"{i})  ->")
-            df_offsets_groups = group_df_by_offsets(df)
-            assert 'label' in df_for_period.columns, "Manca la colonna label"
+            df_offsets_groups = group_df_by_offsets(df)            
             df_for_period = create_tile_videos(df_offsets_groups)
             if df_for_period.shape[0] == 0:
                 continue
