@@ -456,11 +456,9 @@ def labeled_tiles_from_metadatafiles_maxfast(sorted_metadata_files, df_tracks, o
 def group_df_by_offsets(df):
     # 1) Ordiniamo il DataFrame per (tile_offset_x, tile_offset_y, datetime)
     df_sorted = df.sort_values(["tile_offset_x", "tile_offset_y", "datetime"])
-    assert 'label' in df_sorted.columns, "Manca la colonna label"
 
     # 2) Raggruppiamo per tile_offset
     grouped = df_sorted.groupby(["tile_offset_x", "tile_offset_y"], group_keys=False)
-    assert 'label' in (list(grouped)[0])[1].columns, "Manca la colonna label"
 
     return grouped
 
@@ -614,7 +612,6 @@ def balance_time_group(df_videos, seed=1):
 
 
 def create_df_video_from_master_df(df_data, idxs=None, output_dir=None, is_to_balance=False):
-    assert 'label' in df_data.columns, "Manca la colonna label"
     gruppi_date_list = get_gruppi_date(df_data)
     if idxs is None:
         idxs = range(1, len(gruppi_date_list)+1)
@@ -622,12 +619,14 @@ def create_df_video_from_master_df(df_data, idxs=None, output_dir=None, is_to_ba
     df_videos = []
     i = 1
     for df in gruppi_date_list:
-        assert 'label' in df.columns, "Manca la colonna label"
         if i in idxs:
             print(f"{i})  ->")
             df_offsets_groups = group_df_by_offsets(df)
-            df_for_period = create_tile_videos(df_offsets_groups)
             assert 'label' in df_for_period.columns, "Manca la colonna label"
+            df_for_period = create_tile_videos(df_offsets_groups)
+            if df_for_period.shape[0] == 0:
+                continue
+            assert 'label' in df_for_period.columns, f"Manca la colonna label - shape: {df_for_period.shape[0]}"
             
             if is_to_balance:
                 df_for_period = balance_time_group(df_for_period)
