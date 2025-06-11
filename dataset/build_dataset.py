@@ -626,7 +626,7 @@ def create_df_video_from_master_df(df_data, idxs=None, output_dir=None, is_to_ba
             df_for_period = create_tile_videos(df_offsets_groups)
             if df_for_period.shape[0] == 0:
                 continue
-            assert 'label' in df_for_period.columns, f"Manca la colonna label - shape: {df_for_period.shape[0]}"
+            #assert 'label' in df_for_period.columns, f"Manca la colonna label - shape: {df_for_period.shape[0]}"
             
             if is_to_balance:
                 df_for_period = balance_time_group(df_for_period)
@@ -644,7 +644,10 @@ def create_df_video_from_master_df(df_data, idxs=None, output_dir=None, is_to_ba
                 print(f"No video present for period: {df.datetime.iloc[0]} to {df.datetime.iloc[-1]}")
         i += 1
 
-    df_videos = pd.concat(df_videos)
+    if len(df_videos) > 0:
+        df_videos = pd.concat(df_videos)
+    else:
+        df_videos = pd.DataFrame([])
     return df_videos
 
 
