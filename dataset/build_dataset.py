@@ -956,6 +956,7 @@ def make_CL10_dataset(input_dir, output_dir):
     from dataset.data_manager import BuildDataset
     output_dir = solve_paths(output_dir)
     input_dir = solve_paths(input_dir)
+
     tracks_df_MED_CL10 = pd.read_csv("manos_CL10_pixel.csv", parse_dates=['time', 'start_time', 'end_time'])
 
     # divido le track di Manos in train e test
@@ -964,7 +965,7 @@ def make_CL10_dataset(input_dir, output_dir):
     len_p = int(train_p*cicloni_unici.shape[0])
     cicloni_unici_train = cicloni_unici[:len_p]
     cicloni_unici_test = cicloni_unici[len_p:]
-    cicloni_unici_train.shape, cicloni_unici_test.shape
+    print(f"Cicloni nel train: {cicloni_unici_train.shape[0]}, cicloni nel test: {cicloni_unici_test.shape[0]}")
 
     tracks_df_train = tracks_df_MED_CL10[tracks_df_MED_CL10.id_cyc_unico.isin(cicloni_unici_train)]
     tracks_df_test = tracks_df_MED_CL10[tracks_df_MED_CL10.id_cyc_unico.isin(cicloni_unici_test)]
@@ -972,8 +973,10 @@ def make_CL10_dataset(input_dir, output_dir):
     train_m = BuildDataset(type='SUPERVISED')
     train_m.get_data_ready(tracks_df_train, input_dir, output_dir, csv_file="train_CL10")
 
-    test_m = BuildDataset(type='SUPERVISED')
-    test_m.get_data_ready(tracks_df_test, input_dir, output_dir, csv_file="test_CL10")
+    #test_m = BuildDataset(type='SUPERVISED')
+    #test_m.get_data_ready(tracks_df_test, input_dir, output_dir, csv_file="test_CL10")
+
+    return train_m, tracks_df_train
 
 
 

@@ -1,4 +1,5 @@
 import os
+import multiprocessing
 from time import time
 import re
 from pathlib import Path
@@ -541,6 +542,11 @@ def render_and_save_frame(args):
 
     frame_idx, list_grouped_df, output_folder = args
 
+    # rapido check per non rislavare figure già esistenti:
+    output_file = os.path.join(output_folder, f"frame_{frame_idx:04d}.png")
+    if os.path.isfile(output_file): # or overwrite:
+        return output_file
+
     # region Crea figura
     fig = plt.figure(figsize=(width/dpi, height/dpi), dpi=dpi)
     ax = fig.add_axes([0, 0, 1, 1])
@@ -620,7 +626,7 @@ def render_and_save_frame(args):
     ax.imshow(norm_array, origin='upper', zorder=1)
 
     # Salvataggio del frame
-    output_file = os.path.join(output_folder, f"frame_{frame_idx:04d}.png")
+    
     plt.savefig(output_file, dpi=dpi, transparent=True)
     plt.close(fig)
 
@@ -647,9 +653,9 @@ def save_frames_parallel(df, output_folder):
     print(f"{round((end-start)/60.0, 2)} minuti")
     
 
-def make_animation_parallel_ffmpeg(df, nomefile, framerate=10):
+def make_animation_parallel_ffmpeg(df, nomefile, output_folder = "./anim_frames", framerate=10):
     print(">>> Generazione dei frame PNG...")
-    output_folder = "./anim_frames"
+    
     os.makedirs(output_folder, exist_ok=True)
     save_frames_parallel(df, output_folder)    
 
@@ -747,40 +753,61 @@ def make_animation(df, nomefile='predictions_validation3.gif', writer='pillow'):
 
 
 
+
+# region video specifici
+def video_specifico1(input_dir, output_dir):
+    from medicane_utils.load_files import decodifica_id_intero
+    from dataset.data_manager import BuildDataset
+    from view_test_tiles import make_animation_parallel_ffmpeg
+
+    import pandas as pd
+    import io
+
+    id_cyc = 1678
+    tracks_df_MED7 = pd.read_csv("manos_CL7_pixel.csv", parse_dates=['time', 'start_time', 'end_time'])
+    mask_id = tracks_df_MED7.id_cyc_unico.apply(decodifica_id_intero).str[1].astype(int) == id_cyc
+    manos_sel = tracks_df_MED7[mask_id]
+
+    data_builder = BuildDataset(type='SUPERVISED')
+    data_builder.create_master_df_short(input_dir, manos_sel)
+
+    make_animation_parallel_ffmpeg(data_builder.master_df, nomefile=f"ciclone{id_cyc}.mp4", output_folder = f"./anim_cyc{id_cyc}")
+
+
+
+# endregion
+
 if __name__ == "__main__":
+    from dataset.build_dataset import make_CL10_dataset
     from dataset.data_manager import BuildDataset, DataManager
-    import multiprocessing
+    #import multiprocessing
     import warnings
     warnings.filterwarnings('ignore')
+    import sys
 
     os.environ['PATH'] = './ffmpeg-7.0.2-amd64-static:' + os.environ['PATH']
     input_dir="../fromgcloud"
     output_dir = "../airmassRGB/supervised/" 
 
-    tracks_df_MED_CL10 = pd.read_csv("manos_CL10_pixel.csv", parse_dates=['time', 'start_time', 'end_time'])
-    # divido le track di Manos in train e test
-    cicloni_unici = tracks_df_MED_CL10.id_cyc_unico.unique()
-    train_p = 0.7
-    len_p = int(train_p*cicloni_unici.shape[0])
-    cicloni_unici_train = cicloni_unici[:len_p]
-    cicloni_unici_test = cicloni_unici[len_p:]
-    print(cicloni_unici_train.shape, cicloni_unici_test.shape)
-    tracks_df_train = tracks_df_MED_CL10[tracks_df_MED_CL10.id_cyc_unico.isin(cicloni_unici_train)]
-    tracks_df_test = tracks_df_MED_CL10[tracks_df_MED_CL10.id_cyc_unico.isin(cicloni_unici_test)]
+    video_specifico1(input_dir, output_dir)
+    sys.exit(0)
 
-    train_m = BuildDataset(type='SUPERVISED')
-    train_m.get_data_ready(tracks_df_train, input_dir, output_dir, csv_file="train_CL10")
-    test_m = BuildDataset(type='SUPERVISED')
-    test_m.get_data_ready(tracks_df_test, input_dir, output_dir, csv_file="test_CL10")
+
+
+
+    train_m, tracks_df_train = make_CL10_dataset(input_dir, output_dir)
 
     cl10_intervals = tracks_df_train.groupby('id_cyc_unico').agg({'start_time':'first', 'end_time':'first'})
 
     filtered_df1 = filter_on_intervals(cl10_intervals, train_m.master_df)
 
     # devo gestire le tile grigie
-    #offsets = calc_tile_offsets(stride_x=213, stride_y=196)
-    df_offsets = train_m.master_df[['tile_offset_x','tile_offset_y']].value_counts().reset_index().drop(columns=['count'])
+    offsets = calc_tile_offsets(stride_x=213, stride_y=196)
+    df_offsets = pd.DataFrame(offsets, columns=['tile_offset_x', 'tile_offset_y'])
+    #df_offsets = train_m.master_df[['tile_offset_x','tile_offset_y']].value_counts().reset_index().drop(columns=['count'])
     assert df_offsets.shape[0] == 12
-    expanded_df = filtered_df1.groupby('path', group_keys=False).apply(lambda x: expand_group(x, df_offsets)).reset_index(drop=True)
+    #expanded_df = filtered_df1.groupby('path', group_keys=False).apply(lambda x: expand_group(x, df_offsets)).reset_index(drop=True)
 
-    make_animation_parallel_ffmpeg(expanded_df, nomefile='testset_CL10_148.mp4')
+    #make_animation_parallel_ffmpeg(expanded_df, nomefile='testset_CL10_148.mp4')
+    
+    make_animation_parallel_ffmpeg(filtered_df1, nomefile='testset_CL10_148.mp4')

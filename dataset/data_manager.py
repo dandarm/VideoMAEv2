@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader, DistributedSampler
 from .pretrain_datasets import (  # noqa: F401
     DataAugmentationForVideoMAEv2, HybridVideoMAE, VideoMAE)
 from .datasets import MedicanesClsDataset  # RawFrameClsDataset, VideoClsDataset,
-from medicane_utils.load_files import  load_all_images
+from medicane_utils.load_files import  load_all_images, load_all_images_in_intervals, get_intervals_in_tracks_df
 from dataset.build_dataset import calc_tile_offsets, labeled_tiles_from_metadatafiles_maxfast, make_relabeled_master_df
 
 
@@ -159,6 +159,19 @@ class BuildDataset():
             tracks_df = pd.read_csv(manos_file, parse_dates=['time', 'start_time', 'end_time'])
 
         sorted_metadata_files = load_all_images(input_dir_images)
+
+        offsets_for_frame = calc_tile_offsets(stride_x=213, stride_y=196)
+        self.master_df = labeled_tiles_from_metadatafiles_maxfast(sorted_metadata_files, tracks_df, offsets_for_frame)
+
+
+    def create_master_df_short(self, input_dir_images, tracks_df):
+        """
+        carica le immagini che appartengono agli intervalli definiti dal tracks_df proveniente da Manos 
+        invece di tutta la cartella, per velocizzare anche il video_df 
+        """
+        intervalli = get_intervals_in_tracks_df(tracks_df)
+        sorted_metadata_files = load_all_images_in_intervals(input_dir_images, intervalli)
+        print(f"sorted_metadata_files num :  {len(sorted_metadata_files)}")
 
         offsets_for_frame = calc_tile_offsets(stride_x=213, stride_y=196)
         self.master_df = labeled_tiles_from_metadatafiles_maxfast(sorted_metadata_files, tracks_df, offsets_for_frame)
