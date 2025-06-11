@@ -151,6 +151,10 @@ class BuildDataset():
         self.string_format_time = '%Y-%m-%d %H:%M'
 
     def create_master_df(self, manos_file, input_dir_images, tracks_df=None):
+        # Crea il master dataframe contenente tutte le immagini disponibili nella database folder, 
+        # E associa le label derivanti dal manos_file
+        # quindi il master_df contiene anche periodi non presenti nel manos_file
+
         if tracks_df is None:
             tracks_df = pd.read_csv(manos_file, parse_dates=['time', 'start_time', 'end_time'])
 
@@ -204,12 +208,15 @@ class BuildDataset():
 
     def print_sequential_periods(self):                
         i = 1
+        totale = pd.to_timedelta(0)
         for start, end in self.date_inizio_fine_gruppi:
             s = start.strftime(self.string_format_time)
             e = end.strftime(self.string_format_time)
             delta = end - start
+            totale += delta
             print(f"{i}:\t{s} → {e} - Δ {delta}")
             i += 1
+        return totale
 
 
     def create_final_df_csv(self, output_dir, path_csv):        
