@@ -128,6 +128,14 @@ def get_all_cyclones():
     return tracks_df_coord
 
 
+def decodifica_id_intero(id_unico):
+    """Ripristina l'id originale del file CLn di Manos"""
+    origine = id_unico // 1_000_000
+    id_cyc = id_unico % 1_000_000
+    source = f"CL{origine}"
+    return source, id_cyc
+
+
 
 def load_all_images(input_dir):
     filenames = get_files_from_folder(folder=input_dir, extension="png")
@@ -144,3 +152,52 @@ def load_all_images(input_dir):
     print(f"{len(sorted_metadata)} files loaded.")
 
     return sorted_metadata
+
+def get_intervals_in_tracks_df(tracks_df):
+    dff = tracks_df.sort_values('time')
+
+    # Calcola la differenza tra righe successive
+    expected_freq = pd.Timedelta(hours=2)
+    time_diff = dff['time'].diff()
+
+    # Ogni volta che c'è un "buco", parte un nuovo gruppo
+    dff['gruppo'] = (time_diff >= expected_freq).cumsum()
+
+    # Ora trovi gli intervalli min e max per ogni gruppo
+    intervalli = dff.groupby('gruppo')['time'].agg(['min', 'max']).reset_index(drop=True)
+
+    return intervalli
+
+def load_all_images_in_intervals(input_dir: str, intervals: pd.DataFrame):
+    """
+    Carica tutti i file .png in input_dir, li ordina per data estratta dal nome
+    e filtra mantenendo solo quelli il cui timestamp rientra in uno degli intervalli.
+
+    Args:
+        input_dir: path della cartella contenente i .png
+        intervals: DataFrame con colonne 'min' e 'max' di tipo datetime
+
+    Returns:
+        List of tuples (Path, datetime) ordinata per datetime, solo per i file validi.
+    """
+    # Prepariamo un IntervalIndex per membership test veloce
+    interval_index = pd.IntervalIndex.from_arrays(
+        intervals['min'], intervals['max'], closed='both'
+    )
+
+    # 1) raccogliamo tutti i file
+    filenames = get_files_from_folder(folder=input_dir, extension="png")
+    file_metadata = []
+    for fname in filenames:
+        start_dt = extract_dates_pattern_airmass_rgb_20200101_0000(fname.name)
+        if start_dt is None:
+            continue  # skip file non conforme al pattern
+        # 2) verifichiamo se start_dt è in uno degli intervalli
+        if interval_index.contains(start_dt):
+            file_metadata.append((fname, start_dt))
+
+    # 3) ordiniamo per data
+    sorted_metadata = sorted(file_metadata, key=lambda x: x[1])
+    return sorted_metadata
+
+
