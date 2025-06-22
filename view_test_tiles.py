@@ -535,17 +535,10 @@ def create_mediterranean_video(list_grouped_df, interval=200, dpi=96, width=1290
 import subprocess
 from multiprocessing import Pool
 
-def render_and_save_frame(args):
+def compose_image(frame_idx, list_grouped_df, debug=False):
     dpi=96
     width=1290
     height=420
-
-    frame_idx, list_grouped_df, output_folder = args
-
-    # rapido check per non rislavare figure già esistenti:
-    output_file = os.path.join(output_folder, f"frame_{frame_idx:04d}.png")
-    if os.path.isfile(output_file): # or overwrite:
-        return output_file
 
     # region Crea figura
     fig = plt.figure(figsize=(width/dpi, height/dpi), dpi=dpi)
@@ -556,18 +549,19 @@ def render_and_save_frame(args):
     # endregion
 
     # region Operazioni basemap
-    basemap_obj = create_basemap_obj(ax=ax_map)
-    basemap_obj.drawcoastlines(linewidth=1.0, color='black', zorder=2)
+    if not debug:
+        basemap_obj = create_basemap_obj(ax=ax_map)
+        basemap_obj.drawcoastlines(linewidth=1.0, color='black', zorder=2)
 
-    # Draw parallels and meridians
-    lat_min, lat_max = latcorners
-    lon_min, lon_max = loncorners
-    dparal = 2.0
-    parallels = np.arange(lat_min, lat_max, dparal)
-    dmerid = 2.0
-    meridians = np.arange(lon_min, lon_max, dmerid)
-    basemap_obj.drawparallels(parallels, labels=[1,0,0,0], fontsize=10)
-    basemap_obj.drawmeridians(meridians, labels=[0,0,0,1], fontsize=10, rotation=45)
+        # Draw parallels and meridians
+        lat_min, lat_max = latcorners
+        lon_min, lon_max = loncorners
+        dparal = 2.0
+        parallels = np.arange(lat_min, lat_max, dparal)
+        dmerid = 2.0
+        meridians = np.arange(lon_min, lon_max, dmerid)
+        basemap_obj.drawparallels(parallels, labels=[1,0,0,0], fontsize=10)
+        basemap_obj.drawmeridians(meridians, labels=[0,0,0,1], fontsize=10, rotation=45)
     #endregion
     
     # Chiamate come nella vecchia update
@@ -590,6 +584,8 @@ def render_and_save_frame(args):
     labeled_tiles_offsets = group_df['label'].values # dovrebbe avere tanti valori quante sono le tiles
     # se ne ha di meno è perché stiamo guardando un sottoinsieme, es. il dataset di test
     # quindi quelle che mancano dovremmo riempire con un velo grigio
+    if debug:
+        print(f"labeled_tiles_offsets: {labeled_tiles_offsets}")
 
     if 'predictions' in group_df.columns:
         predicted_tiles_offsets = group_df['predictions'].values
@@ -614,19 +610,39 @@ def render_and_save_frame(args):
     )
 
     # region add timestamp 
-    time_str = Path(path).name    
-    tempo = extract_dates_pattern_airmass_rgb_20200101_0000(time_str)
-    stamped_img = draw_timestamp_in_bottom_right(out_img, tempo.strftime(" %H:%M %d-%m-%Y"), margin=15)
+    if not debug:
+        time_str = Path(path).name    
+        tempo = extract_dates_pattern_airmass_rgb_20200101_0000(time_str)
+        stamped_img = draw_timestamp_in_bottom_right(out_img, tempo.strftime(" %H:%M %d-%m-%Y"), margin=15)
+    else:
+        stamped_img = out_img
     # endregion
 
     # normalizza
     im_array_new = np.array(stamped_img)
     norm_array = normalize_01(im_array_new)
 
-    ax.imshow(norm_array, origin='upper', zorder=1)
+    ax.imshow(norm_array, origin='upper', zorder=1,
+              extent=[0, norm_array.shape[1], norm_array.shape[0], 0])
+    ax.set_xlim(0, norm_array.shape[1])
+    ax.set_ylim(norm_array.shape[0], 0)
+    if debug:
+        print(f"limiti settati a {norm_array.shape}")
+    return fig
+
+def render_and_save_frame(args):    
+
+    frame_idx, list_grouped_df, output_folder = args
+
+    # rapido check per non rislavare figure già esistenti:
+    output_file = os.path.join(output_folder, f"frame_{frame_idx:04d}.png")
+    if os.path.isfile(output_file): # or overwrite:
+        return output_file
+
+    fig = compose_image(frame_idx, list_grouped_df)
 
     # Salvataggio del frame
-    
+    dpi = 96
     plt.savefig(output_file, dpi=dpi, transparent=True)
     plt.close(fig)
 
@@ -637,13 +653,10 @@ def save_frames_parallel(df, output_folder):
     grouped = df.groupby("path", dropna=False)
     print(f" abbiamo {len(list(grouped))} gruppi", flush=True)
 
-    
-
     list_grouped_df = list(grouped)
     args = [(i, list_grouped_df, output_folder) for i in range(len(list_grouped_df))]
     
     num_processes = multiprocessing.cpu_count()
-
     start = time()
     with Pool(processes=num_processes) as pool:
         results = pool.map(render_and_save_frame, args)
@@ -677,7 +690,7 @@ def make_animation_parallel_ffmpeg(df, nomefile, output_folder = "./anim_frames"
 
 
 
-    
+# region utils
 def sub_select_frequency(df, freq='20min'):
     # selezionare ore intere
     df['dt_floor'] = df['datetime'].dt.floor(freq)
@@ -720,8 +733,9 @@ def filter_on_intervals(intervals, master_df):
     # 4. Selezione dei risultati
     filtered_df1 = master_df[mask].reset_index(drop=True)
     return filtered_df1
+# endregion
 
-
+# region non-parallel building animation
 def get_writer4animation(ffmpeg_path_colon):
     from matplotlib.animation import FFMpegWriter
 
@@ -750,7 +764,7 @@ def make_animation(df, nomefile='predictions_validation3.gif', writer='pillow'):
     print(f"{round((end-start)/60.0, 2)} minuti")
     print(f"Video salvato: {nomefile}")
 
-
+# endregion
 
 
 
