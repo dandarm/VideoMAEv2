@@ -27,37 +27,37 @@ from medicane_utils.load_files import load_cyclones_track_noheader
 #from view_test_tiles import plot_image, draw_tiles_and_center, create_gif_pil
 
 
+# region old csv write
+# def create_csv(output_dir):
+#     # File CSV di output
+#     train_csv = os.path.join(output_dir, "train.csv")
+#     test_csv = os.path.join(output_dir, "test.csv")
+#     val_csv = os.path.join(output_dir, "val.csv")
 
-def create_csv(output_dir):
-    # File CSV di output
-    train_csv = os.path.join(output_dir, "train.csv")
-    test_csv = os.path.join(output_dir, "test.csv")
-    val_csv = os.path.join(output_dir, "val.csv")
+#     subfolders = sorted([os.path.join(output_dir, d) for d in os.listdir(output_dir) if os.path.isdir(os.path.join(output_dir, d))])
 
-    subfolders = sorted([os.path.join(output_dir, d) for d in os.listdir(output_dir) if os.path.isdir(os.path.join(output_dir, d))])
+#     total = len(subfolders)
+#     train_split = int(total * 0.7)
+#     test_split = int(total * 0.99)
 
-    total = len(subfolders)
-    train_split = int(total * 0.7)
-    test_split = int(total * 0.99)
+#     train_dirs = subfolders[:train_split]
+#     test_dirs = subfolders[train_split:test_split]
+#     val_dirs = subfolders[test_split:]
 
-    train_dirs = subfolders[:train_split]
-    test_dirs = subfolders[train_split:test_split]
-    val_dirs = subfolders[test_split:]
+#     # Scrive nei file CSV con il formato richiesto
+#     def write_to_csv(dirs, csv_file):
+#         with open(csv_file, 'w', newline='') as csvfile:
+#             writer = csv.writer(csvfile)
+#             writer.writerow(["path", "start", "end"])  # Intestazione
+#             for dir_path in dirs:
+#                 writer.writerow([dir_path, 1, 16])  # Riga nel formato richiesto
 
-    # Scrive nei file CSV con il formato richiesto
-    def write_to_csv(dirs, csv_file):
-        with open(csv_file, 'w', newline='') as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow(["path", "start", "end"])  # Intestazione
-            for dir_path in dirs:
-                writer.writerow([dir_path, 1, 16])  # Riga nel formato richiesto
+#     write_to_csv(train_dirs, train_csv)
+#     write_to_csv(test_dirs, test_csv)
+#     write_to_csv(val_dirs, val_csv)
 
-    write_to_csv(train_dirs, train_csv)
-    write_to_csv(test_dirs, test_csv)
-    write_to_csv(val_dirs, val_csv)
-
-    print(f"File CSV generati:\nTrain: {train_csv}\nTest: {test_csv}\nValidation: {val_csv}")
-    
+#     print(f"File CSV generati:\nTrain: {train_csv}\nTest: {test_csv}\nValidation: {val_csv}")
+# endregion
 
 
 
@@ -65,7 +65,7 @@ def create_csv(output_dir):
 ###############  CREAZIONE TILES     #####################
 ##########################################################
 
-
+# region
 
 def calc_tile_offsets(image_width=1290, image_height=420, tile_size=224, stride_x=213, stride_y=196):
     """
@@ -102,6 +102,8 @@ def save_single_tile(img_path, new_path, offset_x, offset_y, tile_size):
     crop = (offset_x, offset_y, offset_x + tile_size, offset_y + tile_size)
     tile = frame_img.crop(crop)
     tile.save(new_path)
+
+# endregion
 
     
 ##########################################################
@@ -193,7 +195,7 @@ def inside_tile_faster(x_pix, y_pix, tile_x, tile_y,
 
 #endregion
 
-
+# region old
 def get_tile_labels(lat, lon):
 
     default_offsets_for_frame = calc_tile_offsets()
@@ -208,6 +210,7 @@ def get_tile_labels(lat, lon):
             labeled_tiles_offsets[i] = 0
 
     return labeled_tiles_offsets
+# endregion
 
 
 def create_df_unlabeled_tiles_from_metadatafiles(sorted_metadata_files, offsets_for_frame):
@@ -269,7 +272,7 @@ def get_cloud_idx_from_img(img):
 
 
 
-# crea i video e salva in cartelle partX e traccia la data dei video
+# crea il master dataframe
 def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_for_frame):   #, save_to_file=False):
 
     updated_metadata = []
@@ -322,7 +325,7 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_f
         if jj % 1000 == 0:
             print(f"{jj} su {len(sorted_metadata_files)}")
             
-    res =  pd.DataFrame(updated_metadata)
+    res =  pd.DataFrame(updated_metadata)  # il "master DataFrame"
     res = res.astype({
         "path": 'string',
         "datetime": 'datetime64[ns]',
@@ -338,7 +341,7 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_f
     return res
 
 
-
+# crea il MASTER DATAFRAME (VELOCE)
 def labeled_tiles_from_metadatafiles_maxfast(sorted_metadata_files, df_tracks, offsets_for_frame, tile_width=224, tile_height=224):
     """
     Versione massimamente vettorizzata di labeled_tiles_from_metadatafiles.
@@ -354,7 +357,7 @@ def labeled_tiles_from_metadatafiles_maxfast(sorted_metadata_files, df_tracks, o
     # 1) Metadata → DataFrame
     meta = pd.DataFrame(sorted_metadata_files, columns=['path', 'datetime'])
     meta['datetime'] = pd.to_datetime(meta['datetime'])
-    meta['dt_floor'] = meta['datetime'].dt.floor('h')
+    meta['dt_floor'] = meta['datetime'].dt.round('h') # prima era floor, introduceva un errore inutile
 
     # 2) Offsets → DataFrame
     offs = pd.DataFrame(offsets_for_frame, columns=['tile_offset_x', 'tile_offset_y'])
@@ -421,6 +424,7 @@ def labeled_tiles_from_metadatafiles_maxfast(sorted_metadata_files, df_tracks, o
     res['end_time']   = res['end_time'].fillna(pd.NaT)
 
 
+    ####### crea finalmente il master df
     # 10) Tipizza tutte le colonne per corrispondenza all'originale
     return res.astype({
         'path': 'string',
@@ -452,6 +456,11 @@ def labeled_tiles_from_metadatafiles_maxfast(sorted_metadata_files, df_tracks, o
         #     medicane_name = None
 ####
 
+
+
+##########################################################
+###############  CREA il VIDEO DATAFRAME   #####################
+##########################################################
 
 def group_df_by_offsets(df):
     # 1) Ordiniamo il DataFrame per (tile_offset_x, tile_offset_y, datetime)
@@ -521,6 +530,7 @@ def create_tile_videos(grouped, output_dir=None, tile_size=224, supervised=True,
                     label = 0
             else:
                 label = None
+
             # A questo punto block_df ha 16 righe consecutive
             results.append({
                 "video_id": video_id,
@@ -537,12 +547,95 @@ def create_tile_videos(grouped, output_dir=None, tile_size=224, supervised=True,
     return pd.DataFrame(results)
 
 
+def create_tile_videos_last_frame_integer_hour(grouped, tile_size=224, supervised=True, num_frames=16):
+    """  Crea il VIDEO DATAFRAME con le informazioni per ogni video, 
+    OGni video finisce in corrispondenza di un'ora intera (HH:00) così da combaciare con i dati di Manos
+    subito prima del csv per videoMAE
+
+    grouped è il df raggruppato per gli offsets:
+      tile_offset_x, tile_offset_y, datetime, path, ...
+    Ritorna un DataFrame.
+    """    
+    frame_interval = pd.Timedelta(minutes=5)
+    block_duration = num_frames * frame_interval  # 1h20'
+    overlap = pd.Timedelta(minutes=20)  # equivale a 4 righe
+    step = num_frames - int(overlap / frame_interval)  # 12 righe = 1h
+
+    blocks = []
+    video_id = 0
+    
+    for (offset_x, offset_y), group_df in grouped:
+        # group_df è un sotto-DataFrame con tutte le righe di quella singola tile
+        # Ordinate già per datetime.
+        group_df = group_df.reset_index(drop=True)        
+
+        # Trova l'ultima riga con datetime esattamente su un'ora intera
+        mask_on_the_hour = group_df['datetime'] == group_df['datetime'].dt.floor('h')
+        # indici per le ore intere
+        on_the_hour_indices = group_df[mask_on_the_hour].index
+
+        saltati_inizio = 0
+        saltati_fine = 0
+        for end_idx in on_the_hour_indices:
+            start_idx = end_idx - (num_frames - 1)
+            if start_idx < 0:
+                saltati_inizio += 1
+                continue  # non abbastanza righe prima per formare il blocco
+
+            block_df = group_df.iloc[start_idx:end_idx + 1].copy()
+            #print(block_df.label.sum())
+
+            # Verifica finale, opzionale: il datetime finale è proprio un'ora intera
+            if block_df['datetime'].iloc[-1].minute != 0:
+                saltati_fine += 1
+                continue  # salta se non è perfettamente su ora intera
+
+            blocks.append(block_df)
+        #print(f"Blocchi video saltati: inziali {saltati_inizio}, finali: {saltati_fine}, aggiunti: {len(blocks)}")
+
+
+    results = []
+    for i, block_df in enumerate(blocks):
+        start_time = block_df['datetime'].iloc[0]
+        end_time = block_df['datetime'].iloc[-1]
+        
+        date_str = end_time.strftime("%d-%m-%Y_%H%M")
+        path_name = f"{date_str}_{offset_x}_{offset_y}"
+
+        if supervised:
+            #print(block_df['label'].dtype) #l'ho messo a 'int'
+            num_pos_labels = (block_df['label']).sum()   # non più any()
+            #print(num_pos_labels)
+            if num_pos_labels > num_frames/3:
+                label = 1
+            else:
+                label = 0
+        else:
+            label = None
+
+        # A questo punto block_df ha 16 righe consecutive
+        results.append({
+            "video_id": video_id,
+            "tile_offset_x": offset_x,
+            "tile_offset_y": offset_y,
+            "path": str(path_name),
+            "label": label,
+            "start_time": start_time,
+            "end_time": end_time,                
+            "orig_paths": block_df["path"].tolist(),
+        })
+        video_id += 1
+
+    return pd.DataFrame(results)
+
+
+
 
 
 def create_and_save_tile_from_complete_df(df, output_dir, overwrite=False):
     num_video = df.shape[0]
     if num_video > 0:
-        print(f"Creazione delle folder per i {num_video} video...", end='\t')
+        print(f"\n\n\nCreazione delle folder per i {num_video} video...", end='\t')
 
         salvati_ora = 0
         gia_salvati = 0
@@ -623,7 +716,8 @@ def create_df_video_from_master_df(df_data, idxs=None, output_dir=None, is_to_ba
         if i in idxs:
             print(f"{i})  ->")
             df_offsets_groups = group_df_by_offsets(df)            
-            df_for_period = create_tile_videos(df_offsets_groups)
+            #df_for_period = create_tile_videos(df_offsets_groups)
+            df_for_period = create_tile_videos_last_frame_integer_hour(df_offsets_groups)
             if df_for_period.shape[0] == 0:
                 continue
             #assert 'label' in df_for_period.columns, f"Manca la colonna label - shape: {df_for_period.shape[0]}"
@@ -905,6 +999,29 @@ def calc_avg_cld_idx(video_subfolder):
     return avg
 
 
+def train_test_split(df_video, train_p=0.7):
+    """
+    Divide il DataFrame df_video in due parti: train e test.
+    train_p è la percentuale di dati da usare per il training.
+    """
+    len_p = int(train_p * df_video.shape[0])
+    df_video_train = df_video.sort_values('start_time').iloc[:len_p]
+    df_video_test = df_video.sort_values('start_time').iloc[len_p:]
+    print(f"Train e test lengths: {df_video_train.shape[0]}, {df_video_test.shape[0]}")
+    return df_video_train, df_video_test
+
+def train_test_cyclones_num_split(tracks_df, train_p=0.7):
+    """
+    Divide il DataFrame tracks_df in due parti di train e test.
+    basato sul numero di cicloni unici (id_cyc_unico).
+    """
+    cicloni_unici = tracks_df.id_cyc_unico.unique()    
+    len_p = int(train_p*cicloni_unici.shape[0])
+    cicloni_unici_train = cicloni_unici[:len_p]
+    cicloni_unici_test = cicloni_unici[len_p:]
+    print(f"Cicloni nel train: {cicloni_unici_train.shape[0]}, cicloni nel test: {cicloni_unici_test.shape[0]}")
+    return cicloni_unici_train,cicloni_unici_test
+
 def make_relabeled_master_df(data_manager):
     from dataset.dataset_labeling_study import aggiorna_label_distanza_temporale
     data_manager.calc_delta_time()    
@@ -940,11 +1057,9 @@ def make_relabeled_dataset(input_dir, output_dir, cloudy=False,
 
 
     #train e test
-    train_p = 0.7
-    len_p = int(train_p*df_v.shape[0])
-    df_video_train = df_v.sort_values('start_time').iloc[:len_p]
-    df_video_test = df_v.sort_values('start_time').iloc[len_p:]
-    print(f"Train e test lengths: {df_video_train.shape[0]}, {df_video_test.shape[0]}")
+    df_video_train, df_video_test = train_test_split(df_v, train_p=0.7)
+
+
     # salva i csv
     df_dataset_csv = create_final_df_csv(df_video_train, output_dir)
     df_dataset_csv.to_csv(f"train_dataset{suffix}_{df_video_train.shape[0]}.csv", index=False)
@@ -960,15 +1075,11 @@ def make_CL10_dataset(input_dir, output_dir):
     tracks_df_MED_CL10 = pd.read_csv("manos_CL10_pixel.csv", parse_dates=['time', 'start_time', 'end_time'])
 
     # divido le track di Manos in train e test
-    cicloni_unici = tracks_df_MED_CL10.id_cyc_unico.unique()
-    train_p = 0.7
-    len_p = int(train_p*cicloni_unici.shape[0])
-    cicloni_unici_train = cicloni_unici[:len_p]
-    cicloni_unici_test = cicloni_unici[len_p:]
-    print(f"Cicloni nel train: {cicloni_unici_train.shape[0]}, cicloni nel test: {cicloni_unici_test.shape[0]}")
+    cicloni_unici_train, cicloni_unici_test = train_test_cyclones_num_split(tracks_df_MED_CL10)
 
     tracks_df_train = tracks_df_MED_CL10[tracks_df_MED_CL10.id_cyc_unico.isin(cicloni_unici_train)]
     tracks_df_test = tracks_df_MED_CL10[tracks_df_MED_CL10.id_cyc_unico.isin(cicloni_unici_test)]
+    print(f"Train e test lengths: {tracks_df_train.shape[0]}, {tracks_df_test.shape[0]}")
 
     train_m = BuildDataset(type='SUPERVISED')
     train_m.get_data_ready(tracks_df_train, input_dir, output_dir, csv_file="train_CL10")
@@ -977,6 +1088,8 @@ def make_CL10_dataset(input_dir, output_dir):
     #test_m.get_data_ready(tracks_df_test, input_dir, output_dir, csv_file="test_CL10")
 
     return train_m, tracks_df_train
+
+
 
 
 

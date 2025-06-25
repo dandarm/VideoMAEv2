@@ -182,22 +182,39 @@ def load_all_images_in_intervals(input_dir: str, intervals: pd.DataFrame):
     """
     # Prepariamo un IntervalIndex per membership test veloce
     interval_index = pd.IntervalIndex.from_arrays(
-        intervals['min'], intervals['max'], closed='both'
-    )
+        intervals['min'], intervals['max'], closed='both')
 
     # 1) raccogliamo tutti i file
     filenames = get_files_from_folder(folder=input_dir, extension="png")
     file_metadata = []
     for fname in filenames:
-        start_dt = extract_dates_pattern_airmass_rgb_20200101_0000(fname.name)
-        if start_dt is None:
+        raw_dt = extract_dates_pattern_airmass_rgb_20200101_0000(fname.name)
+        frame_dt = normalize_timestamp(raw_dt)
+        if pd.isna(frame_dt):
+            print(type(frame_dt), "non è un timestamp valido, skip")
             continue  # skip file non conforme al pattern
-        # 2) verifichiamo se start_dt è in uno degli intervalli
-        if interval_index.contains(start_dt):
-            file_metadata.append((fname, start_dt))
+        # 2) verifichiamo se frame_dt è in uno degli intervalli
+        if in_any_interval_via_index(frame_dt, interval_index):
+            file_metadata.append((fname, frame_dt))
 
     # 3) ordiniamo per data
     sorted_metadata = sorted(file_metadata, key=lambda x: x[1])
     return sorted_metadata
 
 
+
+def normalize_timestamp(dt):
+    # se dt è già Timestamp o datetime, diventa Timestamp; altrimenti ValueError/NaT
+    try:        
+        return pd.to_datetime(dt)
+    except Exception:
+        return pd.NaT
+    
+#def is_valid_timestamp(dt):
+#    return isinstance(dt, pd.Timestamp) and not pd.isna(dt)
+
+def in_any_interval_via_index(dt, interval_index):
+    # get_indexer su lista di un solo elemento 
+    # (dt è un singolo pd.Timestamp)
+    idx = interval_index.get_indexer([dt])[0]
+    return idx != -1
