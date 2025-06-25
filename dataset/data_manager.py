@@ -240,7 +240,8 @@ class BuildDataset():
 
 
     def get_data_ready(self, df_tracks, input_dir, output_dir, csv_file=None):
-        self.create_master_df(manos_file=None, input_dir_images=input_dir, tracks_df=df_tracks)
+        #self.create_master_df(manos_file=None, input_dir_images=input_dir, tracks_df=df_tracks)
+        self.create_master_df_short(input_dir_images=input_dir, tracks_df=df_tracks)
 
         # cambia le etichette per togliere le fasi iniziali e finali dei cicloni
         df_mod = make_relabeled_master_df(self)
