@@ -663,9 +663,19 @@ class MedicanesClsDataset(Dataset):
         # Assumiamo che la cartella contenga almeno clip_len frame
         for file in frame_files[:self.clip_len]:
             file_path = os.path.join(folder_path, file)
-            img = Image.open(file_path).convert("RGB")
-            img = self.transform(img)
-            frames.append(img)
+            
+            try:
+                img = Image.open(file_path).convert("RGB")
+                img = self.transform(img)
+                frames.append(img)
+            except:
+                print(f"Problema nel caricamento di {file_path}")
+        
+        # metto a posto nel caso in cui manchi qualche immagine, per non bloccare il training
+        l = len(frames)
+        if l != self.clip_len and l > 0:
+            frames = frames + frames[-1] * (self.clip_len - l)
+                        
         # Converte la lista di frame in un tensore di forma [clip_len, C, H, W]
         video = torch.stack(frames, dim=0)
         video = video.permute(1, 0, 2, 3)  # [C, T, H, W]
