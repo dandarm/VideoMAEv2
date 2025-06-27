@@ -674,7 +674,7 @@ class MedicanesClsDataset(Dataset):
         # metto a posto nel caso in cui manchi qualche immagine, per non bloccare il training
         l = len(frames)
         if l != self.clip_len and l > 0:
-            frames = frames + frames[-1] * (self.clip_len - l)
+            frames = frames + [frames[-1]] * (self.clip_len - l)
                         
         # Converte la lista di frame in un tensore di forma [clip_len, C, H, W]
         video = torch.stack(frames, dim=0)
