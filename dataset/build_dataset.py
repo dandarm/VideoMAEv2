@@ -473,6 +473,7 @@ def group_df_by_offsets(df):
 
 
 
+
 def create_tile_videos(grouped, output_dir=None, tile_size=224, supervised=True, num_frames = 16):
     """  Crea il VIDEO DATAFRAME con le informazioni per ogni video, 
     subito prima del csv per videoMAE
@@ -561,10 +562,12 @@ def create_tile_videos_last_frame_integer_hour(grouped, tile_size=224, supervise
     overlap = pd.Timedelta(minutes=20)  # equivale a 4 righe
     step = num_frames - int(overlap / frame_interval)  # 12 righe = 1h
 
-    blocks = []
+    results = []
     video_id = 0
     
     for (offset_x, offset_y), group_df in grouped:
+        blocks = []
+        #print(f"offset_x, offset_y {offset_x, offset_y}")
         # group_df è un sotto-DataFrame con tutte le righe di quella singola tile
         # Ordinate già per datetime.
         group_df = group_df.reset_index(drop=True)        
@@ -593,38 +596,40 @@ def create_tile_videos_last_frame_integer_hour(grouped, tile_size=224, supervise
             blocks.append(block_df)
         #print(f"Blocchi video saltati: inziali {saltati_inizio}, finali: {saltati_fine}, aggiunti: {len(blocks)}")
 
-
-    results = []
-    for i, block_df in enumerate(blocks):
-        start_time = block_df['datetime'].iloc[0]
-        end_time = block_df['datetime'].iloc[-1]
-        
-        date_str = end_time.strftime("%d-%m-%Y_%H%M")
-        path_name = f"{date_str}_{offset_x}_{offset_y}"
-
-        if supervised:
-            #print(block_df['label'].dtype) #l'ho messo a 'int'
-            num_pos_labels = (block_df['label']).sum()   # non più any()
-            #print(num_pos_labels)
-            if num_pos_labels > num_frames/3:
-                label = 1
+    
+        for i, block_df in enumerate(blocks):
+            start_time = block_df['datetime'].iloc[0]
+            end_time = block_df['datetime'].iloc[-1]
+            #print(f"start_time {start_time} - end_time {end_time}")
+            #print(f"offsets: {block_df[['tile_offset_x', 'tile_offset_y']].value_counts().index} - label: {block_df['label'].value_counts()}")
+            #break
+            
+            date_str = end_time.strftime("%d-%m-%Y_%H%M")
+            path_name = f"{date_str}_{offset_x}_{offset_y}"
+    
+            if supervised:
+                #print(block_df['label'].dtype) #l'ho messo a 'int'
+                num_pos_labels = (block_df['label']).sum()   # non più any()
+                #print(num_pos_labels)
+                if num_pos_labels > num_frames/3:
+                    label = 1
+                else:
+                    label = 0
             else:
-                label = 0
-        else:
-            label = None
-
-        # A questo punto block_df ha 16 righe consecutive
-        results.append({
-            "video_id": video_id,
-            "tile_offset_x": offset_x,
-            "tile_offset_y": offset_y,
-            "path": str(path_name),
-            "label": label,
-            "start_time": start_time,
-            "end_time": end_time,                
-            "orig_paths": block_df["path"].tolist(),
-        })
-        video_id += 1
+                label = None
+    
+            # A questo punto block_df ha 16 righe consecutive
+            results.append({
+                "video_id": video_id,
+                "tile_offset_x": offset_x,
+                "tile_offset_y": offset_y,
+                "path": str(path_name),
+                "label": label,
+                "start_time": start_time,
+                "end_time": end_time,                
+                "orig_paths": block_df["path"].tolist(),
+            })
+            video_id += 1
 
     return pd.DataFrame(results)
 
