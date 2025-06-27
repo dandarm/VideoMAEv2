@@ -1089,8 +1089,8 @@ def make_CL10_dataset(input_dir, output_dir):
     train_m = BuildDataset(type='SUPERVISED')
     train_m.get_data_ready(tracks_df_train, input_dir, output_dir, csv_file="train_CL10")
 
-    #test_m = BuildDataset(type='SUPERVISED')
-    #test_m.get_data_ready(tracks_df_test, input_dir, output_dir, csv_file="test_CL10")
+    test_m = BuildDataset(type='SUPERVISED')
+    test_m.get_data_ready(tracks_df_test, input_dir, output_dir, csv_file="test_CL10")
 
     return train_m, tracks_df_train
 
