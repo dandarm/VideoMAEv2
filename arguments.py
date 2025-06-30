@@ -297,7 +297,7 @@ def prepare_finetuning_args(machine=None):
         'lr': 1e-3,
         'opt_betas': [0.9, 0.95],
         'warmup_epochs': 10,
-        'epochs': 100,
+        'epochs': 500,
         'save_ckpt_freq': 50,
         'decoder_depth': 4,
         'testing_epochs': 5,

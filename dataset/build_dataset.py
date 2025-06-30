@@ -255,9 +255,20 @@ def cloud_idx(cloud_mask):
 
 def get_cloud_idx_from_image_path(image_path):
     #img = Image.open(image_path)
-    img = cv2.imread(str(image_path))
-    mask = threshold_image(img)
-    idx = cloud_idx(mask)
+    try:
+        img = cv2.imread(str(image_path))
+    except:
+        print(f"ERRORE DI LETTURA FILE {image_path}")
+    try:
+        if img is not None:
+            mask = threshold_image(img)
+            idx = cloud_idx(mask)
+        else:
+            idx = 0.0
+    except:
+        print("Errore numero di canali o immagine nulla")
+        idx = 0.0
+    
     return idx
 
 def get_cloud_idx_from_img(img):
