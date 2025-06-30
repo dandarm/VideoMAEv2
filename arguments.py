@@ -300,7 +300,8 @@ def prepare_finetuning_args(machine=None):
         'epochs': 100,
         'save_ckpt_freq': 50,
         'decoder_depth': 4,
-        'testing_epochs': 5
+        'testing_epochs': 5,
+        'cloudy': True
         #dist_eval
     }
 
