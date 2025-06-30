@@ -132,12 +132,12 @@ class DataManager():
 
 
 
-from .build_dataset import create_df_video_from_master_df, get_gruppi_date, create_final_df_csv
+from .build_dataset import create_df_video_from_master_df, filter_out_clear_sky, get_gruppi_date, create_final_df_csv
 
 
 class BuildDataset():
     def __init__(self, type, args=None, master_df_path=None):
-        #self.args = args
+        self.args = args
         self.type = type  # se UNsupervised o supervised
 
         self.master_df = None
@@ -244,8 +244,13 @@ class BuildDataset():
         self.create_master_df_short(input_dir_images=input_dir, tracks_df=df_tracks)
 
         # cambia le etichette per togliere le fasi iniziali e finali dei cicloni
-        df_mod = make_relabeled_master_df(self)
+        df_mod = make_relabeled_master_df(self, hours_shift=24)
         self.make_df_video(new_master_df=df_mod, output_dir=output_dir,  is_to_balance=True)
+
+        if self.args.cloudy:
+            df_v = filter_out_clear_sky(output_dir, self)
+            self.df_video = df_v.copy()
+
         if csv_file is None:
             csv_file = f"data_{self.df_video.shape[0]}.csv"
         else:

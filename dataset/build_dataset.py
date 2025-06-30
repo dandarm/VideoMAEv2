@@ -1027,37 +1027,30 @@ def train_test_cyclones_num_split(tracks_df, train_p=0.7):
     print(f"Cicloni nel train: {cicloni_unici_train.shape[0]}, cicloni nel test: {cicloni_unici_test.shape[0]}")
     return cicloni_unici_train,cicloni_unici_test
 
-def make_relabeled_master_df(data_manager):
+def make_relabeled_master_df(data_manager, hours_shift=12):
     from dataset.dataset_labeling_study import aggiorna_label_distanza_temporale
     data_manager.calc_delta_time()    
-    new_label = aggiorna_label_distanza_temporale(data_manager.master_df, soglia=pd.Timedelta(hours=12), sub_lab=-1)
+    new_label = aggiorna_label_distanza_temporale(data_manager.master_df, soglia=pd.Timedelta(hours=hours_shift), sub_lab=-1)
     m = data_manager.master_df[new_label] == -1
     df_mod = data_manager.master_df[~m].copy().drop(columns='label').rename(columns={new_label:'label'})
     assert 'label' in df_mod.columns, "Manca la colonna label"
     return df_mod
 
 def make_relabeled_dataset(input_dir, output_dir, cloudy=False, 
-                           master_df_path="all_data_CL7_tracks_complete_fast.csv"):
+                           master_df_path="all_data_CL7_tracks_complete_fast.csv", hours_shift=12):
     output_dir = solve_paths(output_dir)
     from .data_manager import BuildDataset
     
     sup_data = BuildDataset(type='SUPERVISED', master_df_path=master_df_path)
     sup_data.load_master_df()
 
-    df_mod = make_relabeled_master_df(sup_data)
+    df_mod = make_relabeled_master_df(sup_data, hours_shift=hours_shift)
     sup_data.make_df_video(new_master_df=df_mod, output_dir=output_dir,  is_to_balance=True) #, idxs=[1,2,3,4,5,6,7,8])
     df_v = sup_data.df_video.copy()
 
-    suffix = "_12h"
+    suffix = f"_{hours_shift}h"
     if cloudy:
-        sup_data.df_video.path = output_dir + sup_data.df_video.path
-        new_col_name = "avg_cloud_idx"
-        print(f"Calcolando l'indice di nuvolosità...")
-        sup_data.df_video[new_col_name] = sup_data.df_video.path.apply(calc_avg_cld_idx)
-        mask_cloud = sup_data.df_video.avg_cloud_idx > 0.2
-        df_video_cloudy = sup_data.df_video[mask_cloud]
-        df_v = df_video_cloudy.copy()
-        df_v.path = df_v.path.str.split('/').str[-1]
+        df_v = filter_out_clear_sky(output_dir, sup_data)
         suffix += "_cloudy"
 
 
@@ -1071,9 +1064,24 @@ def make_relabeled_dataset(input_dir, output_dir, cloudy=False,
     df_dataset_csv = create_final_df_csv(df_video_test, output_dir)
     df_dataset_csv.to_csv(f"test_dataset{suffix}_{df_video_test.shape[0]}.csv", index=False)
 
+def filter_out_clear_sky(output_dir, sup_data):
+    sup_data.df_video.path = output_dir + sup_data.df_video.path
+    new_col_name = "avg_cloud_idx"
+    print(f"Calcolando l'indice di nuvolosità...")
+    sup_data.df_video[new_col_name] = sup_data.df_video.path.apply(calc_avg_cld_idx)
+    mask_cloud = sup_data.df_video.avg_cloud_idx > 0.2
+    df_video_cloudy = sup_data.df_video[mask_cloud]
+    df_v = df_video_cloudy.copy()
+    df_v.path = df_v.path.str.split('/').str[-1]
+    return df_v
+
 
 def make_CL10_dataset(input_dir, output_dir):
     from dataset.data_manager import BuildDataset
+    from arguments import prepare_finetuning_args
+
+    args = prepare_finetuning_args()
+
     output_dir = solve_paths(output_dir)
     input_dir = solve_paths(input_dir)
 
@@ -1086,10 +1094,11 @@ def make_CL10_dataset(input_dir, output_dir):
     tracks_df_test = tracks_df_MED_CL10[tracks_df_MED_CL10.id_cyc_unico.isin(cicloni_unici_test)]
     print(f"Train e test lengths: {tracks_df_train.shape[0]}, {tracks_df_test.shape[0]}")
 
-    train_m = BuildDataset(type='SUPERVISED')
+    print("Building training set...")
+    train_m = BuildDataset(type='SUPERVISED', args=args)
     train_m.get_data_ready(tracks_df_train, input_dir, output_dir, csv_file="train_CL10")
-
-    test_m = BuildDataset(type='SUPERVISED')
+    print("Building test set...")
+    test_m = BuildDataset(type='SUPERVISED', args=args)
     test_m.get_data_ready(tracks_df_test, input_dir, output_dir, csv_file="test_CL10")
 
     return train_m, tracks_df_train
