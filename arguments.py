@@ -296,12 +296,22 @@ def prepare_finetuning_args(machine=None):
         'opt': 'adamw',
         'lr': 1e-3,
         'opt_betas': [0.9, 0.95],
-        'warmup_epochs': 10,
-        'epochs': 500,
+  
         'save_ckpt_freq': 50,
         'decoder_depth': 4,
         'testing_epochs': 5,
-        'cloudy': False
+        'cloudy': False,
+
+      'epochs': 500,
+        'momentum': 0.9,
+        'weight_decay': 0.05,
+        'weight_decay_end': None,
+        'lr': 1e-4,
+        'layer_decay': 0.75,
+        'warmup_lr': 1e-6, # era e-8
+        'min_lr': 5e-5,  # era e-6
+        'warmup_epochs': 25,
+        'warmup_steps': 500,  #-1,
         #dist_eval
     }
 
