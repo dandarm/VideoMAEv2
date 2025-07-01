@@ -651,7 +651,7 @@ def create_tile_videos_last_frame_integer_hour(grouped, tile_size=224, supervise
 def create_and_save_tile_from_complete_df(df, output_dir, overwrite=False):
     num_video = df.shape[0]
     if num_video > 0:
-        print(f"\n\n\nCreazione delle folder per i {num_video} video...", end='\t')
+        print(f"\nCreazione delle folder per i {num_video} video...", end='\t')
 
         salvati_ora = 0
         gia_salvati = 0
@@ -712,9 +712,9 @@ def balance_time_group(df_videos, seed=1):
     df_non_cicloni = df_videos[mask_non_cicloni]
 
     print(f"Num video CON cicloni: {len(df_cicloni)}, Num video SENZA cicloni: {len(df_non_cicloni)}", end="\t")
-    print(f"Totale video tiles: {len(df_videos)}", end="\t\t")
+    print(f"Totale video tiles: {len(df_videos)}") #, end="\t\t")
 
-    print(f"Bilanciamento video...")
+    print(f"Bilanciamento video...", end="\t\t")
     df_0_balanced = df_non_cicloni.sample(len(df_cicloni), random_state=seed)
     print(f" video senza cicloni tenuti: {len(df_0_balanced)}")    
 
@@ -1087,7 +1087,8 @@ def filter_out_clear_sky(output_dir, sup_data):
     return df_v
 
 
-def make_CL10_dataset(input_dir, output_dir):
+def make_dataset_from_manos_tracks(manos_track_file, input_dir, output_dir):
+    # vecchio file di manos "manos_CL10_pixel.csv"
     from dataset.data_manager import BuildDataset
     from arguments import prepare_finetuning_args
 
@@ -1096,21 +1097,21 @@ def make_CL10_dataset(input_dir, output_dir):
     output_dir = solve_paths(output_dir)
     input_dir = solve_paths(input_dir)
 
-    tracks_df_MED_CL10 = pd.read_csv("manos_CL10_pixel.csv", parse_dates=['time', 'start_time', 'end_time'])
+    tracks_df = pd.read_csv(manos_track_file, parse_dates=['time', 'start_time', 'end_time'])
 
     # divido le track di Manos in train e test
-    cicloni_unici_train, cicloni_unici_test = train_test_cyclones_num_split(tracks_df_MED_CL10)
+    cicloni_unici_train, cicloni_unici_test = train_test_cyclones_num_split(tracks_df, train_p=0.9)
 
-    tracks_df_train = tracks_df_MED_CL10[tracks_df_MED_CL10.id_cyc_unico.isin(cicloni_unici_train)]
-    tracks_df_test = tracks_df_MED_CL10[tracks_df_MED_CL10.id_cyc_unico.isin(cicloni_unici_test)]
+    tracks_df_train = tracks_df[tracks_df.id_cyc_unico.isin(cicloni_unici_train)]
+    tracks_df_test = tracks_df[tracks_df.id_cyc_unico.isin(cicloni_unici_test)]
     print(f"Train e test lengths: {tracks_df_train.shape[0]}, {tracks_df_test.shape[0]}")
 
     print("Building training set...")
     train_m = BuildDataset(type='SUPERVISED', args=args)
-    train_m.get_data_ready(tracks_df_train, input_dir, output_dir, csv_file="train_CL10")
+    train_m.get_data_ready(tracks_df_train, input_dir, output_dir, csv_file="train_manos")
     print("Building test set...")
     test_m = BuildDataset(type='SUPERVISED', args=args)
-    test_m.get_data_ready(tracks_df_test, input_dir, output_dir, csv_file="test_CL10")
+    test_m.get_data_ready(tracks_df_test, input_dir, output_dir, csv_file="test_manos")
 
     return train_m, tracks_df_train
 

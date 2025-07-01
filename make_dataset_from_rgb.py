@@ -1,6 +1,6 @@
 
 import argparse
-from dataset.build_dataset import make_sup_dataset, make_unsup_dataset, make_master_df, make_relabeled_dataset, make_CL10_dataset
+from dataset.build_dataset import make_sup_dataset, make_unsup_dataset, make_master_df, make_relabeled_dataset, make_dataset_from_manos_tracks
 
 
 if __name__ == "__main__":
@@ -21,9 +21,11 @@ if __name__ == "__main__":
     parser.add_argument('--cloudy',
         action='store_true',
         help='se escludere il cielo sereno')
-    parser.add_argument('--CL10',
-        action='store_true',
-        help='se escludere il cielo sereno')
+    parser.add_argument('--manos_tracks',
+        #action='store_true',
+        type=str,
+        default='manos_CL10_pixel.csv',
+        help='specificare il file csv di tracks derivato da Manos')
 
     args = parser.parse_args()
 
@@ -42,8 +44,8 @@ if __name__ == "__main__":
         make_relabeled_dataset(input_dir, output_dir, cloudy=True)
         #make_relabeled_dataset(input_dir, output_dir, cloudy=True, 
         #                       master_df_path="all_data_CL7_tracks_SHORT4TEST.csv")
-    elif args.CL10:
-        make_CL10_dataset(input_dir, output_dir)
+    elif args.manos_tracks:
+        make_dataset_from_manos_tracks(args.manos_tracks, input_dir, output_dir)
 
     else:
         make_sup_dataset(input_dir, output_dir)
