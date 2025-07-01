@@ -792,7 +792,7 @@ def video_specifico1(input_dir, output_dir):
 # endregion
 
 if __name__ == "__main__":
-    from dataset.build_dataset import make_CL10_dataset
+    from dataset.build_dataset import make_dataset_from_manos_tracks
     from dataset.data_manager import BuildDataset, DataManager
     #import multiprocessing
     import warnings
@@ -809,7 +809,7 @@ if __name__ == "__main__":
 
 
 
-    train_m, tracks_df_train = make_CL10_dataset(input_dir, output_dir)
+    train_m, tracks_df_train = make_dataset_from_manos_tracks(input_dir, output_dir)
 
     cl10_intervals = tracks_df_train.groupby('id_cyc_unico').agg({'start_time':'first', 'end_time':'first'})
 
