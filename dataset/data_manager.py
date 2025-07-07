@@ -116,7 +116,7 @@ class DataManager():
     def create_classif_dataloader(self, args):
         self.dataset = self.get_classif_dataset(args)
         sampler = self.get_dist_sampler()
-        print(f"Batch_size: {args.batch_size}")
+        print(f"Batch_size local: {args.batch_size}")
         self.data_loader = DataLoader(self.dataset,
             batch_size=args.batch_size,
             #shuffle=self.is_train,  # se è training -> shuffle , altrimenti no  # MA NON PUÒ ANDARE INSIEME CON SAMPLER

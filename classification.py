@@ -59,12 +59,10 @@ def launch_finetuning_classification(terminal_args):
     args.rank = rank
     
     device = torch.device(f"cuda:{local_rank}")
-    #print(device)
     
     # logging
     if args.log_dir and not os.path.exists(args.log_dir):
         os.makedirs(args.log_dir)
-
     setup_for_distributed(rank == 0)
 
     #print("=============== ARGS ===============")
@@ -73,50 +71,14 @@ def launch_finetuning_classification(terminal_args):
     #    print(f"{attr} = {value}")
     #print("=====================================")
 
+    # -------------------------------------------
+    #print("MANAGER DATASET...") 
+    # -------------------------------------------
     train_m = DataManager(is_train=True, args=args, type_t='supervised', world_size=world_size, rank=rank)
     test_m = DataManager(is_train=False, args=args, type_t='supervised', world_size=world_size, rank=rank)
 
     train_m.create_classif_dataloader(args)
     test_m.create_classif_dataloader(args)
-
-    # -------------------------------------------
-    #print("BUILDING DATASET...") 
-    # -------------------------------------------
-    # Carichiamo train, val, test
-    #dataset_train, nb_classes_train = build_dataset(is_train=True, test_mode=False, args=args)
-    #dataset_val, nb_classes_val = build_dataset(is_train=False, test_mode=False, args=args)
-    #dataset_test, nb_classes_test = build_dataset(is_train=False, test_mode=True, args=args)
-    #print(f"DATASET: train: {len(dataset_train)}, val: {len(dataset_val)}")  #, test: {len(dataset_test)}")
-
-    # Dato che NB_CLASSES deve essere coerente...
-    #print(f"[INFO] dataset_train classes: {nb_classes_train}, dataset_val classes: {nb_classes_val}, dataset_test classes: {nb_classes_test}")
-
-    
-    #
-    #data_loader_train = torch.utils.data.DataLoader(
-    #    dataset_train,
-    #    batch_size=args.batch_size,
-    #    num_workers=args.num_workers,
-    #    pin_memory=args.pin_mem,
-    #    drop_last=True
-    #)
-    #
-    #data_loader_val = torch.utils.data.DataLoader(
-    #    dataset_val,
-    #    batch_size=int(args.batch_size * 1.5),  # un po' più grande in val
-    #    num_workers=args.num_workers,
-    #    pin_memory=args.pin_mem,
-    #    drop_last=False
-    #)
-
-    # data_loader_test = torch.utils.data.DataLoader(
-    #     dataset_test,
-    #     batch_size=args.batch_size,
-    #     num_workers=args.num_workers,
-    #     pin_memory=args.pin_mem,
-    #     drop_last=False
-    # )
-
 
 
     # -------------------------------------------
@@ -134,21 +96,6 @@ def launch_finetuning_classification(terminal_args):
         drop_block_rate=None,
         **args.__dict__
     )
-    # Carichiamo i pesi pretrained
-    # if args.finetune and os.path.isfile(args.finetune):
-    #     checkpoint = torch.load(args.finetune, map_location='cpu')
-    #     print(f"[INFO] Loading pretrained weights from {args.finetune}")
-    #     state_dict = checkpoint
-    #     # Se c'è 'model' o 'module' come chiave
-    #     for model_key in ['model', 'module']:
-    #         if model_key in checkpoint:
-    #             state_dict = checkpoint[model_key]
-    #             print(f"[INFO] Found key '{model_key}' in checkpoint")
-    #             break
-    #     msg = model.load_state_dict(state_dict, strict=False)
-    #     print(f"[INFO] load_state_dict: {msg}")
-    # else:
-    #     print("[WARN] No pretrained weights loaded (args.finetune non trovato)")
 
     pretrained_model.to(device)
     model_without_ddp = pretrained_model
@@ -167,7 +114,7 @@ def launch_finetuning_classification(terminal_args):
     loss_scaler = NativeScaler()  # per amp
 
     # scheduler lr e wd
-    total_batch_size = args.batch_size
+    total_batch_size = args.batch_size * world_size
     num_training_steps_per_epoch = train_m.dataset_len// total_batch_size
     args.lr = args.lr * total_batch_size / 256
     args.min_lr = args.min_lr * total_batch_size / 256
@@ -176,7 +123,7 @@ def launch_finetuning_classification(terminal_args):
 
     lr_schedule_values = utils.cosine_scheduler(
         args.lr, args.min_lr, args.epochs, num_training_steps_per_epoch,
-        warmup_epochs=args.warmup_epochs, warmup_steps=args.warmup_steps)
+        warmup_epochs=args.warmup_epochs, start_warmup_value=args.warmup_lr, warmup_steps=args.warmup_steps)
     print(f"lr_schedule_values {lr_schedule_values}")
     if args.weight_decay_end is None:
         args.weight_decay_end = args.weight_decay
