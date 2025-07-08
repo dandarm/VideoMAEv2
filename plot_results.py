@@ -1,5 +1,6 @@
 import json
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator
 from mpl_toolkits.axes_grid1 import host_subplot
 import mpl_toolkits.axisartist as AA
 plt.rcParams.update({'font.size': 15})
@@ -115,6 +116,8 @@ def plot_training_curves(tuple_vars, plot_file_name=None):
         p2 = ax2.plot(val_epochs, val_accs, color='g', marker='.', label='Validation Accuracy')
         colore_asse = p2[0].get_color()
         ax2.set_ylabel('Accuracy (%)')
+        ax2.grid(True, color=colore_asse, linestyle='--', linewidth=1.5, axis='y',  )
+        ax2.yaxis.set_major_locator(MultipleLocator(5))
         #ax2.legend(loc='center right')
         ax2.legend(loc='lower left')
         ax2.set_ylim(50,100)

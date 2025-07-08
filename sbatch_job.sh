@@ -4,9 +4,9 @@
 #SBATCH --partition=boost_usr_prod
 #SBATCH --gres=gpu:4
 #SBATCH --cpus-per-task=4
-#SBATCH --time=00:05:00
+#SBATCH --time=01:05:00
 #SBATCH --error=myJob.err
-#SBATCH --output=myJob.out
+#SBATCH --output=myJob_medicanes.out
 
 module load profile/deeplrn
 module load cineca-ai/4.3.0
