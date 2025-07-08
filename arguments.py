@@ -276,8 +276,8 @@ def prepare_finetuning_args(machine=None):
         'auto_resume': False,
         'load_for_test_mode': False,
         'data_path': './',
-        'train_path': 'cloudy_train_853.csv',   #'train_dataset_1954.csv',
-        'test_path': 'cloudy_test_351.csv',  # 'test_dataset_2802.csv',
+        'train_path': 'train_manos_600.csv',   #'train_dataset_1954.csv',
+        'test_path': 'train_manos_372.csv',  # 'test_dataset_2802.csv',
         'log_dir': './output',
         'output_dir': './output',
         'data_set': 'medicanes',
@@ -294,7 +294,6 @@ def prepare_finetuning_args(machine=None):
         'test_num_crop': 1,  # 3
         'num_workers': 10,
         'opt': 'adamw',
-        'lr': 1e-3,
         'opt_betas': [0.9, 0.95],
   
         'save_ckpt_freq': 50,
@@ -302,14 +301,14 @@ def prepare_finetuning_args(machine=None):
         'testing_epochs': 1,
         'cloudy': False,
 
-        'epochs': 2000,
+        'epochs': 200,
         'momentum': 0.9,
         'weight_decay': 0.05,
         'weight_decay_end': None,
-        'lr': 1e-4,  # era e-3
+        'lr': 5e-5,  # era e-3
         'layer_decay': 0.75,
         'warmup_lr': 1e-7, # era e-8
-        'min_lr': 1e-6,  # era e-6
+        'min_lr': 1e-5,  # era e-6
         'warmup_epochs': 10,
         'warmup_steps': -1,
         #dist_eval
