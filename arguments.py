@@ -301,15 +301,15 @@ def prepare_finetuning_args(machine=None):
         'testing_epochs': 1,
         'cloudy': False,
 
-        'epochs': 100,
+        'epochs': 50,
         'momentum': 0.9,
         'weight_decay': 0.05,
         'weight_decay_end': None,
-        'lr': 1e-4,  # era e-3
+        'lr': 8e-5,  # era e-3
         'layer_decay': 0.75,
-        'warmup_lr': 1e-8, # era e-8
+        'warmup_lr': 1e-7, # era e-8
         'min_lr': 1e-5,  # era e-6
-        'warmup_epochs': 20,
+        'warmup_epochs': 8,
         'warmup_steps': -1,
         #dist_eval
     }
