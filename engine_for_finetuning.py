@@ -16,6 +16,7 @@ from typing import Iterable, Optional
 import numpy as np
 import torch
 from scipy.special import softmax
+from sklearn.metrics import confusion_matrix
 from timm.data import Mixup
 from timm.utils import ModelEma, accuracy
 
@@ -79,21 +80,21 @@ def train_one_epoch(model: torch.nn.Module,
                     param_group["weight_decay"] = wd_schedule_values[it]
 
         samples = samples.to(device, non_blocking=True)
-        targets = targets.to(device, non_blocking=True)
+        targets_ondevice = targets.to(device, non_blocking=True)
 
         if mixup_fn is not None:
             # mixup handle 3th & 4th dimension
             B, C, T, H, W = samples.shape
             samples = samples.view(B, C * T, H, W)
-            samples, targets = mixup_fn(samples, targets)
+            samples, targets_ondevice = mixup_fn(samples, targets_ondevice)
             samples = samples.view(B, C, T, H, W)
 
         if loss_scaler is None:
             samples = samples.half()
-            loss, output = train_class_batch(model, samples, targets, criterion)
+            loss, output = train_class_batch(model, samples, targets_ondevice, criterion)
         else:
             with torch.cuda.amp.autocast(dtype=torch.bfloat16):
-                loss, output = train_class_batch(model, samples, targets, criterion)
+                loss, output = train_class_batch(model, samples, targets_ondevice, criterion)
 
         loss_value = loss.item()
 
@@ -133,9 +134,14 @@ def train_one_epoch(model: torch.nn.Module,
         torch.cuda.synchronize()
 
         if mixup_fn is None:
-            class_acc = (output.max(-1)[-1] == targets).float().mean()
+            class_acc = (output.max(-1)[-1] == targets_ondevice).float().mean()
         else:
             class_acc = None
+
+        # calculate false positive etc...
+        #tn, fp, fn, tp = confusion_matrix(targets, output.cpu().numpy()).ravel()
+
+
         metric_logger.update(loss=loss_value)
         metric_logger.update(class_acc=class_acc)
         metric_logger.update(loss_scale=loss_scale_value)
