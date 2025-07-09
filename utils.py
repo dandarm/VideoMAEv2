@@ -548,25 +548,22 @@ def get_grad_norm_(parameters, norm_type: float = 2.0) -> torch.Tensor:
     return total_norm
 
 
-def cosine_scheduler(base_value,
-                     final_value,
-                     epochs,
-                     niter_per_ep,
-                     warmup_epochs=0,
-                     start_warmup_value=0,
-                     warmup_steps=-1):
+def cosine_scheduler(base_value, final_value, epochs, niter_per_ep, warmup_epochs=0, start_warmup_value=0, warmup_steps=-1):
     warmup_schedule = np.array([])
     warmup_iters = warmup_epochs * niter_per_ep
     if warmup_steps > 0:
         warmup_iters = warmup_steps
     print("Set warmup steps = %d" % warmup_iters)
     if warmup_epochs > 0:
-        warmup_schedule = np.linspace(start_warmup_value, base_value, warmup_iters)
+        #warmup_schedule = np.linspace(start_warmup_value, base_value, warmup_iters)
+        x = np.arange(1, warmup_iters+1) 
+        a = np.log(base_value / start_warmup_value) / np.log(warmup_iters)
+        warmup_schedule = start_warmup_value * x**a
 
     iters = np.arange(epochs * niter_per_ep - warmup_iters)
     schedule = np.array([
         final_value + 0.5 * (base_value - final_value) *
-        (1 + math.cos(math.pi * i / (len(iters)))) for i in iters
+        (1 + math.cos(10*math.pi * i / (len(iters)))) for i in iters
     ])
 
     schedule = np.concatenate((warmup_schedule, schedule))

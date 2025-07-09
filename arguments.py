@@ -276,8 +276,8 @@ def prepare_finetuning_args(machine=None):
         'auto_resume': False,
         'load_for_test_mode': False,
         'data_path': './',
-        'train_path': 'train_manos_600.csv',   #'train_dataset_1954.csv',
-        'test_path': 'test_manos_372.csv',  # 'test_dataset_2802.csv',
+        'train_path': 'train_manos_600.csv',   #'train_manos_836.csv',
+        'test_path': 'test_manos_372.csv',  # 'test_manos_372.csv',
         'log_dir': './output',
         'output_dir': './output',
         'data_set': 'medicanes',
@@ -301,15 +301,15 @@ def prepare_finetuning_args(machine=None):
         'testing_epochs': 1,
         'cloudy': False,
 
-        'epochs': 50,
+        'epochs': 15000,
         'momentum': 0.9,
         'weight_decay': 0.05,
         'weight_decay_end': None,
-        'lr': 8e-5,  # era e-3
+        'lr': 9e-5,  # era e-3
         'layer_decay': 0.75,
-        'warmup_lr': 1e-7, # era e-8
+        'warmup_lr': 1e-10, # era e-8
         'min_lr': 1e-5,  # era e-6
-        'warmup_epochs': 8,
+        'warmup_epochs': 50,
         'warmup_steps': -1,
         #dist_eval
     }
