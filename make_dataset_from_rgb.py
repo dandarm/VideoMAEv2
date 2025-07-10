@@ -24,7 +24,7 @@ if __name__ == "__main__":
     parser.add_argument('--manos_tracks',
         #action='store_true',
         type=str,
-        default='manos_CL10_pixel.csv',
+        default='more_medicanes.csv',
         help='specificare il file csv di tracks derivato da Manos')
 
     args = parser.parse_args()
