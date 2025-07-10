@@ -666,17 +666,19 @@ def save_frames_parallel(df, output_folder):
     print(f"{round((end-start)/60.0, 2)} minuti")
     
 
-def make_animation_parallel_ffmpeg(df, nomefile, output_folder = "./anim_frames", framerate=10):
-    print(">>> Generazione dei frame PNG...")
-    
-    os.makedirs(output_folder, exist_ok=True)
-    save_frames_parallel(df, output_folder)    
+def make_animation_parallel_ffmpeg(df, id_cyc, output_folder = "./anim_frames", framerate=10):    
+    nomefile=f"ciclone{id_cyc}.mp4"
+    folder = Path(output_folder + '_' + str(id_cyc))
+    os.makedirs(folder, exist_ok=True)
+    print(f"\n>>> Generazione dei frame PNG in {folder}")
 
-    print(">>> Creazione del video MP4 con ffmpeg...")
+    save_frames_parallel(df, folder)    
+
+    print("\n>>> Creazione del video MP4 con ffmpeg...")
     ffmpeg_command = [
         'ffmpeg',
         '-framerate', str(framerate),
-        '-i', os.path.join(output_folder, 'frame_%04d.png'),
+        '-i', os.path.join(folder, 'frame_%04d.png'),
         '-c:v', 'libx264',
         '-crf', '18',
         '-preset', 'medium',
@@ -685,7 +687,7 @@ def make_animation_parallel_ffmpeg(df, nomefile, output_folder = "./anim_frames"
     ]
 
     subprocess.run(ffmpeg_command)
-    print(f"Video salvato: {nomefile}")
+    print(f"\nVideo salvato: {nomefile}\n")
 
 
 
