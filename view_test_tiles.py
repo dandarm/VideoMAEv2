@@ -665,29 +665,39 @@ def save_frames_parallel(df, output_folder):
     print("Tutti i frame sono stati generati")
     print(f"{round((end-start)/60.0, 2)} minuti")
     
-
-def make_animation_parallel_ffmpeg(df, id_cyc, output_folder = "./anim_frames", framerate=10):    
+framerate=10
+ffmpeg_command = lambda folder,nomefile : [
+            'ffmpeg',
+            '-framerate', str(framerate),
+            '-i', os.path.join(folder, 'frame_%04d.png'),
+            '-c:v', 'libx264',
+            '-crf', '18',
+            '-preset', 'medium',
+            '-pix_fmt', 'yuv420p',
+            nomefile
+        ]
+def make_animation_parallel_ffmpeg(df, id_cyc, output_folder = "./anim_frames", ):    
     nomefile=f"ciclone{id_cyc}.mp4"
     folder = Path(output_folder + '_' + str(id_cyc))
-    os.makedirs(folder, exist_ok=True)
-    print(f"\n>>> Generazione dei frame PNG in {folder}")
+    if not folder.exists():
+        os.makedirs(folder, exist_ok=True)
+        print(f"\n>>> Generazione dei frame PNG in {folder}")
 
-    save_frames_parallel(df, folder)    
+        save_frames_parallel(df, folder)    
 
-    print("\n>>> Creazione del video MP4 con ffmpeg...")
-    ffmpeg_command = [
-        'ffmpeg',
-        '-framerate', str(framerate),
-        '-i', os.path.join(folder, 'frame_%04d.png'),
-        '-c:v', 'libx264',
-        '-crf', '18',
-        '-preset', 'medium',
-        '-pix_fmt', 'yuv420p',
-        nomefile
-    ]
+        print("\n>>> Creazione del video MP4 con ffmpeg...")       
+        subprocess.run(ffmpeg_command(folder,nomefile))
+        print(f"\nVideo salvato: {nomefile}\n")
 
-    subprocess.run(ffmpeg_command)
-    print(f"\nVideo salvato: {nomefile}\n")
+    else:
+        print(f"Cartella {folder} già esistente, non ricreo i frame. Controlla se il video è già stato creato.")
+        if not (folder / nomefile).exists():
+            print(f"Il video {nomefile} non esiste.")
+            print("\n>>> Creazione del video MP4 con ffmpeg...")       
+            subprocess.run(ffmpeg_command(folder,nomefile))
+            print(f"\nVideo salvato: {nomefile}\n")
+        else:
+            print(f"Video già esistente: {folder / nomefile}")
 
 
 
