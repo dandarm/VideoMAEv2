@@ -961,10 +961,10 @@ def make_unsup_dataset(input_dir, output_dir):
         df_offsets_groups = group_df_by_offsets(df)
         df_videos = create_tile_videos(df_offsets_groups, supervised=False)
         all_videos.append(df_videos)
-        create_and_save_tile_from_complete_df(df_videos, unsup_output_dir)
+        create_and_save_tile_from_complete_df(df_videos, output_dir)
     
     all_df_videos = pd.concat(all_videos)
-    df_dataset_csv_unsup = create_final_df_csv(all_df_videos, unsup_output_dir)
+    df_dataset_csv_unsup = create_final_df_csv(all_df_videos, output_dir)
     df_dataset_csv_unsup.drop(columns='label').to_csv("./train_UNsupervised.csv", index=False)
 
 
@@ -1026,12 +1026,12 @@ def train_test_split(df_video, train_p=0.7):
     print(f"Train e test lengths: {df_video_train.shape[0]}, {df_video_test.shape[0]}")
     return df_video_train, df_video_test
 
-def train_test_cyclones_num_split(tracks_df, train_p=0.7):
+def train_test_cyclones_num_split(tracks_df, train_p, id_col):
     """
     Divide il DataFrame tracks_df in due parti di train e test.
     basato sul numero di cicloni unici (id_cyc_unico).
     """
-    cicloni_unici = tracks_df.id_cyc_unico.unique()    
+    cicloni_unici = tracks_df[id_col].unique()    
     len_p = int(train_p*cicloni_unici.shape[0])
     cicloni_unici_train = cicloni_unici[:len_p]
     cicloni_unici_test = cicloni_unici[len_p:]
@@ -1087,19 +1087,49 @@ def filter_out_clear_sky(output_dir, sup_data):
     return df_v
 
 
-def get_train_test_df(tracks_df, percentage=0.7, verbose=True):
-    cicloni_unici_train, cicloni_unici_test = train_test_cyclones_num_split(tracks_df, train_p=percentage)
-    tracks_df_train = tracks_df[tracks_df.id_cyc_unico.isin(cicloni_unici_train)]
-    tracks_df_test = tracks_df[tracks_df.id_cyc_unico.isin(cicloni_unici_test)]
+def get_train_test_df(tracks_df, percentage=0.7, id_col='id_cyc_unico', verbose=True):
+    cicloni_unici_train, cicloni_unici_test = train_test_cyclones_num_split(tracks_df, train_p=percentage, id_col=id_col)
+    tracks_df_train = tracks_df[tracks_df[id_col].isin(cicloni_unici_train)]
+    tracks_df_test = tracks_df[tracks_df[id_col].isin(cicloni_unici_test)]
     print(f"Train e test lengths: {tracks_df_train.shape[0]}, {tracks_df_test.shape[0]}")
 
     if verbose:
-        u_train = tracks_df_train.groupby(tracks_df_train.id_cyc_unico).apply('first')  
+        u_train = tracks_df_train.groupby(tracks_df_train[id_col]).apply('first')  
         print((u_train.end_time - u_train.start_time).sum())
-        u_test = tracks_df_test.groupby(tracks_df_test.id_cyc_unico).apply('first')  
+        u_test = tracks_df_test.groupby(tracks_df_test[id_col]).apply('first')  
         print((u_test.end_time - u_test.start_time).sum())
 
     return tracks_df_train, tracks_df_test
+
+def get_train_test_validation_df(tracks_df, percentage=0.7, validation_percentage=0.15, id_col='id_final', verbose=True):
+    """
+    Divide il DataFrame tracks_df in tre parti: train, test e validation.
+    percentage è la percentuale di dati da usare per il training.
+    validation_percentage è la percentuale di dati da usare per la validazione.
+    """
+
+    cicloni_unici = tracks_df[id_col].unique()    
+    len_p = int(percentage*cicloni_unici.shape[0])
+    len_t = int((percentage + validation_percentage) * cicloni_unici.shape[0])
+    cicloni_unici_train = cicloni_unici[:len_p]
+    cicloni_unici_test = cicloni_unici[len_p:len_t]
+    cicloni_unici_validation = cicloni_unici[len_t:]
+    print(f"Cicloni nel train: {cicloni_unici_train.shape[0]}, cicloni nel test: {cicloni_unici_test.shape[0]}, cicloni nella validation: {cicloni_unici_validation.shape[0]}")
+
+    tracks_df_train = tracks_df[tracks_df[id_col].isin(cicloni_unici_train)]    
+    tracks_df_test = tracks_df[tracks_df[id_col].isin(cicloni_unici_test)]
+    tracks_df_validation = tracks_df[tracks_df[id_col].isin(cicloni_unici_validation)]
+
+    if verbose:
+        print(f"Train: {tracks_df_train.shape[0]}, Test: {tracks_df_test.shape[0]}, Validation: {tracks_df_validation.shape[0]}")
+        u_train = tracks_df_train.groupby(tracks_df_train[id_col]).apply('first')  
+        print((u_train.end_time - u_train.start_time).sum())
+        u_test = tracks_df_test.groupby(tracks_df_test[id_col]).apply('first')  
+        print((u_test.end_time - u_test.start_time).sum())
+        u_val = tracks_df_validation.groupby(tracks_df_validation[id_col]).apply('first')  
+        print((u_val.end_time - u_val.start_time).sum())
+
+    return tracks_df_train, tracks_df_test, tracks_df_validation
 
 def make_dataset_from_manos_tracks(manos_track_file, input_dir, output_dir):
     # vecchio file di manos "manos_CL10_pixel.csv"

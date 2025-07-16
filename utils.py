@@ -753,3 +753,21 @@ def multiple_pretrain_samples_collate(batch, fold=False):
         return [process_data], encoder_mask, decoder_mask
     else:
         return process_data, encoder_mask, decoder_mask
+
+
+
+
+import hashlib
+
+def str2num(s: str, digits: int = 8) -> int:
+    """
+    Converte una stringa in un intero *deterministico* a `digits` cifre.
+    - `digits` = lunghezza massima (8 ⇒ valori 0–99.999.999).
+    - Collisions? Possibili ma molto rare se il dataset è piccolo
+      rispetto a 10**digits.
+    """
+    if s is None or s != s:          # gestisce NaN/None
+        return None
+    # SHA-1 → int enorme → riduzione mod 10**digits
+    big_int = int(hashlib.sha1(s.encode()).hexdigest(), 16)
+    return big_int % (10 ** digits)
