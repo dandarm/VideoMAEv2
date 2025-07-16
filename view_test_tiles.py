@@ -658,6 +658,7 @@ def save_frames_parallel(df, output_folder):
     
     num_processes = multiprocessing.cpu_count()
     start = time()
+    render_and_save_frame(args[0]) # cancelarre dopo
     with Pool(processes=num_processes) as pool:
         results = pool.map(render_and_save_frame, args)
     end = time()
@@ -691,13 +692,13 @@ def make_animation_parallel_ffmpeg(df, id_cyc, output_folder = "./anim_frames", 
 
     else:
         print(f"Cartella {folder} già esistente, non ricreo i frame. Controlla se il video è già stato creato.")
-        if not (folder / nomefile).exists():
+        if not (Path(nomefile)).exists():
             print(f"Il video {nomefile} non esiste.")
             print("\n>>> Creazione del video MP4 con ffmpeg...")       
             subprocess.run(ffmpeg_command(folder,nomefile))
             print(f"\nVideo salvato: {nomefile}\n")
         else:
-            print(f"Video già esistente: {folder / nomefile}")
+            print(f"Video già esistente: {nomefile}")
 
 
 

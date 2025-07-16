@@ -239,13 +239,16 @@ class BuildDataset():
         self.csv_file = path_csv
 
 
-    def get_data_ready(self, df_tracks, input_dir, output_dir, csv_file=None):
+    def get_data_ready(self, df_tracks, input_dir, output_dir, csv_file=None, relabeling=False):
         #self.create_master_df(manos_file=None, input_dir_images=input_dir, tracks_df=df_tracks)
         self.create_master_df_short(input_dir_images=input_dir, tracks_df=df_tracks)
 
         # cambia le etichette per togliere le fasi iniziali e finali dei cicloni
-        df_mod = make_relabeled_master_df(self, hours_shift=24)
-        self.make_df_video(new_master_df=df_mod, output_dir=output_dir,  is_to_balance=True)
+        if relabeling:
+            df_mod = make_relabeled_master_df(self, hours_shift=24)
+            self.make_df_video(new_master_df=df_mod, output_dir=output_dir,  is_to_balance=True)
+        else:
+            self.make_df_video(output_dir=output_dir, is_to_balance=True)
 
         if self.args.cloudy:
             df_v = filter_out_clear_sky(output_dir, self)
