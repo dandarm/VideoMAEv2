@@ -1135,7 +1135,6 @@ def make_dataset_from_manos_tracks(manos_track_file, input_dir, output_dir):
     # vecchio file di manos "manos_CL10_pixel.csv"
     from dataset.data_manager import BuildDataset
     from arguments import prepare_finetuning_args
-
     args = prepare_finetuning_args()
 
     output_dir = solve_paths(output_dir)
@@ -1144,14 +1143,15 @@ def make_dataset_from_manos_tracks(manos_track_file, input_dir, output_dir):
     tracks_df = pd.read_csv(manos_track_file, parse_dates=['time', 'start_time', 'end_time'])
 
     # divido le track di Manos in train e test
-    tracks_df_train, tracks_df_test = get_train_test_df(tracks_df, percentage=0.7)
+    #tracks_df_train, tracks_df_test = get_train_test_df(tracks_df, percentage=0.7)
+    tracks_df_train, tracks_df_test, tracks_df_val = get_train_test_validation_df(tracks_df, 0.7, 0.15)
 
     print("Building training set...")
     train_m = BuildDataset(type='SUPERVISED', args=args)
-    train_m.get_data_ready(tracks_df_train, input_dir, output_dir, csv_file="train_manos")
+    train_m.get_data_ready(tracks_df_train, input_dir, output_dir, csv_file="train_manos_w")
     print("Building test set...")
     test_m = BuildDataset(type='SUPERVISED', args=args)
-    test_m.get_data_ready(tracks_df_test, input_dir, output_dir, csv_file="test_manos")
+    test_m.get_data_ready(tracks_df_test, input_dir, output_dir, csv_file="test_manos_w")
 
     return train_m, tracks_df_train
 
