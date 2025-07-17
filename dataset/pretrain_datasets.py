@@ -7,7 +7,7 @@ import torch
 from PIL import Image
 from torchvision import transforms
 
-from .loader import get_image_loader, get_video_loader
+#from .loader import get_image_loader, get_video_loader
 from .masking_generator import (
     RunningCellMaskingGenerator,
     TubeMaskingGenerator,
