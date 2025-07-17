@@ -1121,7 +1121,7 @@ def get_train_test_validation_df(tracks_df, percentage=0.7, validation_percentag
     tracks_df_validation = tracks_df[tracks_df[id_col].isin(cicloni_unici_validation)]
 
     if verbose:
-        print(f"Train: {tracks_df_train.shape[0]}, Test: {tracks_df_test.shape[0]}, Validation: {tracks_df_validation.shape[0]}")
+        print(f"Train rows: {tracks_df_train.shape[0]}, Test rows: {tracks_df_test.shape[0]}, Validation rows: {tracks_df_validation.shape[0]}")
         u_train = tracks_df_train.groupby(tracks_df_train[id_col]).apply('first')  
         print((u_train.end_time - u_train.start_time).sum())
         u_test = tracks_df_test.groupby(tracks_df_test[id_col]).apply('first')  
