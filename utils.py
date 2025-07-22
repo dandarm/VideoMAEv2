@@ -568,7 +568,7 @@ def cosine_scheduler(base_value, final_value, epochs, niter_per_ep, warmup_epoch
 
     schedule = np.array([
         final_value + 0.5*(base_value - final_value) *
-        (2 + 3*math.sin(math.pi * i / (len(iters)))) for i in iters
+        (2 + 9*math.sin(7*math.pi * i / (len(iters)))) for i in iters
     ])
 
     schedule = np.concatenate((warmup_schedule, schedule))
