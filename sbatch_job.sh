@@ -4,13 +4,12 @@
 #SBATCH --partition=boost_usr_prod
 #SBATCH --gres=gpu:4
 #SBATCH --cpus-per-task=4
-#SBATCH --time=01:05:00
+#SBATCH --time=04:59:00
 #SBATCH --error=myJob.err
 #SBATCH --output=myJob_medicanes.out
 
 module load profile/deeplrn
 module load cineca-ai/4.3.0
-module load openmpi 
 source $HOME/videomae/bin/activate
 
 export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
@@ -24,3 +23,4 @@ mpirun --map-by socket:PE=4 --report-bindings python classification.py --on leon
 #    --nproc_per_node 4 \
 #    --nnodes 4 \
 #    specialization.py
+# module load openmpi 
