@@ -98,9 +98,15 @@ def plot_training_curves(tuple_vars, plot_file_name=None):
     ax2 = ax1.twinx()
 
     # Asse sinistro per la loss
-    ax1.plot(train_epochs, train_losses, label='Training Loss') #, marker='o', linestyle='')
+    ax1.plot(train_epochs, train_losses, marker='.', label='Training Loss') #, marker='o', linestyle='')
     #ax1.plot(test_epochs, test_losses, label='Test Loss') #color='r', marker='s', 
-    ax1.plot(val_epochs, val_losses, label='Validation Loss') #color='r', marker='s', 
+    ax1.plot(val_epochs, val_losses, marker='.', label='Validation Loss') #color='r', marker='s', 
+    
+
+    tick_length = 20
+    tick_width  = 180
+    set_ticklines(ax1, tick_length, tick_width)
+
 
     ax1.set_xlabel('Epochs')
     ax1.set_ylabel('Loss')
@@ -135,6 +141,7 @@ def plot_training_curves(tuple_vars, plot_file_name=None):
         colore_asse = p3[0].get_color()
         ax3.set_ylabel('Learning rate')
         #ax3.spines['right'].set_position(('outward', 60))
+        set_ticklines(ax3, 190, tick_width)
 
         ax3.set_yscale('log')
         ax3.set_xscale('log')
@@ -142,6 +149,30 @@ def plot_training_curves(tuple_vars, plot_file_name=None):
         axis_color(ax3, colore_asse)
 
     plt.title('Training Loss, Validation Loss, and Accuracy per Epoch')
+    fig.canvas.draw()
 
     if plot_file_name is not None:
         plt.savefig(plot_file_name)
+
+def set_ticklines(ax1, tick_length, tick_width):
+    ax1.tick_params(
+        axis='both',       # 'x', 'y' o 'both'
+        which='both',      # 'major', 'minor' o 'both'
+        width=3,           # spessore
+        length=50, 
+        direction='in', # tick dentro e fuori
+    )
+
+    for side in ["bottom", "left"]:
+        ax = ax1.axis[side]
+        ticks = ax.major_ticks        # l'oggetto Ticks delle major
+
+        # imposta lunghezza e spessore
+        ticks.set_ticksize(tick_length)
+        ticks.set_linewidth(tick_width)
+        #for line in ticks.tick1line + ticks.tick2line:
+        #    line.set_linewidth(tick_width)
+
+        minors = ax.minor_ticks
+        minors.set_ticksize(tick_length / 2)
+        minors.set_linewidth(tick_width / 2)
