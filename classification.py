@@ -37,16 +37,17 @@ def launch_finetuning_classification(terminal_args):
     args = prepare_finetuning_args(machine=terminal_args.on)
 
     #device = torch.device(args.device)
-    # seed = args.seed
-    # torch.manual_seed(seed)
-    # np.random.seed(seed)
-    # random.seed(seed)
-    # cudnn.benchmark = True
+    seed = args.seed
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    cudnn.benchmark = True
 
 
     # training distribuito
     rank, local_rank, world_size, local_size, num_workers = utils.get_resources()
-    #print(f"rank, local_rank, world_size, local_size, num_workers: {rank, local_rank, world_size, local_size, num_workers}")
+    print(f"rank, local_rank, world_size, local_size, num_workers: {rank, local_rank, world_size, local_size, num_workers}")
+    
 
     if world_size > 1:
         dist.init_process_group("nccl", rank=rank, world_size=world_size)    

@@ -51,6 +51,10 @@ def train_one_epoch(model: torch.nn.Module,
                     wd_schedule_values=None,
                     num_training_steps_per_epoch=None,
                     update_freq=None):
+    
+    # importante per lo shuffle
+    data_loader.sampler.set_epoch(epoch) 
+
     model.train(True)
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
