@@ -247,9 +247,9 @@ class BuildDataset():
         if relabeling:
             print(f"Relabeling master_df +- {24}h...")
             df_mod = make_relabeled_master_df(self, hours_shift=24)
-            self.make_df_video(new_master_df=df_mod, output_dir=output_dir,  is_to_balance=True)
+            self.make_df_video(new_master_df=df_mod, output_dir=output_dir,  is_to_balance=is_to_balance)
         else:
-            self.make_df_video(output_dir=output_dir, is_to_balance=True)
+            self.make_df_video(output_dir=output_dir, is_to_balance=is_to_balance)
 
         if self.args.cloudy:
             df_v = filter_out_clear_sky(output_dir, self)
