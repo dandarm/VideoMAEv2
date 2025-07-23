@@ -740,6 +740,9 @@ def create_df_video_from_master_df(df_data, idxs=None, output_dir=None, is_to_ba
             
             if is_to_balance:
                 df_for_period = balance_time_group(df_for_period)
+            else: # comunque tengo traccia dei positivi e negativi
+                print(f"Con cicloni: {(df_for_period.label == 1).sum()}")
+                print(f"Senza cicloni: {(df_for_period.label == 0).sum()}")                
 
             if output_dir is not None:        
                 create_and_save_tile_from_complete_df(df_for_period, output_dir)

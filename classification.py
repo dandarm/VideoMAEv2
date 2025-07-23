@@ -46,8 +46,8 @@ def launch_finetuning_classification(terminal_args):
 
     # training distribuito
     rank, local_rank, world_size, local_size, num_workers = utils.get_resources()
-    print(f"rank, local_rank, world_size, local_size, num_workers: {rank, local_rank, world_size, local_size, num_workers}")
-    
+    #print(f"rank, local_rank, world_size, local_size, num_workers: {rank, local_rank, world_size, local_size, num_workers}")
+
 
     if world_size > 1:
         dist.init_process_group("nccl", rank=rank, world_size=world_size)    
@@ -187,7 +187,7 @@ def launch_finetuning_classification(terminal_args):
             max_norm=args.clip_grad,
             model_ema=None,
             mixup_fn=mixup_fn,
-            log_writer=None,  # se vuoi un TensorboardLogger, passalo qui
+            log_writer=None, 
             start_steps=epoch * num_training_steps_per_epoch,
             lr_schedule_values=lr_schedule_values,
             wd_schedule_values=wd_schedule_values,

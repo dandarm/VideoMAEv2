@@ -142,9 +142,6 @@ def train_one_epoch(model: torch.nn.Module,
         else:
             class_acc = None
 
-        # calculate false positive etc...
-        #tn, fp, fn, tp = confusion_matrix(targets, output.cpu().numpy()).ravel()
-
 
         metric_logger.update(loss=loss_value)
         metric_logger.update(class_acc=class_acc)
@@ -195,19 +192,29 @@ def validation_one_epoch(data_loader, model, device):
         images = batch[0]
         target = batch[1]
         images = images.to(device, non_blocking=True)
-        target = target.to(device, non_blocking=True)
+        targets_ondevice = target.to(device, non_blocking=True)
 
         # compute output
         with torch.cuda.amp.autocast():
             output = model(images)
-            loss = criterion(output, target)
+            loss = criterion(output, targets_ondevice)
 
-        acc1,  = accuracy(output, target, topk=(1, ))  # Modifcato per classificazione binaria
+        acc1,  = accuracy(output, targets_ondevice, topk=(1, ))  # Modifcato per classificazione binaria
+
+        # calculate false positive etc...
+        tn, fp, fn, tp = confusion_matrix(target, output.cpu().numpy()).ravel()
+        fpr = fp / (fp + tn) if (fp + tn) > 0 else 0
+        fnr = fn / (fn + tp) if (fn + tp) > 0 else 0
+        
 
         batch_size = images.shape[0]
         metric_logger.update(loss=loss.item())
         metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
         #metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
+        metric_logger.meters['fpr'].update(fpr, n=batch_size)
+        metric_logger.meters['fnr'].update(fnr, n=batch_size)
+
+        
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print('* Acc@1 {top1.global_avg:.3f}  loss {losses.global_avg:.3f}'
