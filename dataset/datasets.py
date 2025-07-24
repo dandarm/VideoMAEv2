@@ -633,7 +633,7 @@ class MedicanesClsDataset(Dataset):
         self.path = anno_path
         self.df = pd.read_csv(anno_path)
         self.data_root = data_root
-        self.mode = mode
+        self.mode = mode  # al momento non la utilizziamo
         self.clip_len = clip_len
         # Impostiamo una trasformazione di default
         if transform is None:

@@ -76,10 +76,12 @@ def launch_finetuning_classification(terminal_args):
     # -------------------------------------------
     train_m = DataManager(is_train=True, args=args, type_t='supervised', world_size=world_size, rank=rank)
     test_m = DataManager(is_train=False, args=args, type_t='supervised', world_size=world_size, rank=rank)
+    val_m = DataManager(is_train=False, args=args, type_t='supervised', world_size=world_size, rank=rank, specify_data_path=args.val_path)
 
     train_m.create_classif_dataloader(args)
     test_m.create_classif_dataloader(args)
-
+    val_m.create_classif_dataloader(args)
+    
 
     # -------------------------------------------
     # build model
@@ -198,7 +200,10 @@ def launch_finetuning_classification(terminal_args):
         val_stats = {}
         if (epoch + 1) % args.testing_epochs == 0:
             val_stats = validation_one_epoch(test_m.data_loader, pretrained_model, device)
-            print(f"[EPOCH {epoch + 1}] val acc1: {val_stats['acc1']:.2f}%")
+            print(f"[EPOCH {epoch + 1}] val acc1: {val_stats['acc1']:.2f}%  - best accuracy: {max_accuracy:.2f}%")
+
+            val2_stats = validation_one_epoch(val_m.data_loader, pretrained_model, device)
+
             if val_stats["acc1"] > max_accuracy:
                 max_accuracy = val_stats["acc1"]
                 print(f"[INFO] New best acc1: {max_accuracy:.2f}%")
@@ -220,6 +225,7 @@ def launch_finetuning_classification(terminal_args):
         log_stats = {'epoch': epoch,
             **{f'train_{k}': v for k, v in train_stats.items()},
             **{f'val_{k}': v for k, v in val_stats.items()},
+            **{f'val2_{k}': v for k, v in val2_stats.items()},
         }
         if args.output_dir and rank == 0:
             with open(os.path.join(args.output_dir, "log.txt"), "a") as f:

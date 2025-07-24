@@ -14,14 +14,17 @@ import utils
 from utils import multiple_pretrain_samples_collate
 
 class DataManager():
-    def __init__(self, is_train, args, type_t, patch_size=[-1,-1], world_size=1, rank=0):
+    def __init__(self, is_train, args, type_t, patch_size=[-1,-1], world_size=1, rank=0, specify_data_path=None):
         self.args = args
         self.is_train = is_train  # train o test
         self.type = type_t  # se UNsupervised o supervised
         if self.is_train:
             self.file_path = args.train_path
         else:
-            self.file_path = args.test_path        
+            self.file_path = args.test_path   
+        # se invece voglio specificare un path diverso, lo passo come parametro          
+        if specify_data_path is not None:
+            self.file_path = specify_data_path   
 
         self.world_size = world_size 
         self.rank = rank
