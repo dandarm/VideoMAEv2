@@ -48,7 +48,6 @@ def launch_finetuning_classification(terminal_args):
     rank, local_rank, world_size, local_size, num_workers = utils.get_resources()
     #print(f"rank, local_rank, world_size, local_size, num_workers: {rank, local_rank, world_size, local_size, num_workers}")
 
-
     if world_size > 1:
         dist.init_process_group("nccl", rank=rank, world_size=world_size)    
         args.distributed = True
@@ -57,10 +56,10 @@ def launch_finetuning_classification(terminal_args):
     torch.cuda.set_device(local_rank)    
     args.gpu = local_rank
     args.world_size = world_size
-    args.rank = rank
-    
+    args.rank = rank    
     device = torch.device(f"cuda:{local_rank}")
     
+
     # logging
     if args.log_dir and not os.path.exists(args.log_dir):
         os.makedirs(args.log_dir)
@@ -195,18 +194,6 @@ def launch_finetuning_classification(terminal_args):
             update_freq=1
         )
 
-        # SALVATAGGIO CHECKPOINT
-        # if args.output_dir and ((epoch + 1) % args.save_ckpt_freq == 0 or (epoch + 1) == args.epochs):
-        #     ckpt_path = os.path.join(args.output_dir, f"checkpoint-{epoch}.pth")
-        #     torch.save({
-        #         "model": model.state_dict(),
-        #         "optimizer": optimizer.state_dict(),
-        #         "epoch": epoch,
-        #         "scaler": loss_scaler.state_dict(),
-        #         "args": vars(args)  # se vuoi salvare i param
-        #     }, ckpt_path)
-        #     print(f"[INFO] checkpoint saved at {ckpt_path}")
-
         # VAL
         val_stats = {}
         if (epoch + 1) % args.testing_epochs == 0:
@@ -215,7 +202,9 @@ def launch_finetuning_classification(terminal_args):
             if val_stats["acc1"] > max_accuracy:
                 max_accuracy = val_stats["acc1"]
                 print(f"[INFO] New best acc1: {max_accuracy:.2f}%")
+
                 # se vuoi salvare un "best" checkpoint
+                ########################### SALVATAGGIO CHECKPOINT
                 best_ckpt_path = os.path.join(args.output_dir, "checkpoint-best.pth")
                 torch.save({
                     "model": model_without_ddp.state_dict(),
@@ -226,13 +215,13 @@ def launch_finetuning_classification(terminal_args):
                 }, best_ckpt_path)
                 print(f"[INFO] Best checkpoint saved at {best_ckpt_path}")
 
+
         # logging su file
-        log_stats = {
-            'epoch': epoch,
+        log_stats = {'epoch': epoch,
             **{f'train_{k}': v for k, v in train_stats.items()},
             **{f'val_{k}': v for k, v in val_stats.items()},
         }
-        if args.output_dir:
+        if args.output_dir and rank == 0:
             with open(os.path.join(args.output_dir, "log.txt"), "a") as f:
                 f.write(json.dumps(log_stats) + "\n")
 

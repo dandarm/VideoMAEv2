@@ -1155,6 +1155,9 @@ def make_dataset_from_manos_tracks(manos_track_file, input_dir, output_dir):
     print("Building test set...")
     test_m = BuildDataset(type='SUPERVISED', args=args)
     test_m.get_data_ready(tracks_df_test, input_dir, output_dir, csv_file="test_manos_w")
+    print("Building validation set...")
+    val_m = BuildDataset(type='SUPERVISED', args=args)
+    val_m.get_data_ready(tracks_df_val, input_dir, output_dir, csv_file="val_manos_w", is_to_balance=False)
 
     return train_m, tracks_df_train
 
