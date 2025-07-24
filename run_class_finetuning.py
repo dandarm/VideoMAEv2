@@ -894,6 +894,10 @@ def main(args, ds_init):
                     val_acc5=test_stats['acc5'], head="perf", step=epoch)
                 log_writer.update(
                     val_loss=test_stats['loss'], head="perf", step=epoch)
+                log_writer.update(
+                    val_fpr=test_stats['fpr'], head="perf", step=epoch)
+                log_writer.update(
+                    val_fnr=test_stats['fnr'], head="perf", step=epoch)
 
             log_stats = {
                 **{f'train_{k}': v
