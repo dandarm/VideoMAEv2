@@ -202,7 +202,16 @@ def validation_one_epoch(data_loader, model, device):
         acc1,  = accuracy(output, targets_ondevice, topk=(1, ))  # Modifcato per classificazione binaria
 
         # calculate false positive etc...
-        tn, fp, fn, tp = confusion_matrix(target, output.cpu().numpy()).ravel()
+        
+        #tn, fp, fn, tp = confusion_matrix(target, output.cpu().numpy().ravel()).ravel()
+        y_true = target  # shape: (N,), dtype: torch.int64
+        y_pred = (output >= 0.5).long().squeeze()  # applica soglia su probabilità
+
+        tp = ((y_pred == 1) & (y_true == 1)).sum()
+        tn = ((y_pred == 0) & (y_true == 0)).sum()
+        fp = ((y_pred == 1) & (y_true == 0)).sum()
+        fn = ((y_pred == 0) & (y_true == 1)).sum()
+
         fpr = fp / (fp + tn) if (fp + tn) > 0 else 0
         fnr = fn / (fn + tp) if (fn + tp) > 0 else 0
         
