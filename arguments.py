@@ -306,9 +306,9 @@ def prepare_finetuning_args(machine=None):
         'momentum': 0.9,
         'weight_decay': 0.05,
         'weight_decay_end': None,
-        'lr': 1e-5,    # , 1e-3 , 9e-6
+        'lr': 1e-6,    # , 1e-3 , 9e-6
         'layer_decay': 0.75,
-        'warmup_lr': 1e-8, #  1e-10
+        'warmup_lr': 2e-7, #  1e-10
         'min_lr': 1e-6,  # era e-6      # 1e-8
         'warmup_epochs': 500,
         'warmup_steps': -1,
@@ -332,6 +332,9 @@ def prepare_finetuning_args(machine=None):
                 raise EnvironmentError("La variabile d'ambiente HOME non è definita.")
             machine_args_override['init_ckpt'] = exp_path
             machine_args_override['pretrained'] = True
+        elif machine == 'ewc':
+            machine_args_override['device'] = 'cpu'
+
         args_dict = {**args_dict, **machine_args_override}
 
     # Convert args_dict to an Args object

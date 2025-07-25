@@ -128,6 +128,8 @@ def plot_training_curves(tuple_vars, plot_file_name=None):
     ax1.plot(train_epochs, train_losses, marker='.', label='Training Loss') #, marker='o', linestyle='')
     #ax1.plot(test_epochs, test_losses, label='Test Loss') #color='r', marker='s', 
     ax1.plot(val_epochs, val_losses, marker='.', label='Validation Loss') #color='r', marker='s', 
+    if val2_losses is not None and len(val2_losses) > 0:
+        ax1.plot(val_epochs, val2_losses, marker='.', label='Validation2 Loss', color='peachpuff') # marker='s',
     
 
     tick_length = 20
@@ -182,10 +184,11 @@ def plot_training_curves(tuple_vars, plot_file_name=None):
         plt.savefig(plot_file_name)
 
     if  len(val_fprs) > 0 and len(val_fnrs) > 0:
-        plot_file_name = plot_file_name.replace('.png', '_fprfnr.png')
-        plot_fprfnr(val_accs, val_fprs, val_fnrs, val_epochs, plot_file_name=plot_file_name)
+        if plot_file_name is not None:
+            plot_file_name = plot_file_name.replace('.png', '_fprfnr.png')
+            plot_fprfnr(val_accs, val_fprs, val_fnrs, val_epochs, plot_file_name=plot_file_name)
         if len(val2_fprs) > 0 and len(val2_fnrs) > 0:            
-            plot_fprfnr(val_accs, val_fprs, val_fnrs, val2_accs, val2_fprs, val2_fnrs, val_epochs, plot_file_name=plot_file_name)
+            plot_fprfnr(val_accs, val_fprs, val_fnrs, val_epochs, val2_accs, val2_fprs, val2_fnrs, plot_file_name=plot_file_name)
 
 
 def plot_fprfnr(val_accs, val_fprs, val_fnrs, val_epochs, val2_accs=None, val2_fprs=None, val2_fnrs=None, plot_file_name=None):

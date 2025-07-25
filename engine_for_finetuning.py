@@ -34,6 +34,22 @@ def get_loss_scale_for_deepspeed(model):
     return optimizer.loss_scale if hasattr(
         optimizer, "loss_scale") else optimizer.cur_scale
 
+def debug_tensor(t, name="tensor", n_vals=8):
+    """
+    Stampa forma, tipo, device, intervallo di valori e
+    i primi n_vals elementi (piatti) di un tensore PyTorch.
+    """
+    t_det = t.detach()            # stacca dal grafo
+    flat  = t_det.flatten()       # appiattisci: facile da stampare
+    print(f"\n{name}:")
+    print(f"  shape   → {tuple(t_det.shape)}")
+    print(f"  dtype   → {t_det.dtype}, device → {t_det.device}")
+    if torch.is_floating_point(t_det):
+        print(f"  range   → [{t_det.min():.4f}, {t_det.max():.4f}]")
+        print(f"  mean    → {t_det.mean():.4f}, std → {t_det.std():.4f}")
+    print(f"  first {n_vals} vals → {flat[:n_vals].cpu().tolist()}")
+
+
 
 def train_one_epoch(model: torch.nn.Module,
                     criterion: torch.nn.Module,
@@ -97,8 +113,15 @@ def train_one_epoch(model: torch.nn.Module,
             samples = samples.half()
             loss, output = train_class_batch(model, samples, targets_ondevice, criterion)
         else:
-            with torch.cuda.amp.autocast(dtype=torch.bfloat16):
+            if device.type == 'cuda':
+                with torch.cuda.amp.autocast(dtype=torch.bfloat16):
+                    loss, output = train_class_batch(model, samples, targets_ondevice, criterion)
+            else:
                 loss, output = train_class_batch(model, samples, targets_ondevice, criterion)
+
+        # debugging the output
+        #debug_tensor(output, name="output", n_vals=16)
+
 
         loss_value = loss.item()
 
@@ -135,7 +158,8 @@ def train_one_epoch(model: torch.nn.Module,
                     model_ema.update(model)
             loss_scale_value = loss_scaler.state_dict()["scale"]
 
-        torch.cuda.synchronize()
+        if device.type == 'cuda':
+            torch.cuda.synchronize()
 
         if mixup_fn is None:
             class_acc = (output.max(-1)[-1] == targets_ondevice).float().mean()
@@ -205,12 +229,13 @@ def validation_one_epoch(data_loader, model, device):
         
         #tn, fp, fn, tp = confusion_matrix(target, output.cpu().numpy().ravel()).ravel()
         y_true = targets_ondevice  # shape: (N,), dtype: torch.int64
-        y_pred = (output >= 0.5).long().squeeze()  # applica soglia su probabilità
+        #y_pred = (output >= 0.5).long().squeeze()  # applica soglia su probabilità  NO è SBAGLIATO! SONO DUE LOGITS
+        y_pred = output.argmax(dim=1)          # shape (N,)
 
-        tp = ((y_pred == 1) & (y_true == 1)).sum()
-        tn = ((y_pred == 0) & (y_true == 0)).sum()
-        fp = ((y_pred == 1) & (y_true == 0)).sum()
-        fn = ((y_pred == 0) & (y_true == 1)).sum()
+        tp = ((y_pred == 1) & (y_true == 1)).sum().item()
+        tn = ((y_pred == 0) & (y_true == 0)).sum().item()
+        fp = ((y_pred == 1) & (y_true == 0)).sum().item()
+        fn = ((y_pred == 0) & (y_true == 1)).sum().item()
 
         fpr = fp / (fp + tn) if (fp + tn) > 0 else 0
         fnr = fn / (fn + tp) if (fn + tp) > 0 else 0
