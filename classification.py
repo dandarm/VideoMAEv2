@@ -53,11 +53,17 @@ def launch_finetuning_classification(terminal_args):
         args.distributed = True
     else:
         args.distributed = False   
-    torch.cuda.set_device(local_rank)    
-    args.gpu = local_rank
-    args.world_size = world_size
-    args.rank = rank    
-    device = torch.device(f"cuda:{local_rank}")
+    if args.device == 'cuda':    
+        torch.cuda.set_device(local_rank)    
+        args.gpu = local_rank
+        args.world_size = world_size
+        args.rank = rank    
+        device = torch.device(f"cuda:{local_rank}")
+    else:
+        device = torch.device("cpu")
+        args.gpu = None
+        args.world_size = 1
+        args.rank = 0
     
 
     # logging
