@@ -306,11 +306,11 @@ def prepare_finetuning_args(machine=None):
         'momentum': 0.9,
         'weight_decay': 0.05,
         'weight_decay_end': None,
-        'lr': 1e-3,    # 9e-6,
+        'lr': 1e-5,    # , 1e-3 , 9e-6
         'layer_decay': 0.75,
-        'warmup_lr': 1e-8, # era e-8    # 1e-10
+        'warmup_lr': 1e-8, #  1e-10
         'min_lr': 1e-6,  # era e-6      # 1e-8
-        'warmup_epochs': 10,
+        'warmup_epochs': 500,
         'warmup_steps': -1,
         #dist_eval
     }

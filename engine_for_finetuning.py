@@ -204,7 +204,7 @@ def validation_one_epoch(data_loader, model, device):
         # calculate false positive etc...
         
         #tn, fp, fn, tp = confusion_matrix(target, output.cpu().numpy().ravel()).ravel()
-        y_true = target  # shape: (N,), dtype: torch.int64
+        y_true = targets_ondevice  # shape: (N,), dtype: torch.int64
         y_pred = (output >= 0.5).long().squeeze()  # applica soglia su probabilità
 
         tp = ((y_pred == 1) & (y_true == 1)).sum()
