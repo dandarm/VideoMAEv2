@@ -210,7 +210,7 @@ def launch_finetuning_classification(terminal_args):
 
             val2_stats = validation_one_epoch(val_m.data_loader, pretrained_model, device)
 
-            if val_stats["acc1"] > max_accuracy:
+            if val_stats["acc1"] > max_accuracy and epoch > args.start_epoch_for_saving_best_ckpt:
                 max_accuracy = val_stats["acc1"]
                 print(f"[INFO] New best acc1: {max_accuracy:.2f}%")
 

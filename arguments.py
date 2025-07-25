@@ -303,6 +303,7 @@ def prepare_finetuning_args(machine=None):
         'cloudy': False,
 
         'epochs': 500,
+        'start_epoch_for_saving_best_ckpt': 50,  # dopo 50 epoche inizia a salvare il best checkpoint
         'momentum': 0.9,
         'weight_decay': 0.05,
         'weight_decay_end': None,
