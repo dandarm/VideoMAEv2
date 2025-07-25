@@ -1,4 +1,5 @@
 import json
+import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 from mpl_toolkits.axes_grid1 import host_subplot
@@ -16,8 +17,15 @@ def collect_data(log_file_path):
 
     val_epochs = []
     val_losses = []
-
     val_accs = []
+    val_fprs = []
+    val_fnrs = []
+
+    val2_losses = []
+    val2_accs = []
+    val2_fprs = []
+    val2_fnrs = []
+
 
     lr_epochs = []
 
@@ -53,8 +61,26 @@ def collect_data(log_file_path):
                 if "val_acc1" in data:       
                     val_accs.append(data["val_acc1"])
 
+                if 'val_fpr' in data:
+                    val_fprs.append(data['val_fpr'])
+                if 'val_fnr' in data:
+                    val_fnrs.append(data['val_fnr'])
+
+            if "val2_loss" in data:
+                #print(line)
+                val2_losses.append(data["val2_loss"])
+
+                if "val2_acc1" in data:       
+                    val2_accs.append(data["val2_acc1"])
+
+                if 'val2_fpr' in data:
+                    val2_fprs.append(data['val2_fpr'])
+                if 'val2_fnr' in data:
+                    val2_fnrs.append(data['val2_fnr'])
+
+
             
-    return train_epochs, train_losses, test_epochs, test_losses, val_epochs, val_losses, val_accs, lr_epochs
+    return train_epochs, train_losses, test_epochs, test_losses, val_epochs, val_losses, val_accs, lr_epochs, val_fprs, val_fnrs, val2_losses, val2_accs, val2_fprs, val2_fnrs
                 
             
 # Ogni 10 epoche, salviamo la media della validation loss e accuracy
@@ -79,7 +105,8 @@ def axis_color(ax, colore_asse):
 
 def plot_training_curves(tuple_vars, plot_file_name=None):
 
-    (train_epochs, train_losses, test_epochs, test_losses, val_epochs, val_losses, val_accs, lr_epochs) = tuple_vars
+    #(train_epochs, train_losses, test_epochs, test_losses, val_epochs, val_losses, val_accs, lr_epochs) = tuple_vars
+    (train_epochs, train_losses, test_epochs, test_losses, val_epochs, val_losses, val_accs, lr_epochs, val_fprs, val_fnrs, val2_losses, val2_accs, val2_fprs, val2_fnrs) = tuple_vars
     #kwargs.get(train_epochs), 
     #kwargs.get(train_losses), 
     #kwargs.get(test_epochs), 
@@ -153,6 +180,67 @@ def plot_training_curves(tuple_vars, plot_file_name=None):
 
     if plot_file_name is not None:
         plt.savefig(plot_file_name)
+
+    if  len(val_fprs) > 0 and len(val_fnrs) > 0:
+        plot_file_name = plot_file_name.replace('.png', '_fprfnr.png')
+        plot_fprfnr(val_accs, val_fprs, val_fnrs, val_epochs, plot_file_name=plot_file_name)
+        if len(val2_fprs) > 0 and len(val2_fnrs) > 0:            
+            plot_fprfnr(val_accs, val_fprs, val_fnrs, val2_accs, val2_fprs, val2_fnrs, val_epochs, plot_file_name=plot_file_name)
+
+
+def plot_fprfnr(val_accs, val_fprs, val_fnrs, val_epochs, val2_accs=None, val2_fprs=None, val2_fnrs=None, plot_file_name=None):
+    fig, ax = plt.subplots(figsize=(20, 10))
+    ax2 = ax.twinx()    
+
+    ax.plot(val_epochs, val_fprs, marker='.', label='Validation FPR', color='b')
+    ax.plot(val_epochs, val_fnrs, marker='.', label='Validation FNR', color='r')
+    
+
+    if val2_accs is not None and val2_fprs is not None and val2_fnrs is not None:
+        ax.plot(val_epochs, val2_fprs, marker='.', label='Validation2 FPR', color='lightblue')
+        ax.plot(val_epochs, val2_fnrs, marker='.', label='Validation2 FNR', color='lightcoral')
+
+    ax.set_ylim(0,2)
+    ax.set_yticks(np.arange(0, 1.1, 0.1))
+        
+
+    
+    p2 = ax2.plot(val_epochs, val_accs, marker='.', label='Validation Accuracy', color='g')
+    ax2.plot(val_epochs, val2_accs, marker='.', label='Validation_2 Accuracy', color='lightgreen')
+    #ax2.axis["right"].toggle(all=True)
+    colore_asse = p2[0].get_color()
+    ax2.set_ylabel('Accuracy (%)')
+    ax2.grid(True, color=colore_asse, linestyle='--', linewidth=1.5, axis='y',  )
+    #ax2.yaxis.set_major_locator(MultipleLocator(5))
+
+    # 1) Definisci l’array dei tick (ad es. ogni 5 unità da 50 a 100 incluso)
+    ticks = np.arange(50, 101, 5)
+    # 2) Applica i ticks fissati
+    ax2.set_yticks(ticks)
+    # 3) (opzionale) Se vuoi personalizzare le etichette, ad es. aggiungere un “%”:
+    ax2.set_yticklabels([f"{t:g} %" for t in ticks])
+
+
+    #ax2.legend(loc='center right')
+    ax2.legend(loc='upper right')
+    ax2.set_ylim(0,100)
+
+    #axis_color(ax2, colore_asse)
+
+
+    ax.set_xlabel('Epochs')
+    ax.set_ylabel('FPR/FNR')
+    ax.grid(True)
+    ax.legend(loc='lower left')
+    #ax.set_yscale('log')
+    ax.set_xscale('log')
+
+    plt.title('Validation FPR and FNR per Epoch')
+
+    if plot_file_name is not None:
+        plt.savefig(plot_file_name)
+
+    plt.show()
 
 def set_ticklines(ax1, tick_length, tick_width):
     ax1.tick_params(
