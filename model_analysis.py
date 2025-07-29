@@ -80,7 +80,8 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 #region Funzioni per eseguire l'inferenza
 
 def predict_label(model, videos):    
-    with torch.no_grad():
+    #with torch.no_grad():
+    with torch.cuda.amp.autocast():
         logits = model(videos)  # (B, nb_classes)
         predicted_classes = torch.argmax(logits, dim=1)  # intero con l'indice di classe
     
@@ -90,15 +91,17 @@ def get_path_pred_label(model, data_loader):
     all_paths = []
     all_labels = []
     all_preds = []
-    for videos, labels, folder_path in data_loader:
-        videos = videos.to(device)
-        predicted_classes = predict_label(model, videos) # shape (batch, num_class)
-        labels = labels.detach().cpu().numpy()
-        pred_classes = predicted_classes.detach().cpu().numpy()
-        
-        all_labels.extend(labels)
-        all_preds.extend(pred_classes)
-        all_paths.extend(folder_path)
+
+    with torch.no_grad():
+        for videos, labels, folder_path in data_loader:
+            videos = videos.to(device, non_blocking=True)
+            predicted_classes = predict_label(model, videos) # shape (batch, num_class)
+            labels = labels.detach().cpu().numpy()
+            pred_classes = predicted_classes.detach().cpu().numpy()
+            
+            all_labels.extend(labels)
+            all_preds.extend(pred_classes)
+            all_paths.extend(folder_path)
 
     return all_paths, all_preds, all_labels
 
