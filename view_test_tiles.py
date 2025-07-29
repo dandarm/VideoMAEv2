@@ -599,8 +599,9 @@ def compose_image(frame_idx, list_grouped_df, debug=False):
     # endregion
 
     
-    offsets = calc_tile_offsets(stride_x=213, stride_y=196)
+    #offsets = calc_tile_offsets(stride_x=213, stride_y=196)
     #offsets = list(group_df[['tile_offset_x','tile_offset_y']].value_counts().index.values) TODO: VERIFICARE
+    offsets = [tuple(riga) for riga in group_df[['tile_offset_x','tile_offset_y']].values]
     
     out_img = draw_tiles_and_center(img, offsets,
         cyclone_centers=xy_source_list,
@@ -630,13 +631,17 @@ def compose_image(frame_idx, list_grouped_df, debug=False):
         print(f"limiti settati a {norm_array.shape}")
     return fig
 
-def render_and_save_frame(args):    
+def render_and_save_frame(args, overwrite=False):    
 
     frame_idx, list_grouped_df, output_folder = args
 
-    # rapido check per non rislavare figure già esistenti:
-    output_file = os.path.join(output_folder, f"frame_{frame_idx:04d}.png")
-    if os.path.isfile(output_file): # or overwrite:
+    # rapido check per non risalvare figure già esistenti:
+    src_path, _ = list_grouped_df[frame_idx]
+    #output_file = os.path.join(output_folder, f"frame_{frame_idx:04d}.png")
+    base = os.path.splitext(os.path.basename(src_path))[0] + '.png'
+    output_file = os.path.join(output_folder, base)
+    
+    if os.path.isfile(output_file) and not overwrite:
         return output_file
 
     fig = compose_image(frame_idx, list_grouped_df)
@@ -658,47 +663,67 @@ def save_frames_parallel(df, output_folder):
     
     num_processes = multiprocessing.cpu_count()
     start = time()
-    render_and_save_frame(args[0]) # cancelarre dopo
+    render_and_save_frame(args[0]) # cancellare dopo
     with Pool(processes=num_processes) as pool:
         results = pool.map(render_and_save_frame, args)
     end = time()
+
+    # gestisco i file in modo numerico sequenziale per ffmpeg, 
+    # poiché il nome dei file non contiene l'ordine sequenziale
+    idx_list = [a[0] for a in args]
+    # associo indici e percorsi, ordino e tengo solo i percorsi
+    ordered_paths = [p for _, p in sorted(zip(idx_list, results), key=lambda t: t[0])]
+    frames_txt = os.path.join(output_folder, 'frames.txt')
+    dur = 1.0 / framerate
+    with open(frames_txt, 'w') as f:
+        for p in ordered_paths:
+            f.write(f"file '{os.path.abspath(p)}'\n")
+            f.write(f"duration {dur}\n")
+        f.write(f"file '{os.path.abspath(ordered_paths[-1])}'\n")
 
     print("Tutti i frame sono stati generati")
     print(f"{round((end-start)/60.0, 2)} minuti")
     
 framerate=10
 ffmpeg_command = lambda folder,nomefile : [
-            'ffmpeg',
+            'ffmpeg','-y',   # -y sovrascrive l’output senza chiedere
+            '-f', 'concat', '-safe', '0',    # concat demuxer + percorsi assoluti
+            '-i', os.path.join(folder, 'frames.txt'),
             '-framerate', str(framerate),
-            '-i', os.path.join(folder, 'frame_%04d.png'),
+            '-vsync', 'vfr', 
             '-c:v', 'libx264',
             '-crf', '18',
             '-preset', 'medium',
             '-pix_fmt', 'yuv420p',
             nomefile
         ]
-def make_animation_parallel_ffmpeg(df, id_cyc, output_folder = "./anim_frames", ):    
-    nomefile=f"ciclone{id_cyc}.mp4"
-    folder = Path(output_folder + '_' + str(id_cyc))
-    if not folder.exists():
-        os.makedirs(folder, exist_ok=True)
-        print(f"\n>>> Generazione dei frame PNG in {folder}")
+def make_animation_parallel_ffmpeg(df, id_cyc=None, output_folder = "./anim_frames", nomefile=None):    
+    if id_cyc is not None:
+        nomefile=f"ciclone{id_cyc}.mp4"
+        folder = Path(output_folder + '_' + str(id_cyc))
+    else:        
+        folder = Path(output_folder + "_" + nomefile)
+        nomefile = nomefile + ".mp4"
+    
+    #if not folder.exists():
+    os.makedirs(folder, exist_ok=True)
+    print(f"\n>>> Generazione dei frame PNG in {folder}")
 
-        save_frames_parallel(df, folder)    
+    save_frames_parallel(df, folder)    
 
+    print("\n>>> Creazione del video MP4 con ffmpeg...")       
+    subprocess.run(ffmpeg_command(folder,nomefile))
+    print(f"\nVideo salvato: {nomefile}\n")
+
+    #else:
+    print(f"Cartella {folder} già esistente, non ricreo i frame. Controlla se il video è già stato creato.")
+    if not (Path(nomefile)).exists():
+        print(f"Il video {nomefile} non esiste.")
         print("\n>>> Creazione del video MP4 con ffmpeg...")       
         subprocess.run(ffmpeg_command(folder,nomefile))
         print(f"\nVideo salvato: {nomefile}\n")
-
     else:
-        print(f"Cartella {folder} già esistente, non ricreo i frame. Controlla se il video è già stato creato.")
-        if not (Path(nomefile)).exists():
-            print(f"Il video {nomefile} non esiste.")
-            print("\n>>> Creazione del video MP4 con ffmpeg...")       
-            subprocess.run(ffmpeg_command(folder,nomefile))
-            print(f"\nVideo salvato: {nomefile}\n")
-        else:
-            print(f"Video già esistente: {nomefile}")
+        print(f"Video già esistente: {nomefile}")
 
 
 

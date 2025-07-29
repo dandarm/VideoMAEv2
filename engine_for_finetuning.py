@@ -230,7 +230,7 @@ def validation_one_epoch(data_loader, model, device):
         #tn, fp, fn, tp = confusion_matrix(target, output.cpu().numpy().ravel()).ravel()
         y_true = targets_ondevice  # shape: (N,), dtype: torch.int64
         #y_pred = (output >= 0.5).long().squeeze()  # applica soglia su probabilità  NO è SBAGLIATO! SONO DUE LOGITS
-        y_pred = output.argmax(dim=1)          # shape (N,)
+        y_pred = output.argmax(dim=1)   # meglio torch.argmax(output, dim=1) TODO: ???????????????????????????????????????????????????????       # shape (N,)
 
         tp = ((y_pred == 1) & (y_true == 1)).sum().item()
         tn = ((y_pred == 0) & (y_true == 0)).sum().item()
