@@ -293,7 +293,7 @@ def prepare_finetuning_args(machine=None):
         'sampling_rate': 1,  # voglio tutti i frame temporali
         'test_num_segment': 1, # 10
         'test_num_crop': 1,  # 3
-        'num_workers': 10,
+        'num_workers': 8,
         'opt': 'adamw',
         'opt_betas': [0.9, 0.95],
   
