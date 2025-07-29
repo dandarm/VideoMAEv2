@@ -169,3 +169,5 @@ nohup.out
 myJob*
 slurm*
 ffmpeg*
+anim_frames_validation/frames.txt
+anim_frames_validation2/frames.txt
