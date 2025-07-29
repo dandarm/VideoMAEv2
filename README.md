@@ -1,6 +1,7 @@
-## Download ed elaborazione AirmassRGB
+## Download and Processing of AirmassRGB
 
-Per scaricare ed elaborare le immagini satellitari EUMETSAT in composito **AirmassRGB**, utilizzare lo script:
+To download and process **EUMETSAT satellite images** into **AirmassRGB composites**, use the script:
+
 
 ```bash
 python medicane_utils/download_airmassRGB.py --start "2020-09-01 00:00" --end "2020-09-15 23:59"
