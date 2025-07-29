@@ -24,6 +24,8 @@ from medicane_utils.geo_const import get_lon_lat_grid_2_pixel, trova_indici_vici
 from medicane_utils.load_files import load_all_images, get_all_cyclones
 from medicane_utils.load_files import load_cyclones_track_noheader
 
+from arguments import prepare_finetuning_args
+
 #from view_test_tiles import plot_image, draw_tiles_and_center, create_gif_pil
 
 
@@ -1135,9 +1137,8 @@ def get_train_test_validation_df(tracks_df, percentage=0.7, validation_percentag
     return tracks_df_train, tracks_df_test, tracks_df_validation
 
 def make_dataset_from_manos_tracks(manos_track_file, input_dir, output_dir):
-    # vecchio file di manos "manos_CL10_pixel.csv"
+    # vecchio file di manos "manos_CL10_pixel.csv"    
     from dataset.data_manager import BuildDataset
-    from arguments import prepare_finetuning_args
     args = prepare_finetuning_args()
 
     output_dir = solve_paths(output_dir)
@@ -1150,17 +1151,16 @@ def make_dataset_from_manos_tracks(manos_track_file, input_dir, output_dir):
     tracks_df_train, tracks_df_test, tracks_df_val = get_train_test_validation_df(tracks_df, 0.7, 0.15)
 
     print("Building training set...")
-    train_m = BuildDataset(type='SUPERVISED', args=args)
-    train_m.get_data_ready(tracks_df_train, input_dir, output_dir, csv_file="train_manos_w")
+    train_b = BuildDataset(type='SUPERVISED', args=args)
+    train_b.get_data_ready(tracks_df_train, input_dir, output_dir, csv_file="train_manos_w")
     print("Building test set...")
-    test_m = BuildDataset(type='SUPERVISED', args=args)
-    test_m.get_data_ready(tracks_df_test, input_dir, output_dir, csv_file="test_manos_w")
+    test_b = BuildDataset(type='SUPERVISED', args=args)
+    test_b.get_data_ready(tracks_df_test, input_dir, output_dir, csv_file="test_manos_w")
     print("Building validation set...")
-    val_m = BuildDataset(type='SUPERVISED', args=args)
-    val_m.get_data_ready(tracks_df_val, input_dir, output_dir, csv_file="val_manos_w", is_to_balance=False)
+    val_b = BuildDataset(type='SUPERVISED', args=args)
+    val_b.get_data_ready(tracks_df_val, input_dir, output_dir, csv_file="val_manos_w", is_to_balance=False)
 
-    return train_m, tracks_df_train
-
+    return train_b, tracks_df_train
 
 
 

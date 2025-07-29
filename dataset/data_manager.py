@@ -14,7 +14,7 @@ import utils
 from utils import multiple_pretrain_samples_collate
 
 class DataManager():
-    def __init__(self, is_train, args, type_t, patch_size=[-1,-1], world_size=1, rank=0, specify_data_path=None):
+    def __init__(self, is_train, args, type_t='supervised', patch_size=[-1,-1], world_size=1, rank=0, specify_data_path=None):
         self.args = args
         self.is_train = is_train  # train o test
         self.type = type_t  # se UNsupervised o supervised

@@ -206,8 +206,8 @@ def plot_fprfnr(val_accs, val_fprs, val_fnrs, val_epochs, val2_accs=None, val2_f
         ax.plot(val_epochs, val2_fprs, marker='.', label='Validation_2 FPR', color='lightblue')
         ax.plot(val_epochs, val2_fnrs, marker='.', label='Validation_2 FNR', color='lightcoral')
 
-    ax.set_ylim(0,2)
-    ax.set_yticks(np.arange(0, 1.1, 0.1))
+    ax.set_ylim(0,1)
+    ax.set_yticks(np.arange(0, 0.6, 0.1))
         
 
     
@@ -220,7 +220,7 @@ def plot_fprfnr(val_accs, val_fprs, val_fnrs, val_epochs, val2_accs=None, val2_f
     #ax2.yaxis.set_major_locator(MultipleLocator(5))
 
     # 1) Definisci l’array dei tick (ad es. ogni 5 unità da 50 a 100 incluso)
-    ticks = np.arange(50, 101, 5)
+    ticks = np.arange(65, 101, 5)
     # 2) Applica i ticks fissati
     ax2.set_yticks(ticks)
     # 3) (opzionale) Se vuoi personalizzare le etichette, ad es. aggiungere un “%”:
@@ -229,7 +229,7 @@ def plot_fprfnr(val_accs, val_fprs, val_fnrs, val_epochs, val2_accs=None, val2_f
 
     #ax2.legend(loc='center right')
     ax2.legend(loc='upper right')
-    ax2.set_ylim(0,100)
+    ax2.set_ylim(20,100)
 
     #axis_color(ax2, colore_asse)
 
