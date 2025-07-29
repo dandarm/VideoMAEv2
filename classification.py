@@ -31,7 +31,22 @@ from dataset.data_manager import DataManager
 import warnings
 warnings.filterwarnings('ignore')
 
+def all_seeds():
+    os.environ['PYTHONHASHSEED'] = str(0)
+    os.environ['CUBLAS_WORKSPACE_CONFIG'] = ":4096:8"
+    import random
+    random.seed(0)
+    np.random.seed(0)
+    torch.manual_seed(0)  # anche da richiamare tra una chiamata e l'altra del training
+    torch.cuda.manual_seed(0)
+    torch.cuda.manual_seed_all(0)
 
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.enabled = False
+    #torch.use_deterministic_algorithms(True)
+
+    
 def launch_finetuning_classification(terminal_args):
     
     args = prepare_finetuning_args(machine=terminal_args.on)
