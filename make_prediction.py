@@ -50,10 +50,10 @@ if __name__ == "__main__":
         drop_block_rate=None,
         **args.__dict__
     )
-    model_ckpt.to(args.device)
+    model_ckpt.to(device)
 
     model_ckpt = torch.nn.parallel.DistributedDataParallel(
-            model_ckpt, device_ids=[args.gpu], output_device=args.gpu, 
+            model_ckpt, device_ids=[local_rank], output_device=local_rank, 
             find_unused_parameters=False)
     
     model_ckpt.eval()  
