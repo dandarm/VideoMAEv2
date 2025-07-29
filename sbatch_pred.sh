@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --nodes=4
-#SBATCH --ntasks-per-node=10
+#SBATCH --ntasks-per-node=4
 #SBATCH --partition=boost_usr_prod
-#SBATCH --gres=gpu:4
+#SBATCH --gres=gpu:8
 #SBATCH --cpus-per-task=10
 #SBATCH --time=00:15:00
 #SBATCH --error=predjob.err
@@ -16,7 +16,7 @@ export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
 export MASTER_PORT=12340
 
 
-mpirun --map-by socket:PE=10 --report-bindings python make_prediction.py
+mpirun --map-by socket:PE=8 --report-bindings python make_prediction.py
 
 #srun --ntasks-per-node=4 \
 #python -m torch.distributed.run \
