@@ -4,7 +4,7 @@ Per scaricare ed elaborare le immagini satellitari EUMETSAT in composito **Airma
 
 ```bash
 python medicane_utils/download_airmassRGB.py --start "2020-09-01 00:00" --end "2020-09-15 23:59"
-
+```
 
 
 # [CVPR 2023] Official Implementation of VideoMAE V2
