@@ -102,7 +102,19 @@ def launch_finetuning_classification(terminal_args):
     train_m.create_classif_dataloader(args)
     test_m.create_classif_dataloader(args)
     val_m.create_classif_dataloader(args)
-    
+
+    # compute class weights for loss balancing
+    class_weights = None
+    if getattr(args, 'use_class_weight', False):
+        if hasattr(train_m.dataset, 'df') and 'label' in train_m.dataset.df:
+            labels = train_m.dataset.df['label'].to_numpy()
+        else:
+            labels = [lbl for _, lbl, _ in train_m.dataset]
+            labels = np.array(labels)
+        num_classes = labels.max() + 1
+        class_counts = np.bincount(labels, minlength=num_classes)
+        class_weights = len(labels) / (num_classes * class_counts)
+        class_weights = torch.tensor(class_weights, dtype=torch.float32, device=device)
 
     # -------------------------------------------
     # build model
@@ -165,7 +177,10 @@ def launch_finetuning_classification(terminal_args):
     elif args.smoothing > 0.:
         criterion = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
     else:
-        criterion = torch.nn.CrossEntropyLoss()
+        if getattr(args, 'use_class_weight', False) and class_weights is not None:
+            criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
+        else:
+            criterion = torch.nn.CrossEntropyLoss()
 
     mixup_fn = None
     if mixup_active:
