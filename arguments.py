@@ -264,7 +264,8 @@ def prepare_finetuning_args(machine=None):
         'dist_url': 'env://',
         'enable_deepspeed': False,
         ### solo per pretraining,
-        'normlize_target': True
+        'normlize_target': True,
+        'use_class_weight': False
     }
     # user argument values
 
@@ -301,6 +302,7 @@ def prepare_finetuning_args(machine=None):
         'decoder_depth': 4,
         'testing_epochs': 1,
         'cloudy': False,
+        'use_class_weight': False,
 
         'epochs': 500,
         'start_epoch_for_saving_best_ckpt': 50,  # dopo 50 epoche inizia a salvare il best checkpoint
