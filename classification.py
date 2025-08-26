@@ -51,7 +51,7 @@ def launch_finetuning_classification(terminal_args):
     
     args = prepare_finetuning_args(machine=terminal_args.on)
 
-    #device = torch.device(args.device)
+
     seed = args.seed
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -59,7 +59,8 @@ def launch_finetuning_classification(terminal_args):
     cudnn.benchmark = True
 
 
-    # training distribuito
+    ############################# Distributed Training #############################
+
     rank, local_rank, world_size, local_size, num_workers = utils.get_resources()
     #print(f"rank, local_rank, world_size, local_size, num_workers: {rank, local_rank, world_size, local_size, num_workers}")
 

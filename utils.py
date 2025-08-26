@@ -6,6 +6,8 @@
 # https://github.com/facebookresearch/deit
 # https://github.com/facebookresearch/dino
 # --------------------------------------------------------'
+
+
 import datetime
 import io
 import json
@@ -21,7 +23,25 @@ import numpy as np
 import torch
 import torch.distributed as dist
 from tensorboardX import SummaryWriter
+
 from timm.utils import get_state_dict
+from timm.models import create_model
+# NOTE: Do not comment `import models`, it is used to register models
+import models 
+
+try:
+    import torch._dynamo as dynamo
+except:
+    print(f"Impossibile caricare la libreria torch dynamo")
+
+try:
+    from triton.runtime.jit import get_cuda_stream
+except ImportError:
+    # nuova API: usiamo lo stream di Torch
+    def get_cuda_stream(device=None):
+        # restituisce lo stream CUDA nativo
+        return torch.cuda.current_stream(device).cuda_stream
+
 from torch import inf
 from torch.utils.data._utils.collate import default_collate
 
@@ -435,7 +455,34 @@ def get_resources():
     return rank, local_rank, world_size, local_size, num_workers
 
 
+### Carica un modello tra quelli di VideoMAE
+def get_model(args):
+    print(f"Creating model: {args.model}")
+    print(f"From pretrained model? {args.pretrained}")
+    model = create_model(
+        args.model,
+        #pretrained=True,
+        drop_path_rate=args.drop_path,
+        drop_block_rate=None,
+        all_frames=args.num_frames,
+        #tubelet_size=args.tubelet_size,
+        #decoder_depth=args.decoder_depth,
+        with_cp=args.with_checkpoint,
+        checkpoint_path=None,  # devo mettere a None perché factory non gestisce un checkpoint con chiave 'model'
+        **args.__dict__)
 
+    # questa riga è necessaria per evitare un errore di pytorch (issue 104674)
+    try:
+        dynamo.config.optimize_ddp = False
+    except:
+        print(f"Impossibile usare dynamo config optimize_ddp")
+
+    if version.parse(torch.__version__) > version.parse('1.13.1'):
+        torch.set_float32_matmul_precision('high')
+        model = torch.compile(model, backend='eager') 
+        # introdotto eager per risolvere un bug con il grafo computazionale
+
+    return model
 
 
 def load_state_dict(model,
