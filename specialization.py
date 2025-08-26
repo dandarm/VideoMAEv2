@@ -16,7 +16,7 @@ from utils import NativeScalerWithGradNormCount as NativeScaler
 from utils import multiple_pretrain_samples_collate, setup_for_distributed
 from optim_factory import create_optimizer
 #from dataset import build_pretraining_dataset
-from run_mae_pretraining import get_model
+from utils import get_model
 from engine_for_pretraining import train_one_epoch, test
 from arguments import prepare_args, Args  # NON TOGLIERE: serve a torch.load per caricare il mio modello addestrato
 from model_analysis import get_dataloader, get_dataset_dataloader

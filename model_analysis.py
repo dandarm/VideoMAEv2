@@ -13,8 +13,7 @@ from utils import NativeScalerWithGradNormCount as NativeScaler
 
 from dataset import build_pretraining_dataset
 from torch.utils.data import DataLoader
-from run_mae_pretraining import get_model
-from run_mae_pretraining import main as main_pretraining
+from utils import get_model
 from arguments import prepare_args, Args  # NON TOGLIERE: serve a torch.load per caricare il mio modello addestrato
 
 
