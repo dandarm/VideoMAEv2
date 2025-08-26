@@ -1,6 +1,6 @@
 <div align="center">
 <h1> VideoMAEv2 extension for Medicanes
-
+<br>
 <img src="misc/med_earth_icon.png" alt="Project Icon" width="100" />
 </div>
 
