@@ -1,3 +1,4 @@
+from pathlib import Path
 import pandas as pd
 from functools import partial
 
@@ -18,6 +19,10 @@ class DataManager():
         self.args = args
         self.is_train = is_train  # train o test
         self.type = type_t  # se UNsupervised o supervised
+        
+        if args.csv_folder is not None and args.csv_folder != '':
+            specify_data_path = self.solve_csv_paths(args, specify_data_path)
+
         if self.is_train:
             self.file_path = args.train_path
         else:
@@ -25,6 +30,8 @@ class DataManager():
         # se invece voglio specificare un path diverso, lo passo come parametro          
         if specify_data_path is not None:
             self.file_path = specify_data_path   
+
+        print(args.train_path, args.test_path, args.val_path, self.file_path)
 
         self.world_size = world_size 
         self.rank = rank
@@ -49,6 +56,18 @@ class DataManager():
         self.data_loader = None
 
         self.dataset_len = -1
+
+    def solve_csv_paths(self, args, specified_path=None):
+        csv_folder = Path(args.csv_folder)
+        if args.train_path is not None and args.train_path != '':
+            args.train_path = csv_folder / args.train_path
+        if args.test_path is not None and args.test_path != '':
+            args.test_path = csv_folder / args.test_path
+        if args.val_path is not None and args.val_path != '':
+            args.val_path = csv_folder / args.val_path
+        if specified_path is not None:
+            specified_path = csv_folder / specified_path
+            return specified_path
 
 
     def get_specialization_dataset(self, args):
