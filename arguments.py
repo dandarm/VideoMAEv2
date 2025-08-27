@@ -302,7 +302,7 @@ def prepare_finetuning_args(machine=None):
         'save_ckpt_freq': 50,
         'decoder_depth': 4,
         'testing_epochs': 1,
-        'cloudy': False,
+        'cloudy': True,
         'use_class_weight': True,
 
         'epochs': 500,
@@ -313,8 +313,8 @@ def prepare_finetuning_args(machine=None):
         'lr': 1e-6,    # , 1e-3 , 9e-6
         'layer_decay': 0.75,
         'warmup_lr': 2e-7, #  1e-10
-        'min_lr': 1e-6,  # era e-6      # 1e-8
-        'warmup_epochs': 500,
+        'min_lr': 5e-7,  # era e-6      # 1e-8
+        'warmup_epochs': 200,
         'warmup_steps': -1,
         #dist_eval
     }

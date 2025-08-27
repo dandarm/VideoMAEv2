@@ -1,6 +1,8 @@
+from pathlib import Path
 import numpy as np
+import pandas as pd
 from arguments import prepare_finetuning_args
-from dataset.build_dataset import solve_paths
+from dataset.build_dataset import solve_paths, calc_avg_cld_idx
 from dataset.data_manager import DataManager, BuildDataset
 from model_analysis import predict_label, get_path_pred_label, create_df_predictions, get_only_labels
 
@@ -30,9 +32,32 @@ if __name__ == "__main__":
     device = torch.device(f"cuda:{local_rank}")
     setup_for_distributed(rank == 0)
     
+    
+    ###### carico il dataset (applico filtro nuvolosità sui video di validation)
+    # Carico il csv di validation, calcolo avg_cloud_idx per ogni video usando
+    # la funzione `calc_avg_cld_idx` definita in dataset/build_dataset.py
+    try:
+        df_val = pd.read_csv(args.val_path)
+    except Exception:
+        # se non riesco a leggere il csv uso comunque il path originale
+        df_val = None
 
-    ###### carico il dataset
-    val_m = DataManager(is_train=False, args=args, specify_data_path=args.val_path)
+    if args.cloudy and df_val is not None and 'path' in df_val.columns:
+        print('Calcolo indice di nuvolosità per i video di validation...')
+        # Applichiamo direttamente la funzione ai percorsi
+        df_val['avg_cloud_idx'] = df_val['path'].apply(lambda p: calc_avg_cld_idx(p))
+        # soglia: manteniamo video con avg_cloud_idx <= 0.2 (come in build_dataset.filter_out_clear_sky)
+        thresh = 0.2
+        kept = df_val[df_val['avg_cloud_idx'] <= thresh].copy()
+        print(f"Video totali: {len(df_val)} - dopo filtro nuvolosità (<= {thresh}): {len(kept)}")
+        # salvo temporaneamente il csv filtrato e lo passo a DataManager
+        filtered_csv = './val_filtered_for_prediction.csv'
+        kept.to_csv(Path(args.csv_folder) / filtered_csv, index=False)
+        val_csv_to_use = filtered_csv
+    else:
+        val_csv_to_use = args.val_path
+
+    val_m = DataManager(is_train=False, args=args, specify_data_path=val_csv_to_use)
     val_m.create_classif_dataloader(args)
 
     # voglio prendere le predizioni
