@@ -1,7 +1,10 @@
 import os
 from PIL import Image
+from typing import List, Union
 import numpy as np
 import pandas as pd
+from sklearn.metrics import confusion_matrix
+
 import torch
 import torchvision.transforms as transforms
 #import torchvision.transforms.functional as F
@@ -149,6 +152,51 @@ def video_pred_2_img_pred(df_video_w_predictions):
     return df_mapping
 
 #endregion
+
+
+
+# region Funzioni per calcolare le metriche di classificazione
+
+def confusion_counts_per_label(
+    df: pd.DataFrame,
+    pred_col: str,
+    label_cols: List[str],
+    pos_label: Union[int, str] = 1
+) -> pd.DataFrame:
+    """
+    Per ogni colonna in `label_cols` calcola la confusion-matrix contro `pred_col`
+    (supposta già binaria) e restituisce un DataFrame indicizzato per label
+    con le quattro celle tn, fp, fn, tp.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Il dataframe che contiene sia le predizioni che le etichette.
+    pred_col : str
+        Nome della colonna con le predizioni 0/1.
+    label_cols : list[str]
+        Elenco delle colonne-etichetta da confrontare.
+    pos_label : int | str, default=1
+        Valore considerato “positivo” (serve solo per stabilire l’ordine
+        [0, pos_label] nella confusion matrix).
+
+    Returns
+    -------
+    pd.DataFrame
+        Indice = nome label; colonne = tn, fp, fn, tp.
+    """
+    records = []
+    for lab in label_cols:
+        tn, fp, fn, tp = confusion_matrix(
+            df[lab].values,
+            df[pred_col].values,
+            labels=[0, pos_label]
+        ).ravel()
+        records.append(
+            {"label": lab, "tn": tn, "fp": fp, "fn": fn, "tp": tp}
+        )
+
+    return pd.DataFrame(records).set_index("label")
 
 
 
