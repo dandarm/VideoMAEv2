@@ -58,8 +58,8 @@ def collect_data(log_file_path):
                 val_losses.append(data["val_loss"])
                 val_epochs.append(val_epoch)
 
-                if "val_acc1" in data:       
-                    val_accs.append(data["val_acc1"])
+                if "val_bal_acc" in data:
+                    val_accs.append(data["val_bal_acc"])
 
                 if 'val_fpr' in data:
                     val_fprs.append(data['val_fpr'])
@@ -70,8 +70,8 @@ def collect_data(log_file_path):
                 #print(line)
                 val2_losses.append(data["val2_loss"])
 
-                if "val2_acc1" in data:       
-                    val2_accs.append(data["val2_acc1"])
+                if "val2_bal_acc" in data:
+                    val2_accs.append(data["val2_bal_acc"])
 
                 if 'val2_fpr' in data:
                     val2_fprs.append(data['val2_fpr'])
@@ -149,7 +149,7 @@ def plot_training_curves(tuple_vars, plot_file_name=None, log=True):
         # Asse destro per l'accuracy
         
         ax2.axis["right"].toggle(all=True)
-        p2 = ax2.plot(val_epochs, val_accs, color='g', marker='.', label='Validation Accuracy')
+        p2 = ax2.plot(val_epochs, val_accs, color='g', marker='.', label='Validation Balanced Accuracy')
         colore_asse = p2[0].get_color()
         ax2.set_ylabel('Accuracy (%)')
         ax2.grid(True, color=colore_asse, linestyle='--', linewidth=1.5, axis='y',  )
@@ -213,8 +213,8 @@ def plot_fprfnr(val_accs, val_fprs, val_fnrs, val_epochs, val2_accs=None, val2_f
         
 
     
-    p2 = ax2.plot(val_epochs, val_accs, marker='.', label='Validation_1 Accuracy', color='g')
-    ax2.plot(val_epochs, val2_accs, marker='.', label='Validation_2 Accuracy', color='lightgreen')
+    p2 = ax2.plot(val_epochs, val_accs, marker='.', label='Validation_1 Balanced Accuracy', color='g')
+    ax2.plot(val_epochs, val2_accs, marker='.', label='Validation_2 Balanced Accuracy', color='lightgreen')
     #ax2.axis["right"].toggle(all=True)
     colore_asse = p2[0].get_color()
     ax2.set_ylabel('Accuracy (%)')

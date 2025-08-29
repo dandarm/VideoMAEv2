@@ -216,7 +216,7 @@ def launch_finetuning_classification(terminal_args):
 
     
 
-    max_accuracy = 0.0
+    max_bal_acc = 0.0
     start_time = time.time()
 
     print("START TRAINING!", flush=True)
@@ -244,14 +244,14 @@ def launch_finetuning_classification(terminal_args):
         # VAL
         val_stats = {}
         if (epoch + 1) % args.testing_epochs == 0:
-            val_stats = validation_one_epoch(test_m.data_loader, pretrained_model, device)
-            print(f"[EPOCH {epoch + 1}] val acc1: {val_stats['acc1']:.2f}%  - best accuracy: {max_accuracy:.2f}%")
+            val_stats = validation_one_epoch(test_m.data_loader, pretrained_model, device, criterion)
+            print(f"[EPOCH {epoch + 1}] val bal_acc: {val_stats['bal_acc']:.2f}%  - best bal_acc: {max_bal_acc:.2f}%")
 
-            val2_stats = validation_one_epoch(val_m.data_loader, pretrained_model, device)
+            val2_stats = validation_one_epoch(val_m.data_loader, pretrained_model, device, criterion)
 
-            if val_stats["acc1"] > max_accuracy and epoch > args.start_epoch_for_saving_best_ckpt:
-                max_accuracy = val_stats["acc1"]
-                print(f"[INFO] New best acc1: {max_accuracy:.2f}%")
+            if val_stats["bal_acc"] > max_bal_acc and epoch > args.start_epoch_for_saving_best_ckpt:
+                max_bal_acc = val_stats["bal_acc"]
+                print(f"[INFO] New best balanced accuracy: {max_bal_acc:.2f}%")
 
                 # se vuoi salvare un "best" checkpoint
                 ########################### SALVATAGGIO CHECKPOINT
