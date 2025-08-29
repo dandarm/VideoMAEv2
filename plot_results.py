@@ -58,8 +58,8 @@ def collect_data(log_file_path):
                 val_losses.append(data["val_loss"])
                 val_epochs.append(val_epoch)
 
-                if "val_bal_acc" in data:
-                    val_accs.append(data["val_bal_acc"])
+                if "val_acc1" in data:
+                    val_accs.append(data["val_acc1"])
 
                 if 'val_fpr' in data:
                     val_fprs.append(data['val_fpr'])
@@ -70,8 +70,8 @@ def collect_data(log_file_path):
                 #print(line)
                 val2_losses.append(data["val2_loss"])
 
-                if "val2_bal_acc" in data:
-                    val2_accs.append(data["val2_bal_acc"])
+                if "val2_acc1" in data:
+                    val2_accs.append(data["val2_acc1"])
 
                 if 'val2_fpr' in data:
                     val2_fprs.append(data['val2_fpr'])
