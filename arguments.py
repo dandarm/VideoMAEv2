@@ -278,7 +278,7 @@ def prepare_finetuning_args(machine=None):
         'load_for_test_mode': False,
         'data_path': './',
         'csv_folder': './output/traintest_csv',
-        'train_path': 'train_manos_w_1238.csv',   #'train_manos_836.csv',   # 'train_manos_unbalanced_6468.csv'
+        'train_path': 'train_manos_unbalanced_6468.csv',   #'train_manos_w_1238.csv',   #'train_manos_836.csv',   # 
         'test_path': 'test_manos_w_354.csv',  # 'test_manos_372.csv',
         'val_path': 'val_manos_w_2400.csv', 
         'log_dir': './output',
@@ -303,17 +303,17 @@ def prepare_finetuning_args(machine=None):
         'decoder_depth': 4,
         'testing_epochs': 1,
         'cloudy': False,
-        'use_class_weight': False,
+        'use_class_weight': True,
 
         'epochs': 500,
         'start_epoch_for_saving_best_ckpt': 50,  # dopo 50 epoche inizia a salvare il best checkpoint
         'momentum': 0.9,
         'weight_decay': 0.05,
         'weight_decay_end': None,
-        'lr': 7e-7,    # , 1e-3 , 9e-6
+        'lr': 9e-7,    # , 1e-3 , 9e-6
         'layer_decay': 0.75,
         'warmup_lr': 1e-8, #  1e-10
-        'min_lr': 1e-8,  # era e-6      # 1e-8
+        'min_lr': 5e-8,  # era e-6      # 1e-8
         'warmup_epochs': 110,
         'warmup_steps': -1,
         #dist_eval
@@ -339,6 +339,7 @@ def prepare_finetuning_args(machine=None):
             machine_args_override['csv_folder'] = "./"
         elif machine == 'ewc':
             machine_args_override['device'] = 'cpu'
+            machine_args_override['csv_folder'] = "./"
 
         args_dict = {**args_dict, **machine_args_override}
 
