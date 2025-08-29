@@ -16,11 +16,11 @@ from typing import Iterable, Optional
 import numpy as np
 import torch
 from scipy.special import softmax
-from sklearn.metrics import confusion_matrix
 from timm.data import Mixup
 from timm.utils import ModelEma, accuracy
 
 import utils
+from model_analysis import evaluate_binary_classifier_torch
 
 
 def train_class_batch(model, samples, target, criterion):
@@ -225,20 +225,10 @@ def validation_one_epoch(data_loader, model, device):
 
         acc1,  = accuracy(output, targets_ondevice, topk=(1, ))  # Modifcato per classificazione binaria
 
-        # calculate false positive etc...
-        
-        #tn, fp, fn, tp = confusion_matrix(target, output.cpu().numpy().ravel()).ravel()
-        y_true = targets_ondevice  # shape: (N,), dtype: torch.int64
-        #y_pred = (output >= 0.5).long().squeeze()  # applica soglia su probabilità  NO è SBAGLIATO! SONO DUE LOGITS
-        y_pred = output.argmax(dim=1)   # meglio torch.argmax(output, dim=1) TODO: ???????????????????????????????????????????????????????       # shape (N,)
-
-        tp = ((y_pred == 1) & (y_true == 1)).sum().item()
-        tn = ((y_pred == 0) & (y_true == 0)).sum().item()
-        fp = ((y_pred == 1) & (y_true == 0)).sum().item()
-        fn = ((y_pred == 0) & (y_true == 1)).sum().item()
-
-        fpr = fp / (fp + tn) if (fp + tn) > 0 else 0
-        fnr = fn / (fn + tp) if (fn + tp) > 0 else 0
+        preds = output.argmax(dim=1)
+        batch_metrics = evaluate_binary_classifier_torch(targets_ondevice, preds, show_report=False)
+        fpr = batch_metrics["false_positive_rate"]
+        fnr = batch_metrics["false_negative_rate"]
         
 
         batch_size = images.shape[0]
