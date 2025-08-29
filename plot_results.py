@@ -103,7 +103,7 @@ def axis_color(ax, colore_asse):
     ax.axis["right"].line.set_color(colore_asse)
 
 
-def plot_training_curves(tuple_vars, plot_file_name=None):
+def plot_training_curves(tuple_vars, plot_file_name=None, log=True):
 
     #(train_epochs, train_losses, test_epochs, test_losses, val_epochs, val_losses, val_accs, lr_epochs) = tuple_vars
     (train_epochs, train_losses, test_epochs, test_losses, val_epochs, val_losses, val_accs, lr_epochs, val_fprs, val_fnrs, val2_losses, val2_accs, val2_fprs, val2_fnrs) = tuple_vars
@@ -141,8 +141,9 @@ def plot_training_curves(tuple_vars, plot_file_name=None):
     ax1.set_ylabel('Loss')
     ax1.grid(True)
     ax1.legend(loc='upper left')
-    ax1.set_yscale('log')
-    ax1.set_xscale('log')
+    if log:
+        ax1.set_yscale('log')
+        ax1.set_xscale('log')
 
     if len(val_accs)>0:
         # Asse destro per l'accuracy
@@ -172,8 +173,9 @@ def plot_training_curves(tuple_vars, plot_file_name=None):
         #ax3.spines['right'].set_position(('outward', 60))
         set_ticklines(ax3, 190, tick_width)
 
-        ax3.set_yscale('log')
-        ax3.set_xscale('log')
+        if log:
+            ax3.set_yscale('log')
+            ax3.set_xscale('log')
 
         axis_color(ax3, colore_asse)
 
@@ -188,13 +190,13 @@ def plot_training_curves(tuple_vars, plot_file_name=None):
 
     if  len(val_fprs) > 0 and len(val_fnrs) > 0:
         if len(val2_fprs) > 0 and len(val2_fnrs) > 0:            
-            plot_fprfnr(val_accs, val_fprs, val_fnrs, val_epochs, val2_accs, val2_fprs, val2_fnrs, plot_file_name=plot_file_name)
+            plot_fprfnr(val_accs, val_fprs, val_fnrs, val_epochs, val2_accs, val2_fprs, val2_fnrs, plot_file_name=plot_file_name, log=log)
         else:
-            plot_fprfnr(val_accs, val_fprs, val_fnrs, val_epochs, plot_file_name=plot_file_name)
+            plot_fprfnr(val_accs, val_fprs, val_fnrs, val_epochs, plot_file_name=plot_file_name, log=log)
         
 
 
-def plot_fprfnr(val_accs, val_fprs, val_fnrs, val_epochs, val2_accs=None, val2_fprs=None, val2_fnrs=None, plot_file_name=None):
+def plot_fprfnr(val_accs, val_fprs, val_fnrs, val_epochs, val2_accs=None, val2_fprs=None, val2_fnrs=None, plot_file_name=None, log=True):
     fig, ax = plt.subplots(figsize=(20, 10))
     ax2 = ax.twinx()    
 
@@ -238,8 +240,9 @@ def plot_fprfnr(val_accs, val_fprs, val_fnrs, val_epochs, val2_accs=None, val2_f
     ax.set_ylabel('FPR/FNR')
     ax.grid(True)
     ax.legend(loc='lower left')
-    #ax.set_yscale('log')
-    ax.set_xscale('log')
+    if log:
+        #ax.set_yscale('log')
+        ax.set_xscale('log')
 
     plt.title('Validation FPR and FNR per Epoch')
 

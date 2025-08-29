@@ -222,7 +222,13 @@ def evaluate_binary_classifier(
     pos_label: Union[int, str] = 1,
     show_report: bool = True,
 ) -> pd.Series:
-    """Calcola un insieme esteso di metriche per la classificazione binaria.
+    """Calcola un insieme esteso di metriche per la classificazione binaria:
+
+    - Balanced Accuracy
+    - Recall = POD
+    - False Alarm Ratio  FAR
+    - CSI
+    - HSS
 
     Se `y_score` è fornito vengono calcolate anche le metriche che richiedono
     probabilità o punteggi di confidenza (ROC-AUC, PR-AUC, log-loss e Brier score).
@@ -235,13 +241,13 @@ def evaluate_binary_classifier(
         y_score = np.asarray(y_score)
 
     metrics = {
-        "accuracy": accuracy_score(y_true, y_pred),
+        #"accuracy": accuracy_score(y_true, y_pred),
         "balanced_accuracy": balanced_accuracy_score(y_true, y_pred),
-        "precision": precision_score(y_true, y_pred, pos_label=pos_label),
+        #"precision": precision_score(y_true, y_pred, pos_label=pos_label),
         "recall": recall_score(y_true, y_pred, pos_label=pos_label),
-        "f1": f1_score(y_true, y_pred, pos_label=pos_label),
-        "matthews_corrcoef": matthews_corrcoef(y_true, y_pred),
-        "cohen_kappa": cohen_kappa_score(y_true, y_pred),
+        #"f1": f1_score(y_true, y_pred, pos_label=pos_label),
+        #"matthews_corrcoef": matthews_corrcoef(y_true, y_pred),
+        #"cohen_kappa": cohen_kappa_score(y_true, y_pred),
     }
 
     if y_score is not None:
@@ -253,10 +259,10 @@ def evaluate_binary_classifier(
         })
 
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[0, pos_label]).ravel()
-    fpr = fp / (fp + tn) if (fp + tn) else 0
-    fnr = fn / (fn + tp) if (fn + tp) else 0
+    #fpr = fp / (fp + tn) if (fp + tn) else 0
+    #fnr = fn / (fn + tp) if (fn + tp) else 0
     far = fp / (fp + tp) if (fp + tp) else 0
-    pod = tp / (tp + fn) if (tp + fn) else 0
+    #pod = tp / (tp + fn) if (tp + fn) else 0
     csi = tp / (tp + fp + fn) if (tp + fp + fn) else 0
     hss_den = ((tp + fn) * (fn + tn) + (tp + fp) * (fp + tn))
     hss = (2 * (tp * tn - fp * fn) / hss_den) if hss_den else 0
@@ -266,10 +272,10 @@ def evaluate_binary_classifier(
         "false_positives": fp,
         "false_negatives": fn,
         "true_positives": tp,
-        "false_positive_rate": fpr,
-        "false_negative_rate": fnr,
+        #"false_positive_rate": fpr,
+        #"false_negative_rate": fnr,
         "far": far,
-        "pod": pod,
+        #"pod": pod,
         "csi": csi,
         "hss": hss,
     })
@@ -293,7 +299,15 @@ def evaluate_binary_classifier_torch(
     pos_label: Union[int, str] = 1,
     show_report: bool = False,
 ) -> dict:
-    """Calcola metriche di classificazione binaria sfruttando operazioni GPU."""
+    """Calcola metriche di classificazione binaria sfruttando operazioni GPU.
+    ---------------------------------------------------------
+    - Balanced Accuracy
+    - Recall = POD
+    - False Alarm Ratio  FAR
+    ---------------------------------------------------------
+    - CSI  non viene calcolata durante il training per ottimizzare la velocità
+    - HSS  non viene calcolata durante il training per ottimizzare la velocità
+    """
 
     y_true = y_true.to(dtype=torch.int64)
     y_pred = y_pred.to(dtype=torch.int64)
@@ -307,51 +321,51 @@ def evaluate_binary_classifier_torch(
     tn_f = tn.float()
     fp_f = fp.float()
     fn_f = fn.float()
-    total = tp_f + tn_f + fp_f + fn_f
+    #total = tp_f + tn_f + fp_f + fn_f
 
-    accuracy = (tp_f + tn_f) / total if total > 0 else torch.tensor(0.0, device=y_true.device)
+    #accuracy = (tp_f + tn_f) / total if total > 0 else torch.tensor(0.0, device=y_true.device)
     recall = tp_f / (tp_f + fn_f) if (tp_f + fn_f) > 0 else torch.tensor(0.0, device=y_true.device)
     specificity = tn_f / (tn_f + fp_f) if (tn_f + fp_f) > 0 else torch.tensor(0.0, device=y_true.device)
-    precision = tp_f / (tp_f + fp_f) if (tp_f + fp_f) > 0 else torch.tensor(0.0, device=y_true.device)
-    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else torch.tensor(0.0, device=y_true.device)
+    #precision = tp_f / (tp_f + fp_f) if (tp_f + fp_f) > 0 else torch.tensor(0.0, device=y_true.device)
+    #f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else torch.tensor(0.0, device=y_true.device)
     balanced_accuracy = (recall + specificity) / 2
 
-    mcc_den = torch.sqrt((tp_f + fp_f) * (tp_f + fn_f) * (tn_f + fp_f) * (tn_f + fn_f))
-    mcc = (tp_f * tn_f - fp_f * fn_f) / mcc_den if mcc_den > 0 else torch.tensor(0.0, device=y_true.device)
-    po = (tp_f + tn_f) / total if total > 0 else torch.tensor(0.0, device=y_true.device)
-    pe = ((tp_f + fp_f) * (tp_f + fn_f) + (fn_f + tn_f) * (fp_f + tn_f)) / (total * total) if total > 0 else torch.tensor(0.0, device=y_true.device)
-    cohen_kappa = (po - pe) / (1 - pe) if (1 - pe) > 0 else torch.tensor(0.0, device=y_true.device)
+    #mcc_den = torch.sqrt((tp_f + fp_f) * (tp_f + fn_f) * (tn_f + fp_f) * (tn_f + fn_f))
+    #mcc = (tp_f * tn_f - fp_f * fn_f) / mcc_den if mcc_den > 0 else torch.tensor(0.0, device=y_true.device)
+    #po = (tp_f + tn_f) / total if total > 0 else torch.tensor(0.0, device=y_true.device)
+    #pe = ((tp_f + fp_f) * (tp_f + fn_f) + (fn_f + tn_f) * (fp_f + tn_f)) / (total * total) if total > 0 else torch.tensor(0.0, device=y_true.device)
+    #cohen_kappa = (po - pe) / (1 - pe) if (1 - pe) > 0 else torch.tensor(0.0, device=y_true.device)
 
-    fpr = fp_f / (fp_f + tn_f) if (fp_f + tn_f) > 0 else torch.tensor(0.0, device=y_true.device)
-    fnr = fn_f / (fn_f + tp_f) if (fn_f + tp_f) > 0 else torch.tensor(0.0, device=y_true.device)
+    #fpr = fp_f / (fp_f + tn_f) if (fp_f + tn_f) > 0 else torch.tensor(0.0, device=y_true.device)
+    #fnr = fn_f / (fn_f + tp_f) if (fn_f + tp_f) > 0 else torch.tensor(0.0, device=y_true.device)
     far = fp_f / (fp_f + tp_f) if (fp_f + tp_f) > 0 else torch.tensor(0.0, device=y_true.device)
-    pod = tp_f / (tp_f + fn_f) if (tp_f + fn_f) > 0 else torch.tensor(0.0, device=y_true.device)
-    csi = tp_f / (tp_f + fp_f + fn_f) if (tp_f + fp_f + fn_f) > 0 else torch.tensor(0.0, device=y_true.device)
-    hss_den = (tp_f + fn_f) * (fn_f + tn_f) + (tp_f + fp_f) * (fp_f + tn_f)
-    hss = 2 * (tp_f * tn_f - fp_f * fn_f) / hss_den if hss_den > 0 else torch.tensor(0.0, device=y_true.device)
+    #pod = tp_f / (tp_f + fn_f) if (tp_f + fn_f) > 0 else torch.tensor(0.0, device=y_true.device)
+    #csi = tp_f / (tp_f + fp_f + fn_f) if (tp_f + fp_f + fn_f) > 0 else torch.tensor(0.0, device=y_true.device)
+    #hss_den = (tp_f + fn_f) * (fn_f + tn_f) + (tp_f + fp_f) * (fp_f + tn_f)
+    #hss = 2 * (tp_f * tn_f - fp_f * fn_f) / hss_den if hss_den > 0 else torch.tensor(0.0, device=y_true.device)
 
     if show_report:
         conf = torch.stack([torch.stack([tn, fp]), torch.stack([fn, tp])])
         print(conf.cpu())
 
     return {
-        "accuracy": accuracy.item(),
+        #"accuracy": accuracy.item(),
         "balanced_accuracy": balanced_accuracy.item(),
-        "precision": precision.item(),
+        #"precision": precision.item(),
         "recall": recall.item(),
-        "f1": f1.item(),
-        "matthews_corrcoef": mcc.item(),
-        "cohen_kappa": cohen_kappa.item(),
+        #"f1": f1.item(),
+        #"matthews_corrcoef": mcc.item(),
+        #"cohen_kappa": cohen_kappa.item(),
         "true_negatives": tn.item(),
         "false_positives": fp.item(),
         "false_negatives": fn.item(),
         "true_positives": tp.item(),
-        "false_positive_rate": fpr.item(),
-        "false_negative_rate": fnr.item(),
+        #"false_positive_rate": fpr.item(),
+        #"false_negative_rate": fnr.item(),
         "far": far.item(),
-        "pod": pod.item(),
-        "csi": csi.item(),
-        "hss": hss.item(),
+        #"pod": pod.item(),
+        #"csi": csi.item(),
+        #"hss": hss.item(),
     }
 
 
