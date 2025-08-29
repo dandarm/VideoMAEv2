@@ -1,9 +1,25 @@
 import os
 from PIL import Image
-from typing import List, Union
+from typing import List, Union, Optional, Sequence
 import numpy as np
 import pandas as pd
-from sklearn.metrics import confusion_matrix
+import matplotlib.pyplot as plt
+import re
+from sklearn.metrics import (
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    roc_auc_score,
+    average_precision_score,
+    confusion_matrix,
+    classification_report,
+    matthews_corrcoef,
+    cohen_kappa_score,
+    balanced_accuracy_score,
+    brier_score_loss,
+    log_loss,
+)
 
 import torch
 import torchvision.transforms as transforms
@@ -197,6 +213,197 @@ def confusion_counts_per_label(
         )
 
     return pd.DataFrame(records).set_index("label")
+
+
+def evaluate_binary_classifier(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    y_score: Optional[np.ndarray] = None,
+    pos_label: Union[int, str] = 1,
+    show_report: bool = True,
+) -> pd.Series:
+    """Calcola un insieme esteso di metriche per la classificazione binaria.
+
+    Se `y_score` è fornito vengono calcolate anche le metriche che richiedono
+    probabilità o punteggi di confidenza (ROC-AUC, PR-AUC, log-loss e Brier score).
+    Restituisce un ``pandas.Series`` contenente tutte le metriche.
+    """
+
+    y_true = np.asarray(y_true)
+    y_pred = np.asarray(y_pred)
+    if y_score is not None:
+        y_score = np.asarray(y_score)
+
+    metrics = {
+        "accuracy": accuracy_score(y_true, y_pred),
+        "balanced_accuracy": balanced_accuracy_score(y_true, y_pred),
+        "precision": precision_score(y_true, y_pred, pos_label=pos_label),
+        "recall": recall_score(y_true, y_pred, pos_label=pos_label),
+        "f1": f1_score(y_true, y_pred, pos_label=pos_label),
+        "matthews_corrcoef": matthews_corrcoef(y_true, y_pred),
+        "cohen_kappa": cohen_kappa_score(y_true, y_pred),
+    }
+
+    if y_score is not None:
+        metrics.update({
+            "roc_auc": roc_auc_score(y_true, y_score),
+            "pr_auc": average_precision_score(y_true, y_score),
+            "log_loss": log_loss(y_true, y_score, labels=[0, 1]),
+            "brier_score_loss": brier_score_loss(y_true, y_score),
+        })
+
+    tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[0, pos_label]).ravel()
+    fpr = fp / (fp + tn) if (fp + tn) else 0
+    fnr = fn / (fn + tp) if (fn + tp) else 0
+    far = fp / (fp + tp) if (fp + tp) else 0
+    pod = tp / (tp + fn) if (tp + fn) else 0
+    csi = tp / (tp + fp + fn) if (tp + fp + fn) else 0
+    hss_den = ((tp + fn) * (fn + tn) + (tp + fp) * (fp + tn))
+    hss = (2 * (tp * tn - fp * fn) / hss_den) if hss_den else 0
+
+    metrics.update({
+        "true_negatives": tn,
+        "false_positives": fp,
+        "false_negatives": fn,
+        "true_positives": tp,
+        "false_positive_rate": fpr,
+        "false_negative_rate": fnr,
+        "far": far,
+        "pod": pod,
+        "csi": csi,
+        "hss": hss,
+    })
+
+    if show_report:
+        print("=== Confusion Matrix ===")
+        print(confusion_matrix(y_true, y_pred, labels=[0, pos_label]))
+        print(f"True Positive: {tp}")
+        print(f"True Negative: {tn}")
+        print(f"False Positive: {fp}")
+        print(f"False Negative: {fn}")
+        print("\n=== Classification Report ===")
+        print(classification_report(y_true, y_pred, labels=[0, pos_label], target_names=["neg", "pos"]))
+
+    return pd.Series(metrics, name="metrics")
+
+
+def evaluate_binary_classifier_torch(
+    y_true: torch.Tensor,
+    y_pred: torch.Tensor,
+    pos_label: Union[int, str] = 1,
+    show_report: bool = False,
+) -> dict:
+    """Calcola metriche di classificazione binaria sfruttando operazioni GPU."""
+
+    y_true = y_true.to(dtype=torch.int64)
+    y_pred = y_pred.to(dtype=torch.int64)
+
+    tp = ((y_true == pos_label) & (y_pred == pos_label)).sum()
+    tn = ((y_true != pos_label) & (y_pred != pos_label)).sum()
+    fp = ((y_true != pos_label) & (y_pred == pos_label)).sum()
+    fn = ((y_true == pos_label) & (y_pred != pos_label)).sum()
+
+    tp_f = tp.float()
+    tn_f = tn.float()
+    fp_f = fp.float()
+    fn_f = fn.float()
+    total = tp_f + tn_f + fp_f + fn_f
+
+    accuracy = (tp_f + tn_f) / total if total > 0 else torch.tensor(0.0, device=y_true.device)
+    recall = tp_f / (tp_f + fn_f) if (tp_f + fn_f) > 0 else torch.tensor(0.0, device=y_true.device)
+    specificity = tn_f / (tn_f + fp_f) if (tn_f + fp_f) > 0 else torch.tensor(0.0, device=y_true.device)
+    precision = tp_f / (tp_f + fp_f) if (tp_f + fp_f) > 0 else torch.tensor(0.0, device=y_true.device)
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else torch.tensor(0.0, device=y_true.device)
+    balanced_accuracy = (recall + specificity) / 2
+
+    mcc_den = torch.sqrt((tp_f + fp_f) * (tp_f + fn_f) * (tn_f + fp_f) * (tn_f + fn_f))
+    mcc = (tp_f * tn_f - fp_f * fn_f) / mcc_den if mcc_den > 0 else torch.tensor(0.0, device=y_true.device)
+    po = (tp_f + tn_f) / total if total > 0 else torch.tensor(0.0, device=y_true.device)
+    pe = ((tp_f + fp_f) * (tp_f + fn_f) + (fn_f + tn_f) * (fp_f + tn_f)) / (total * total) if total > 0 else torch.tensor(0.0, device=y_true.device)
+    cohen_kappa = (po - pe) / (1 - pe) if (1 - pe) > 0 else torch.tensor(0.0, device=y_true.device)
+
+    fpr = fp_f / (fp_f + tn_f) if (fp_f + tn_f) > 0 else torch.tensor(0.0, device=y_true.device)
+    fnr = fn_f / (fn_f + tp_f) if (fn_f + tp_f) > 0 else torch.tensor(0.0, device=y_true.device)
+    far = fp_f / (fp_f + tp_f) if (fp_f + tp_f) > 0 else torch.tensor(0.0, device=y_true.device)
+    pod = tp_f / (tp_f + fn_f) if (tp_f + fn_f) > 0 else torch.tensor(0.0, device=y_true.device)
+    csi = tp_f / (tp_f + fp_f + fn_f) if (tp_f + fp_f + fn_f) > 0 else torch.tensor(0.0, device=y_true.device)
+    hss_den = (tp_f + fn_f) * (fn_f + tn_f) + (tp_f + fp_f) * (fp_f + tn_f)
+    hss = 2 * (tp_f * tn_f - fp_f * fn_f) / hss_den if hss_den > 0 else torch.tensor(0.0, device=y_true.device)
+
+    if show_report:
+        conf = torch.stack([torch.stack([tn, fp]), torch.stack([fn, tp])])
+        print(conf.cpu())
+
+    return {
+        "accuracy": accuracy.item(),
+        "balanced_accuracy": balanced_accuracy.item(),
+        "precision": precision.item(),
+        "recall": recall.item(),
+        "f1": f1.item(),
+        "matthews_corrcoef": mcc.item(),
+        "cohen_kappa": cohen_kappa.item(),
+        "true_negatives": tn.item(),
+        "false_positives": fp.item(),
+        "false_negatives": fn.item(),
+        "true_positives": tp.item(),
+        "false_positive_rate": fpr.item(),
+        "false_negative_rate": fnr.item(),
+        "far": far.item(),
+        "pod": pod.item(),
+        "csi": csi.item(),
+        "hss": hss.item(),
+    }
+
+
+def label_to_minutes(label: str) -> Optional[int]:
+    """Estrae 'hh_mm' dal nome *label* e lo converte in minuti dopo mezzanotte.
+
+    Esempio: ``label_03_20`` → ``200`` (3*60 + 20). Ritorna ``None`` se il
+    pattern non viene trovato.
+    """
+    m = re.search(r"(\d{2})_(\d{2})$", label)
+    if m:
+        h, mnt = map(int, m.groups())
+        return h * 60 + mnt
+    return 0
+
+
+d = {"tn": "True Negatives", "fp": "False Positives", "fn": "False Negatives", "tp": "True Positives"}
+
+
+def plot_metrics_over_time(
+    conf_df: pd.DataFrame,
+    metrics: Sequence[str] = ("tn", "fp", "fn", "tp"),
+    sum_labels: List = [],
+    xlabel: str = "Time shift (hh:mm)",
+    ylabel: str = "Count",
+    title: str = "Confusion-matrix counts over time",
+) -> None:
+    """Plotta i valori di *metrics* (colonne di ``conf_df``) sull'asse x ordinato per ora."""
+
+    times = conf_df.index.to_series().apply(label_to_minutes)
+    plot_df = conf_df.copy()
+    plot_df["time_min"] = times
+    plot_df = plot_df.dropna(subset=["time_min"]).sort_values("time_min")
+
+    x_ticks = [f"{int(t // 60):02d}:{int(t % 60):02d}" for t in plot_df["time_min"]]
+    x = plot_df["time_min"].values
+
+    plt.figure(figsize=(10, 5))
+    for m in metrics:
+        if m in plot_df.columns:
+            plt.plot(x, plot_df[m].values, marker="o", label=d[m])
+
+    plt.plot(x, sum_labels, label="Total positives", marker=".")
+
+    plt.xticks(x, x_ticks, rotation=75)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.grid(True, linestyle="--", alpha=0.3)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
 
 
 
