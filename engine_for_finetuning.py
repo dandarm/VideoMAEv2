@@ -203,8 +203,8 @@ def train_one_epoch(model: torch.nn.Module,
 
 
 @torch.no_grad()
-def validation_one_epoch(data_loader, model, device):
-    criterion = torch.nn.CrossEntropyLoss()
+def validation_one_epoch(data_loader, model, device, criterion: Optional[torch.nn.Module] = None):
+    criterion = criterion or torch.nn.CrossEntropyLoss()
 
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = 'Val:'
@@ -223,26 +223,27 @@ def validation_one_epoch(data_loader, model, device):
             output = model(images)
             loss = criterion(output, targets_ondevice)
 
-        acc1,  = accuracy(output, targets_ondevice, topk=(1, ))  # Modifcato per classificazione binaria
+        #acc1,  = accuracy(output, targets_ondevice, topk=(1, ))  # Modifcato per classificazione binaria
 
         preds = output.argmax(dim=1)
         batch_metrics = evaluate_binary_classifier_torch(targets_ondevice, preds, show_report=False)
-        fpr = batch_metrics["false_positive_rate"]
-        fnr = batch_metrics["false_negative_rate"]
+        balanced_accuracy = batch_metrics["balanced_accuracy"]
+        recall = batch_metrics["recall"]
+        far = batch_metrics["far"]
         
 
         batch_size = images.shape[0]
         metric_logger.update(loss=loss.item())
-        metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
+        metric_logger.meters['bal_acc'].update(balanced_accuracy.item(), n=batch_size)
         #metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
-        metric_logger.meters['fpr'].update(fpr, n=batch_size)
-        metric_logger.meters['fnr'].update(fnr, n=batch_size)
+        metric_logger.meters['pod'].update(recall, n=batch_size)
+        metric_logger.meters['far'].update(far, n=batch_size)
 
         
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
-    print('* Acc@1 {top1.global_avg:.3f}  loss {losses.global_avg:.3f}'
-        .format(top1=metric_logger.acc1, losses=metric_logger.loss))
+    print('* Balanced Acc@1 {top1.global_avg:.3f}  loss {losses.global_avg:.3f}'
+        .format(top1=metric_logger.bal_acc, losses=metric_logger.loss))
 
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
