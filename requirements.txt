@@ -9,6 +9,7 @@ opencv-python
 pandas
 Pillow
 scipy
+scikit-learn
 tensorboard==2.9.0
 tensorboardX==1.8
 timm==0.4.12
