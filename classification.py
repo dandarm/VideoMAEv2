@@ -263,7 +263,7 @@ def launch_finetuning_classification(terminal_args):
                     "scaler": loss_scaler.state_dict(),
                     "args": vars(args)
                 }, best_ckpt_path)
-                print(f"[INFO] Best checkpoint saved at {best_ckpt_path}")
+                print(f"[INFO] Best checkpoint saved at {best_ckpt_path} , epoch {epoch}")
 
 
         # logging su file
