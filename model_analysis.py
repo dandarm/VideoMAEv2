@@ -321,9 +321,9 @@ def evaluate_binary_classifier_torch(
     tn_f = tn.float()
     fp_f = fp.float()
     fn_f = fn.float()
-    #total = tp_f + tn_f + fp_f + fn_f
+    total = tp_f + tn_f + fp_f + fn_f
 
-    #accuracy = (tp_f + tn_f) / total if total > 0 else torch.tensor(0.0, device=y_true.device)
+    accuracy = (tp_f + tn_f) / total if total > 0 else torch.tensor(0.0, device=y_true.device)
     recall = tp_f / (tp_f + fn_f) if (tp_f + fn_f) > 0 else torch.tensor(0.0, device=y_true.device)
     specificity = tn_f / (tn_f + fp_f) if (tn_f + fp_f) > 0 else torch.tensor(0.0, device=y_true.device)
     #precision = tp_f / (tp_f + fp_f) if (tp_f + fp_f) > 0 else torch.tensor(0.0, device=y_true.device)
@@ -349,7 +349,7 @@ def evaluate_binary_classifier_torch(
         print(conf.cpu())
 
     return {
-        #"accuracy": accuracy.item(),
+        "accuracy": accuracy.item(),
         "balanced_accuracy": balanced_accuracy.item(),
         #"precision": precision.item(),
         "recall": recall.item(),

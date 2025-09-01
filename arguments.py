@@ -303,18 +303,18 @@ def prepare_finetuning_args(machine=None):
         'decoder_depth': 4,
         'testing_epochs': 1,
         'cloudy': False,
-        'use_class_weight': True,
+        'use_class_weight': False,
 
         'epochs': 500,
-        'start_epoch_for_saving_best_ckpt': 50,  # dopo 50 epoche inizia a salvare il best checkpoint
+        'start_epoch_for_saving_best_ckpt': 90,  # dopo 50 epoche inizia a salvare il best checkpoint
         'momentum': 0.9,
         'weight_decay': 0.05,
         'weight_decay_end': None,
-        'lr': 9e-7,    # , 1e-3 , 9e-6
+        'lr': 1e-6,    # , 1e-3 , 9e-6
         'layer_decay': 0.75,
         'warmup_lr': 1e-8, #  1e-10
         'min_lr': 5e-8,  # era e-6      # 1e-8
-        'warmup_epochs': 110,
+        'warmup_epochs': 100,
         'warmup_steps': -1,
         #dist_eval
     }
