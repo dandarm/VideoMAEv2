@@ -179,17 +179,17 @@ def launch_finetuning_classification(terminal_args):
     mixup_active = (args.mixup > 0 or args.cutmix > 0. or args.cutmix_minmax is not None)
     print(f"mixup_active? {mixup_active}", flush=True)
     mixup_active = False
-    # if mixup_active:
-    #     criterion = SoftTargetCrossEntropy()
-    # elif args.smoothing > 0.:
-    #     print("Usiamo label smoothing")
-    #     criterion = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
+    if mixup_active:
+        criterion = SoftTargetCrossEntropy()
+    elif args.smoothing > 0.:
+        print("Usiamo label smoothing")
+        criterion = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
     #else:
-    if getattr(args, 'use_class_weight', False) and class_weights is not None:
-        criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
-        print(f"Loss is weighted. Weights: {class_weights}")
-    else:
-        criterion = torch.nn.CrossEntropyLoss()
+    # if getattr(args, 'use_class_weight', False) and class_weights is not None:
+    #     criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
+    #     print(f"Loss is weighted. Weights: {class_weights}")
+    # else:
+    #     criterion = torch.nn.CrossEntropyLoss()
 
     mixup_fn = None
     if mixup_active:
