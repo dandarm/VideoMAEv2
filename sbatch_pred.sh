@@ -3,8 +3,8 @@
 #SBATCH --ntasks-per-node=4
 #SBATCH --partition=boost_usr_prod
 #SBATCH --gres=gpu:4
-#SBATCH --cpus-per-task=8
-#SBATCH --time=00:15:00
+#SBATCH --cpus-per-task=4
+#SBATCH --time=00:08:00
 #SBATCH --error=predjob.err
 #SBATCH --output=predjob.out
 
@@ -16,7 +16,10 @@ export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
 export MASTER_PORT=12340
 
 
-mpirun --map-by socket:PE=8 --report-bindings python make_prediction.py
+mpirun --map-by socket:PE=4 --report-bindings python inference_classification.py \
+    --on leonardo \
+    --inference_model output/checkpoint-best-lr-again.pth \
+    --collect_preds
 
 #srun --ntasks-per-node=4 \
 #python -m torch.distributed.run \
