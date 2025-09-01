@@ -533,14 +533,14 @@ def vit_giant_patch14_224(pretrained=False, **kwargs):
     if pretrained:
         #checkpoint = torch.load(kwargs["init_ckpt"], map_location="cpu")
         #model.load_state_dict(checkpoint["state_dict"])
-        model = load_checkpoint(model, kwargs["init_ckpt"], test_mode=kwargs.get('test_mode'))
+        model = load_checkpoint(model, kwargs["init_ckpt"], load_for_test_mode=kwargs.get('load_for_test_mode'))
     return model
 
 
 
 import torch
 
-def load_checkpoint(model, checkpoint_path, test_mode=False):
+def load_checkpoint(model, checkpoint_path, load_for_test_mode=False):
     """
     Carica un checkpoint e corregge i nomi dei layer se necessario.
 
@@ -573,7 +573,7 @@ def load_checkpoint(model, checkpoint_path, test_mode=False):
         new_state_dict["head.bias"] = new_state_dict.pop("cls_head.fc_cls.bias")
         print("Rinominata 'cls_head.fc_cls' -> 'head' nel checkpoint.")
 
-    if not test_mode: # TODO: or 'resume'
+    if not load_for_test_mode: # TODO: or 'resume'
             # ❗ Rimuoviamo la testa del modello per evitare il mismatch
         if "head.weight" in new_state_dict:
             del new_state_dict["head.weight"]

@@ -53,6 +53,8 @@ def launch_inference_classification(terminal_args):
     model_for_inference = terminal_args.inference_model
     args.init_ckpt = model_for_inference
 
+    args.load_for_test_mode = True
+
 
     seed = args.seed
     torch.manual_seed(seed)
