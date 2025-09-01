@@ -15,6 +15,7 @@ from typing import Iterable, Optional
 
 import numpy as np
 import torch
+import torch.distributed as dist
 from scipy.special import softmax
 from timm.data import Mixup
 from timm.utils import ModelEma, accuracy
@@ -246,6 +247,95 @@ def validation_one_epoch(data_loader, model, device, criterion: Optional[torch.n
         .format(top1=metric_logger.bal_acc, losses=metric_logger.loss))
 
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+
+
+@torch.no_grad()
+def validation_one_epoch_collect(
+    data_loader,
+    model,
+    device,
+    criterion: Optional[torch.nn.Module] = None,
+):
+    """
+    Same as validation_one_epoch, but also collects per-sample outputs:
+    - paths (if provided by the dataset as third element)
+    - predicted labels (argmax)
+    - ground-truth labels
+
+    Returns a tuple: (metrics_dict, all_paths, all_preds, all_labels)
+    """
+    criterion = criterion or torch.nn.CrossEntropyLoss()
+
+    metric_logger = utils.MetricLogger(delimiter="  ")
+    header = 'Val:'
+
+    # switch to evaluation mode
+    model.eval()
+
+    all_paths = []
+    all_labels = []
+    all_preds = []
+
+    for batch in metric_logger.log_every(data_loader, 10, header):
+        images = batch[0]
+        target = batch[1]
+        # optional third element (e.g., folder_path)
+        batch_paths = batch[2] if len(batch) > 2 else None
+
+        images = images.to(device, non_blocking=True)
+        targets_ondevice = target.to(device, non_blocking=True)
+
+        # compute output
+        with torch.cuda.amp.autocast():
+            output = model(images)
+            loss = criterion(output, targets_ondevice)
+
+        preds = output.argmax(dim=1)
+        batch_metrics = evaluate_binary_classifier_torch(targets_ondevice, preds, show_report=False)
+        balanced_accuracy = batch_metrics["balanced_accuracy"]
+        recall = batch_metrics["recall"]
+        far = batch_metrics["far"]
+
+        batch_size = images.shape[0]
+        metric_logger.update(loss=loss.item())
+        metric_logger.meters['bal_acc'].update(balanced_accuracy, n=batch_size)
+        metric_logger.meters['pod'].update(recall, n=batch_size)
+        metric_logger.meters['far'].update(far, n=batch_size)
+
+        # Collect per-sample information
+        all_labels.extend(target.detach().cpu().numpy().tolist())
+        all_preds.extend(preds.detach().cpu().numpy().tolist())
+        if batch_paths is not None:
+            # batch_paths is expected to be a list/sequence of strings
+            all_paths.extend(batch_paths)
+        else:
+            # pad with None if paths not provided
+            all_paths.extend([None] * batch_size)
+
+    # gather predictions/labels/paths across processes if distributed
+    if dist.is_available() and dist.is_initialized():
+        try:
+            world_size = dist.get_world_size()
+            gathered_paths = [None for _ in range(world_size)]
+            gathered_preds = [None for _ in range(world_size)]
+            gathered_labels = [None for _ in range(world_size)]
+            dist.all_gather_object(gathered_paths, all_paths)
+            dist.all_gather_object(gathered_preds, all_preds)
+            dist.all_gather_object(gathered_labels, all_labels)
+            # concatenate lists in rank order
+            all_paths = sum(gathered_paths, [])
+            all_preds = sum(gathered_preds, [])
+            all_labels = sum(gathered_labels, [])
+        except Exception as e:
+            print(f"Warning: could not all_gather predictions: {e}")
+
+    # gather the stats from all processes
+    metric_logger.synchronize_between_processes()
+    print('* Balanced Acc@1 {top1.global_avg:.3f}  loss {losses.global_avg:.3f}'
+        .format(top1=metric_logger.bal_acc, losses=metric_logger.loss))
+
+    stats = {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+    return stats, all_paths, all_preds, all_labels
 
 
 @torch.no_grad()

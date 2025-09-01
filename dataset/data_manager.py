@@ -113,7 +113,13 @@ class DataManager():
 
     def get_dist_sampler(self):
         print(f"Creo il DistributedSampler con world_size {self.world_size} e rank {self.rank}")
-        sampler = DistributedSampler(self.dataset, num_replicas=self.world_size, rank=self.rank, shuffle=True)
+        # Shuffle solo in training; in validazione/inferenza meglio disattivare
+        sampler = DistributedSampler(
+            self.dataset,
+            num_replicas=self.world_size,
+            rank=self.rank,
+            shuffle=self.is_train
+        )
         print("Sampler_train = %s" % str(sampler))
         return sampler
 
@@ -139,16 +145,17 @@ class DataManager():
         self.dataset = self.get_classif_dataset(args)
         sampler = self.get_dist_sampler()
         print(f"Batch_size local: {args.batch_size}")
-        self.data_loader = DataLoader(self.dataset,
+        self.data_loader = DataLoader(
+            self.dataset,
             batch_size=args.batch_size,
-            #shuffle=self.is_train,  # se è training -> shuffle , altrimenti no  # MA NON PUÒ ANDARE INSIEME CON SAMPLER
+            # shuffle è gestito dal DistributedSampler
             num_workers=args.num_workers,
             pin_memory=args.pin_mem,
-            drop_last=True,
+            drop_last=self.is_train,  # non droppare in validazione/inferenza
             collate_fn=self.collate_func,
             # mancava il worker_init UNICA DIFFERENZA CON IL DATALOADER UNSUP
             persistent_workers=True,
-            sampler=sampler
+            sampler=sampler,
         )
 
 
