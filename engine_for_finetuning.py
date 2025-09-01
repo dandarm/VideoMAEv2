@@ -234,7 +234,7 @@ def validation_one_epoch(data_loader, model, device, criterion: Optional[torch.n
 
         batch_size = images.shape[0]
         metric_logger.update(loss=loss.item())
-        metric_logger.meters['bal_acc'].update(balanced_accuracy.item(), n=batch_size)
+        metric_logger.meters['bal_acc'].update(balanced_accuracy, n=batch_size)
         #metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
         metric_logger.meters['pod'].update(recall, n=batch_size)
         metric_logger.meters['far'].update(far, n=batch_size)
