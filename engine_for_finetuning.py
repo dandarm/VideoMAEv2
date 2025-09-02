@@ -212,6 +212,11 @@ def validation_one_epoch(data_loader, model, device, criterion: Optional[torch.n
 
     # switch to evaluation mode
     model.eval()
+    # accumulators for global metrics over the whole validation set
+    tp_total = 0
+    tn_total = 0
+    fp_total = 0
+    fn_total = 0
 
     for batch in metric_logger.log_every(data_loader, 10, header):
         images = batch[0]
@@ -224,15 +229,17 @@ def validation_one_epoch(data_loader, model, device, criterion: Optional[torch.n
             output = model(images)
             loss = criterion(output, targets_ondevice)
 
-        #acc1,  = accuracy(output, targets_ondevice, topk=(1, ))  # Modifcato per classificazione binaria
-
         preds = output.argmax(dim=1)
         batch_metrics = evaluate_binary_classifier_torch(targets_ondevice, preds, show_report=False)
         accuracy = batch_metrics["accuracy"]
         balanced_accuracy = batch_metrics["balanced_accuracy"]
         recall = batch_metrics["recall"]
         far = batch_metrics["far"]
-        
+        # accumulate counts for global metrics
+        tp_total += int(((targets_ondevice == 1) & (preds == 1)).sum().item())
+        tn_total += int(((targets_ondevice == 0) & (preds == 0)).sum().item())
+        fp_total += int(((targets_ondevice == 0) & (preds == 1)).sum().item())
+        fn_total += int(((targets_ondevice == 1) & (preds == 0)).sum().item())
 
         batch_size = images.shape[0]
         metric_logger.update(loss=loss.item())
@@ -243,12 +250,33 @@ def validation_one_epoch(data_loader, model, device, criterion: Optional[torch.n
         metric_logger.meters['far'].update(far, n=batch_size)
 
         
-    # gather the stats from all processes
-    metric_logger.synchronize_between_processes()
-    print('* Balanced Acc@1 {top1.global_avg:.3f}  loss {losses.global_avg:.3f}'
-        .format(top1=metric_logger.bal_acc, losses=metric_logger.loss))
+    # Reduce global counts across processes if distributed
+    totals = torch.tensor([tp_total, tn_total, fp_total, fn_total], device=device, dtype=torch.long)
+    if dist.is_available() and dist.is_initialized():
+        dist.all_reduce(totals, op=dist.ReduceOp.SUM)
+    tp_total, tn_total, fp_total, fn_total = [int(x.item()) for x in totals]
 
-    return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+    # compute global metrics from reduced counts
+    total = tp_total + tn_total + fp_total + fn_total
+    acc_global = (tp_total + tn_total) / total if total > 0 else 0.0
+    recall_global = tp_total / (tp_total + fn_total) if (tp_total + fn_total) > 0 else 0.0
+    specificity_global = tn_total / (tn_total + fp_total) if (tn_total + fp_total) > 0 else 0.0
+    bal_acc_global = (recall_global + specificity_global) / 2
+    far_global = fp_total / (fp_total + tp_total) if (fp_total + tp_total) > 0 else 0.0
+
+    # gather the stats from all processes (logging meters)
+    metric_logger.synchronize_between_processes()
+    # print using the globally computed balanced accuracy
+    print('* Balanced Acc@1 {:.3f}  loss {losses.global_avg:.3f}'
+        .format(bal_acc_global, losses=metric_logger.loss))
+
+    stats = {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+    # override meters-derived values with globally computed metrics
+    stats['acc'] = acc_global
+    stats['bal_acc'] = bal_acc_global
+    stats['pod'] = recall_global
+    stats['far'] = far_global
+    return stats
 
 
 @torch.no_grad()
@@ -278,6 +306,12 @@ def validation_one_epoch_collect(
     all_labels = []
     all_preds = []
 
+    # accumulators for global metrics over the whole validation set
+    tp_total = 0
+    tn_total = 0
+    fp_total = 0
+    fn_total = 0
+
     for batch in metric_logger.log_every(data_loader, 10, header):
         images = batch[0]
         target = batch[1]
@@ -306,6 +340,12 @@ def validation_one_epoch_collect(
         metric_logger.meters['pod'].update(recall, n=batch_size)
         metric_logger.meters['far'].update(far, n=batch_size)
 
+        # accumulate counts for global metrics
+        tp_total += int(((targets_ondevice == 1) & (preds == 1)).sum().item())
+        tn_total += int(((targets_ondevice == 0) & (preds == 0)).sum().item())
+        fp_total += int(((targets_ondevice == 0) & (preds == 1)).sum().item())
+        fn_total += int(((targets_ondevice == 1) & (preds == 0)).sum().item())
+
         # Collect per-sample information
         all_labels.extend(target.detach().cpu().numpy().tolist())
         all_preds.extend(preds.detach().cpu().numpy().tolist())
@@ -333,12 +373,32 @@ def validation_one_epoch_collect(
         except Exception as e:
             print(f"Warning: could not all_gather predictions: {e}")
 
-    # gather the stats from all processes
+    # Reduce global counts across processes if distributed
+    totals = torch.tensor([tp_total, tn_total, fp_total, fn_total], device=device, dtype=torch.long)
+    if dist.is_available() and dist.is_initialized():
+        dist.all_reduce(totals, op=dist.ReduceOp.SUM)
+    tp_total, tn_total, fp_total, fn_total = [int(x.item()) for x in totals]
+
+    # compute global metrics from reduced counts
+    total = tp_total + tn_total + fp_total + fn_total
+    acc_global = (tp_total + tn_total) / total if total > 0 else 0.0
+    recall_global = tp_total / (tp_total + fn_total) if (tp_total + fn_total) > 0 else 0.0
+    specificity_global = tn_total / (tn_total + fp_total) if (tn_total + fp_total) > 0 else 0.0
+    bal_acc_global = (recall_global + specificity_global) / 2
+    far_global = fp_total / (fp_total + tp_total) if (fp_total + tp_total) > 0 else 0.0
+
+    # gather the stats from all processes (logging meters)
     metric_logger.synchronize_between_processes()
-    print('* Balanced Acc@1 {top1.global_avg:.3f}  loss {losses.global_avg:.3f}'
-        .format(top1=metric_logger.bal_acc, losses=metric_logger.loss))
+    # print using the globally computed balanced accuracy
+    print('* Balanced Acc@1 {:.3f}  loss {losses.global_avg:.3f}'
+        .format(bal_acc_global, losses=metric_logger.loss))
 
     stats = {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+    # override meters-derived values with globally computed metrics
+    stats['acc'] = acc_global
+    stats['bal_acc'] = bal_acc_global
+    stats['pod'] = recall_global
+    stats['far'] = far_global
     return stats, all_paths, all_preds, all_labels
 
 
