@@ -220,7 +220,7 @@ def evaluate_binary_classifier(
     y_pred: np.ndarray,
     y_score: Optional[np.ndarray] = None,
     pos_label: Union[int, str] = 1,
-    show_report: bool = True,
+    show_report: bool = False,
 ) -> pd.Series:
     """Calcola un insieme esteso di metriche per la classificazione binaria:
 
@@ -241,7 +241,7 @@ def evaluate_binary_classifier(
         y_score = np.asarray(y_score)
 
     metrics = {
-        #"accuracy": accuracy_score(y_true, y_pred),
+        "accuracy": accuracy_score(y_true, y_pred),
         "balanced_accuracy": balanced_accuracy_score(y_true, y_pred),
         #"precision": precision_score(y_true, y_pred, pos_label=pos_label),
         "recall": recall_score(y_true, y_pred, pos_label=pos_label),
@@ -280,9 +280,9 @@ def evaluate_binary_classifier(
         "hss": hss,
     })
 
-    if show_report:
-        print("=== Confusion Matrix ===")
-        print(confusion_matrix(y_true, y_pred, labels=[0, pos_label]))
+    print("=== Confusion Matrix ===")
+    print(confusion_matrix(y_true, y_pred, labels=[0, pos_label]))
+    if show_report:        
         print(f"True Positive: {tp}")
         print(f"True Negative: {tn}")
         print(f"False Positive: {fp}")
