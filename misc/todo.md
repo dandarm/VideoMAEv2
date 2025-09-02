@@ -13,7 +13,7 @@
 ## Analisi e Statistiche
 
 - Guardare i valori logits prima della softmax e plottare i risultati corrispondenti a tutto il dataset per scoprire eventuali distribuzioni. Ricondurre tutti i valori ai casi di \
-     - clear sky
+  - clear sky
   - tile medicane
   - tile limitrofe
   - cloudy tiles lontane
