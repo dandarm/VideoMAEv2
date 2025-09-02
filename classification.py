@@ -272,6 +272,8 @@ def launch_finetuning_classification(terminal_args):
             **{f'val_{k}': v for k, v in val_stats.items()},
             **{f'val2_{k}': v for k, v in val2_stats.items()},
         }
+        # round floats to 4 decimals for compact logs
+        log_stats = {k: (round(v, 4) if isinstance(v, float) else v) for k, v in log_stats.items()}
         if args.output_dir and rank == 0:
             with open(os.path.join(args.output_dir, "log.txt"), "a") as f:
                 f.write(json.dumps(log_stats) + "\n")
