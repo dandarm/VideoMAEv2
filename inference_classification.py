@@ -132,34 +132,29 @@ def launch_inference_classification(terminal_args):
     
     start_time = time.time()
     # VAL + optional collection of predictions
-    if getattr(terminal_args, 'collect_preds', False):
-        val2_stats, all_paths, all_preds, all_labels = validation_one_epoch_collect(
-            val_m.data_loader, pretrained_model, device
-        )
-        print(f"val bal_acc: {val2_stats['bal_acc']:.2f}% ")
+    val_stats, all_paths, all_preds, all_labels = validation_one_epoch_collect(val_m.data_loader, pretrained_model, device)
+    print(f"val bal_acc: {val_stats['bal_acc']:.2f}% ")
 
-        # Save predictions CSV (per-rank if distributed)
-        if args.output_dir:
-            os.makedirs(args.output_dir, exist_ok=True)
-        # build dataframe
-        df = create_df_predictions(all_paths, all_preds, all_labels)
-        # choose output filename
-        preds_name = getattr(terminal_args, 'preds_csv', 'inference_predictions.csv')
-        out_csv = preds_name if not args.output_dir else os.path.join(args.output_dir, preds_name)
-        # save only on rank 0 (after distributed gather inside validation_one_epoch_collect)
-        if rank == 0:
-            try:
-                df.to_csv(out_csv, index=False)
-                print(f"Saved predictions to {out_csv}")
-            except Exception as e:
-                print(f"Warning: could not save predictions CSV: {e}")
-
-    else:
-        val2_stats = validation_one_epoch(val_m.data_loader, pretrained_model, device)
-        print(f"val bal_acc: {val2_stats['bal_acc']:.2f}% ")
+    # Save predictions CSV (per-rank if distributed)
+    if args.output_dir:
+        os.makedirs(args.output_dir, exist_ok=True)
+    # build dataframe
+    df = create_df_predictions(all_paths, all_preds, all_labels)
+    # choose output filename
+    preds_name = getattr(terminal_args, 'preds_csv', 'inference_predictions.csv')
+    out_csv = preds_name if not args.output_dir else os.path.join(args.output_dir, preds_name)
+    # save only on rank 0 (after distributed gather inside validation_one_epoch_collect)
+    if rank == 0:
+        try:
+            df.to_csv(out_csv, index=False)
+            print(f"Saved predictions to {out_csv}")
+        except Exception as e:
+            print(f"Warning: could not save predictions CSV: {e}")
 
     # logging su file (always)
-    log_stats = {**{f'val2_{k}': v for k, v in val2_stats.items()}}
+    log_stats = {**{f'val2_{k}': v for k, v in val_stats.items()}}
+    # round floats to 4 decimals for compact logs
+    log_stats = {k: (round(v, 4) if isinstance(v, float) else v) for k, v in log_stats.items()}
     if args.output_dir and rank == 0:
         metrics_path = os.path.join(args.output_dir, "inference_metrics.txt")
         try:
@@ -187,7 +182,7 @@ if __name__ == '__main__':
     
     parser.add_argument('--inference_model', type=str, default='output/checkpoint-best.pth')
     parser.add_argument('--collect_preds', action='store_true', help='Collect and save per-sample predictions')
-    parser.add_argument('--preds_csv', type=str, default='inference_predictions.csv', help='Output CSV filename for predictions')
+    #parser.add_argument('--preds_csv', type=str, default='inference_predictions.csv', help='Output CSV filename for predictions')
 
     args =  parser.parse_args()
 
