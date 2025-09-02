@@ -17,14 +17,14 @@ def collect_data(log_file_path):
 
     val_epochs = []
     val_losses = []
-    val_accs = []
-    val_fprs = []
-    val_fnrs = []
+    val_accs, val_bal_acc, val_pod, val_far  = [], [], [], []
+    #val_fprs = []
+    #val_fnrs = []
 
     val2_losses = []
-    val2_accs = []
-    val2_fprs = []
-    val2_fnrs = []
+    val2_accs, val2_bal_acc, val2_pod, val2_far = [], [], [], []
+    #val2_fprs = []
+    #val2_fnrs = []
 
 
     lr_epochs = []
@@ -58,29 +58,37 @@ def collect_data(log_file_path):
                 val_losses.append(data["val_loss"])
                 val_epochs.append(val_epoch)
 
-                if "val_acc1" in data:
-                    val_accs.append(data["val_acc1"])
+                if "val_acc" in data:
+                    val_accs.append(data["val_acc"])
+                if "val_bal_acc" in data:
+                    val_bal_acc.append(data["val_bal_acc"])
+                if "val_pod" in data:
+                    val_pod.append(data["val_pod"])
+                if "val_far" in data:
+                    val_far.append(data["val_far"])
 
-                if 'val_fpr' in data:
-                    val_fprs.append(data['val_fpr'])
-                if 'val_fnr' in data:
-                    val_fnrs.append(data['val_fnr'])
+                #if 'val_fpr' in data:
+                #    val_fprs.append(data['val_fpr'])
+                #if 'val_fnr' in data:
+                #    val_fnrs.append(data['val_fnr'])
 
             if "val2_loss" in data:
                 #print(line)
                 val2_losses.append(data["val2_loss"])
 
-                if "val2_acc1" in data:
-                    val2_accs.append(data["val2_acc1"])
+                if "val2_acc" in data:
+                    val2_accs.append(data["val2_acc"])
 
-                if 'val2_fpr' in data:
-                    val2_fprs.append(data['val2_fpr'])
-                if 'val2_fnr' in data:
-                    val2_fnrs.append(data['val2_fnr'])
+                if 'val2_bal_acc' in data:
+                    val2_bal_acc.append(data['val2_bal_acc'])
+                if 'val2_pod' in data:
+                    val2_pod.append(data['val2_pod'])
+                if 'val2_far' in data:
+                    val2_far.append(data['val2_far'])
 
 
             
-    return train_epochs, train_losses, test_epochs, test_losses, val_epochs, val_losses, val_accs, lr_epochs, val_fprs, val_fnrs, val2_losses, val2_accs, val2_fprs, val2_fnrs
+    return train_epochs, train_losses, test_epochs, test_losses, val_epochs, val_losses, val_accs, lr_epochs, val_bal_acc, val_pod, val_far, val2_losses, val2_accs, val2_bal_acc, val2_pod, val2_far
                 
             
 # Ogni 10 epoche, salviamo la media della validation loss e accuracy
@@ -106,16 +114,12 @@ def axis_color(ax, colore_asse):
 def plot_training_curves(tuple_vars, plot_file_name=None, log=True):
 
     #(train_epochs, train_losses, test_epochs, test_losses, val_epochs, val_losses, val_accs, lr_epochs) = tuple_vars
-    (train_epochs, train_losses, test_epochs, test_losses, val_epochs, val_losses, val_accs, lr_epochs, val_fprs, val_fnrs, val2_losses, val2_accs, val2_fprs, val2_fnrs) = tuple_vars
-    #kwargs.get(train_epochs), 
-    #kwargs.get(train_losses), 
-    #kwargs.get(test_epochs), 
-    #kwargs.get(test_losses), 
-    #kwargs.get(val_epochs), 
-    #kwargs.get(val_losses), 
-    #kwargs.get(val_accs), 
-    #kwargs.get(lr_epochs), 
-
+    #(train_epochs, train_losses, test_epochs, test_losses, val_epochs, val_losses, val_accs, lr_epochs, val_fprs, val_fnrs, val2_losses, val2_accs, val2_fprs, val2_fnrs) = tuple_vars
+    (train_epochs, train_losses, test_epochs, 
+        test_losses, val_epochs, val_losses, val_accs, 
+        lr_epochs, val_bal_acc, val_pod, val_far, val2_losses, 
+        val2_accs, val2_bal_acc, val2_pod, val2_far) = tuple_vars
+    
 
     # Plot del grafico
     fig = plt.figure(figsize=(20, 10))
@@ -126,7 +130,8 @@ def plot_training_curves(tuple_vars, plot_file_name=None, log=True):
 
     # Asse sinistro per la loss
     ax1.plot(train_epochs, train_losses, marker='.', label='Training Loss') #, marker='o', linestyle='')
-    #ax1.plot(test_epochs, test_losses, label='Test Loss') #color='r', marker='s', 
+    if test_losses is not None and len(test_losses) > 0:
+        ax1.plot(test_epochs, test_losses, label='Test Loss') #color='r', marker='s', 
     ax1.plot(val_epochs, val_losses, marker='.', label='Validation Loss') #color='r', marker='s', 
     if val2_losses is not None and len(val2_losses) > 0:
         ax1.plot(val_epochs, val2_losses, marker='.', label='Validation2 Loss', color='peachpuff') # marker='s',
@@ -149,14 +154,15 @@ def plot_training_curves(tuple_vars, plot_file_name=None, log=True):
         # Asse destro per l'accuracy
         
         ax2.axis["right"].toggle(all=True)
-        p2 = ax2.plot(val_epochs, val_accs, color='g', marker='.', label='Validation Balanced Accuracy')
+        p2 = ax2.plot(val_epochs, val_accs, color='g', marker='.', label='Validation Accuracy')        
+        p2 = ax2.plot(val_epochs, val_bal_acc, color='turquoise', marker='.', label='Validation Balanced Accuracy')
         colore_asse = p2[0].get_color()
-        ax2.set_ylabel('Accuracy (%)')
+        ax2.set_ylabel('Accuracy')
         ax2.grid(True, color=colore_asse, linestyle='--', linewidth=1.5, axis='y',  )
-        ax2.yaxis.set_major_locator(MultipleLocator(5))
+        #ax2.yaxis.set_major_locator(MultipleLocator(5))
         #ax2.legend(loc='center right')
         ax2.legend(loc='lower left')
-        ax2.set_ylim(50,100)
+        ax2.set_ylim(0,1)
 
         axis_color(ax2, colore_asse)
 
@@ -185,28 +191,28 @@ def plot_training_curves(tuple_vars, plot_file_name=None, log=True):
     if plot_file_name is not None:
         plt.savefig(plot_file_name)
      
-        ### plot fpr fnr
-        plot_file_name = plot_file_name.replace('.png', '_fprfnr.png')
+        ### plot POD FAR
+        plot_file_name = plot_file_name.replace('.png', '_podfar.png')
 
-    if  len(val_fprs) > 0 and len(val_fnrs) > 0:
-        if len(val2_fprs) > 0 and len(val2_fnrs) > 0:            
-            plot_fprfnr(val_accs, val_fprs, val_fnrs, val_epochs, val2_accs, val2_fprs, val2_fnrs, plot_file_name=plot_file_name, log=log)
+    if  len(val_pod) > 0 and len(val_far) > 0:
+        if len(val2_pod) > 0 and len(val2_far) > 0:
+            plot_podfar(val_bal_acc, val_pod, val_far, val_epochs, val2_bal_acc, val2_pod, val2_far, plot_file_name=plot_file_name, log=log)
         else:
-            plot_fprfnr(val_accs, val_fprs, val_fnrs, val_epochs, plot_file_name=plot_file_name, log=log)
+            plot_podfar(val_accs, val_pod, val_far, val_epochs, plot_file_name=plot_file_name, log=log)
         
 
 
-def plot_fprfnr(val_accs, val_fprs, val_fnrs, val_epochs, val2_accs=None, val2_fprs=None, val2_fnrs=None, plot_file_name=None, log=True):
+def plot_podfar(val_accs, val_pods, val_fars, val_epochs, val2_accs=None, val2_pods=None, val2_fars=None, plot_file_name=None, log=True):
     fig, ax = plt.subplots(figsize=(20, 10))
     ax2 = ax.twinx()    
 
-    ax.plot(val_epochs, val_fprs, marker='.', label='Validation_1 FPR', color='b')
-    ax.plot(val_epochs, val_fnrs, marker='.', label='Validation_1 FNR', color='r')
+    ax.plot(val_epochs, val_pods, marker='.', label='Validation_1 POD', color='b')
+    ax.plot(val_epochs, val_fars, marker='.', label='Validation_1 FAR', color='r')
     
 
-    if val2_accs is not None and val2_fprs is not None and val2_fnrs is not None:
-        ax.plot(val_epochs, val2_fprs, marker='.', label='Validation_2 FPR', color='lightblue')
-        ax.plot(val_epochs, val2_fnrs, marker='.', label='Validation_2 FNR', color='lightcoral')
+    if val2_accs is not None and val2_pods is not None and val2_fars is not None:
+        ax.plot(val_epochs, val2_pods, marker='.', label='Validation_2 POD', color='lightblue')
+        ax.plot(val_epochs, val2_fars, marker='.', label='Validation_2 FAR', color='lightcoral')
 
     ax.set_ylim(0,1)
     ax.set_yticks(np.arange(0, 0.6, 0.1))
@@ -217,34 +223,31 @@ def plot_fprfnr(val_accs, val_fprs, val_fnrs, val_epochs, val2_accs=None, val2_f
     ax2.plot(val_epochs, val2_accs, marker='.', label='Validation_2 Balanced Accuracy', color='lightgreen')
     #ax2.axis["right"].toggle(all=True)
     colore_asse = p2[0].get_color()
-    ax2.set_ylabel('Accuracy (%)')
+    ax2.set_ylabel('Accuracy')
     ax2.grid(True, color=colore_asse, linestyle='--', linewidth=1.5, axis='y',  )
     #ax2.yaxis.set_major_locator(MultipleLocator(5))
 
-    # 1) Definisci l’array dei tick (ad es. ogni 5 unità da 50 a 100 incluso)
-    ticks = np.arange(65, 101, 5)
-    # 2) Applica i ticks fissati
+    # Ticks per accuracy tra 0 e 1
+    ticks = np.arange(0.65, 1.01, 0.1)
     ax2.set_yticks(ticks)
-    # 3) (opzionale) Se vuoi personalizzare le etichette, ad es. aggiungere un “%”:
-    ax2.set_yticklabels([f"{t:g} %" for t in ticks])
 
 
     #ax2.legend(loc='center right')
     ax2.legend(loc='upper right')
-    ax2.set_ylim(20,100)
+    ax2.set_ylim(0,1)
 
     #axis_color(ax2, colore_asse)
 
 
     ax.set_xlabel('Epochs')
-    ax.set_ylabel('FPR/FNR')
+    ax.set_ylabel('POD/FAR')
     ax.grid(True)
     ax.legend(loc='lower left')
     if log:
         #ax.set_yscale('log')
         ax.set_xscale('log')
 
-    plt.title('Validation FPR and FNR per Epoch')
+    plt.title('Validation POD and FAR per Epoch')
 
     if plot_file_name is not None:
         plt.savefig(plot_file_name)
