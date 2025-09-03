@@ -395,6 +395,10 @@ def validation_one_epoch_collect_logits(
 
     shard_paths: list = []
     part_idx = {'i': 0}
+    # Also collect like validation_one_epoch_collect
+    all_paths: list = []
+    all_labels: list = []
+    all_preds: list = []
 
     def on_batch(output, targets_ondevice, preds, batch_paths, loss, batch_size):
         # Prepare numpy payloads e salva shard per-batch
@@ -413,6 +417,13 @@ def validation_one_epoch_collect_logits(
         )
         shard_paths.append(shard_path)
         part_idx['i'] += 1
+        # in-memory collections
+        all_labels.extend(labels_np.tolist())
+        all_preds.extend(preds_np.tolist())
+        if batch_paths is not None:
+            all_paths.extend(paths_list)
+        else:
+            all_paths.extend([None] * batch_size)
 
     # Esegui core di validazione con callback di salvataggio shard
     stats = _validation_common(
@@ -436,8 +447,25 @@ def validation_one_epoch_collect_logits(
     except Exception as e:
         print(f"Warning: failed to merge rank {rank} shards: {e}")
 
+    # Gather predictions/labels/paths across processes if distributed
+    if dist.is_available() and dist.is_initialized():
+        try:
+            world_size = dist.get_world_size()
+            gathered_paths = [None for _ in range(world_size)]
+            gathered_preds = [None for _ in range(world_size)]
+            gathered_labels = [None for _ in range(world_size)]
+            dist.all_gather_object(gathered_paths, all_paths)
+            dist.all_gather_object(gathered_preds, all_preds)
+            dist.all_gather_object(gathered_labels, all_labels)
+            # concatenate lists in rank order
+            all_paths = sum(gathered_paths, [])
+            all_preds = sum(gathered_preds, [])
+            all_labels = sum(gathered_labels, [])
+        except Exception as e:
+            print(f"Warning: could not all_gather logits metadata: {e}")
+
     # Non tentiamo il merge cross-rank: assumiamo FS non condiviso tra nodi
-    return stats
+    return stats, all_paths, all_preds, all_labels
 
 
 def _merge_npz_shards(shard_paths, output_path):

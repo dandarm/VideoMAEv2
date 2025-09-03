@@ -356,6 +356,39 @@ def plot_logits_by_label(logits, labels, class_names=None, max_points=20000, alp
         plt.tight_layout()
 
 
+def plot_logit_margin_hist(logits, labels, class_names=None, bins=50, density=False, alpha=0.5):
+    """Istogramma del margine logit per classificazione binaria.
+
+    Mostra la distribuzione di d = z1 - z0 separata per label.
+    - logits: array (N, 2)
+    - labels: array (N,)
+    """
+    logits = np.asarray(logits)
+    labels = np.asarray(labels).astype(int)
+    if logits.ndim != 2 or logits.shape[1] != 2:
+        raise ValueError("plot_logit_margin_hist richiede logits di forma (N, 2)")
+
+    d = logits[:, 1] - logits[:, 0]
+    uniq = np.unique(labels)
+    cmap = plt.cm.get_cmap('tab10', max(10, len(uniq)))
+
+    plt.figure(figsize=(8, 4))
+    for i, lab in enumerate(uniq):
+        m = (labels == lab)
+        lbl = class_names[lab] if class_names is not None and lab < len(class_names) else f'class {lab}'
+        plt.hist(d[m], bins=bins, alpha=alpha, density=density, label=lbl, color=cmap(i))
+    # set x axis log
+    plt.yscale('log')
+    plt.axvline(0.0, color='k', linestyle='--', linewidth=1, alpha=0.7)
+    plt.xlabel('logit[1] - logit[0]')
+    plt.ylabel('density' if density else 'count')
+    plt.title('Distribuzione del margine logit per label')
+    plt.legend()
+    plt.tight_layout()
+    
+    plt.savefig('logits_by_label.png')
+
+
 
 # endregion
 

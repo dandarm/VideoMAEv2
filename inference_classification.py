@@ -151,7 +151,7 @@ def launch_inference_classification(terminal_args):
         os.makedirs(save_dir, exist_ok=True)
 
         prefix = getattr(terminal_args, 'logits_prefix', 'val')
-        val_stats = validation_one_epoch_collect_logits(
+        val_stats, all_paths, all_preds, all_labels = validation_one_epoch_collect_logits(
             val_m.data_loader,
             pretrained_model,
             device,
@@ -173,9 +173,9 @@ def launch_inference_classification(terminal_args):
                 print(f"Warning: could not create global merged logits: {e}")
             # 2) Rimuovi sempre gli shard per-batch ora che i per-rank merged esistono
             try:
-                removed = cleanup_npz_shards(save_dir=save_dir, prefix=prefix, only_if_merged=True, dry_run=False)
-                if len(removed) > 0:
-                    print(f"Removed {len(removed)} shard files.")
+                # Delete all shard parts unconditionally for the chosen prefix
+                removed = cleanup_npz_shards(save_dir=save_dir, prefix=prefix, only_if_merged=False, dry_run=False)
+                print(f"Removed {len(removed)} shard files.")
             except Exception as e:
                 print(f"Warning: shard cleanup failed: {e}")
             # 3) Rimuovi sempre anche i merged per-rank, lasciando solo l'all_merged
@@ -192,6 +192,19 @@ def launch_inference_classification(terminal_args):
                     print(f"Removed {removed_cnt} per-rank merged files.")
             except Exception as e:
                 print(f"Warning: rank-merged cleanup failed: {e}")
+                
+        # Save predictions CSV (per-rank gather done inside collect_logits)
+        if args.output_dir:
+            os.makedirs(args.output_dir, exist_ok=True)
+        df = create_df_predictions(all_paths, all_preds, all_labels)
+        preds_name = getattr(terminal_args, 'preds_csv', 'inference_predictions.csv')
+        out_csv = preds_name if not args.output_dir else os.path.join(args.output_dir, preds_name)
+        if rank == 0:
+            try:
+                df.to_csv(out_csv, index=False)
+                print(f"Saved predictions to {out_csv}")
+            except Exception as e:
+                print(f"Warning: could not save predictions CSV: {e}")
     else:
         # Standard path: collect predictions and save a CSV
         val_stats, all_paths, all_preds, all_labels = validation_one_epoch_collect(
