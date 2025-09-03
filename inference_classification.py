@@ -14,7 +14,12 @@ from engine_for_pretraining import train_one_epoch, test
 from arguments import prepare_finetuning_args
 
 import torch.backends.cudnn as cudnn
-from engine_for_finetuning import train_one_epoch, validation_one_epoch, validation_one_epoch_collect
+from engine_for_finetuning import (
+    train_one_epoch,
+    validation_one_epoch,
+    validation_one_epoch_collect,
+    validation_one_epoch_collect_logits,
+)
 from optim_factory import create_optimizer
 import models # NON TOGLIERE: serve a torch.load per caricare il mio modello addestrato
 from timm.models import create_model
@@ -65,7 +70,7 @@ def launch_inference_classification(terminal_args):
 
 
     ############################# Distributed Training #############################
-
+    # region distributed variabiles
     rank, local_rank, world_size, local_size, num_workers = utils.get_resources()
     #print(f"rank, local_rank, world_size, local_size, num_workers: {rank, local_rank, world_size, local_size, num_workers}")
 
@@ -99,6 +104,7 @@ def launch_inference_classification(terminal_args):
                 print(f"Warning: could not create output_dir {args.output_dir}: {e}")
     setup_for_distributed(rank == 0)
 
+    # endregion#
 
     val_m = DataManager(is_train=False, args=args, type_t='supervised', world_size=world_size, rank=rank, specify_data_path=args.val_path)
     val_m.create_classif_dataloader(args)
@@ -131,25 +137,45 @@ def launch_inference_classification(terminal_args):
 
     
     start_time = time.time()
-    # VAL + optional collection of predictions
-    val_stats, all_paths, all_preds, all_labels = validation_one_epoch_collect(val_m.data_loader, pretrained_model, device)
-    print(f"val bal_acc: {val_stats['bal_acc']:.2f}% ")
+    # VAL flow: either collect simple preds into CSV, or collect logits into NPZ shards
+    if getattr(terminal_args, 'get_logits', False):
+        # Choose directory to save logits shards/merged
+        base_out = args.output_dir if args.output_dir else '.'
+        logits_subdir = getattr(terminal_args, 'logits_dir', 'val_logits')
+        save_dir = os.path.join(base_out, logits_subdir)
+        os.makedirs(save_dir, exist_ok=True)
 
-    # Save predictions CSV (per-rank if distributed)
-    if args.output_dir:
-        os.makedirs(args.output_dir, exist_ok=True)
-    # build dataframe
-    df = create_df_predictions(all_paths, all_preds, all_labels)
-    # choose output filename
-    preds_name = getattr(terminal_args, 'preds_csv', 'inference_predictions.csv')
-    out_csv = preds_name if not args.output_dir else os.path.join(args.output_dir, preds_name)
-    # save only on rank 0 (after distributed gather inside validation_one_epoch_collect)
-    if rank == 0:
-        try:
-            df.to_csv(out_csv, index=False)
-            print(f"Saved predictions to {out_csv}")
-        except Exception as e:
-            print(f"Warning: could not save predictions CSV: {e}")
+        prefix = getattr(terminal_args, 'logits_prefix', 'val')
+        val_stats = validation_one_epoch_collect_logits(
+            val_m.data_loader,
+            pretrained_model,
+            device,
+            save_dir=save_dir,
+            prefix=prefix,
+        )
+        print(f"val bal_acc: {val_stats['bal_acc']:.2f}%  (logits saved under {save_dir})")
+    else:
+        # Standard path: collect predictions and save a CSV
+        val_stats, all_paths, all_preds, all_labels = validation_one_epoch_collect(
+            val_m.data_loader, pretrained_model, device
+        )
+        print(f"val bal_acc: {val_stats['bal_acc']:.2f}% ")
+
+        # Save predictions CSV (per-rank if distributed)
+        if args.output_dir:
+            os.makedirs(args.output_dir, exist_ok=True)
+        # build dataframe
+        df = create_df_predictions(all_paths, all_preds, all_labels)
+        # choose output filename
+        preds_name = getattr(terminal_args, 'preds_csv', 'inference_predictions.csv')
+        out_csv = preds_name if not args.output_dir else os.path.join(args.output_dir, preds_name)
+        # save only on rank 0 (after distributed gather inside validation_one_epoch_collect)
+        if rank == 0:
+            try:
+                df.to_csv(out_csv, index=False)
+                print(f"Saved predictions to {out_csv}")
+            except Exception as e:
+                print(f"Warning: could not save predictions CSV: {e}")
 
     # logging su file (always)
     log_stats = {**{f'val2_{k}': v for k, v in val_stats.items()}}
@@ -181,8 +207,12 @@ if __name__ == '__main__':
     parser.add_argument('--csvfile', type=str, default='val_manos_w_2400.csv')
     
     parser.add_argument('--inference_model', type=str, default='output/checkpoint-best.pth')
-    #parser.add_argument('--collect_preds', action='store_true', help='Collect and save per-sample predictions')
     parser.add_argument('--preds_csv', type=str, default='inference_predictions.csv', help='Output CSV filename for predictions')
+
+    parser.add_argument('--get_logits', action='store_true', help='Collect logits and save .npz shards')
+    parser.add_argument('--logits_dir', type=str, default='val_logits', help='Subfolder under output_dir to store logits npz files')
+    parser.add_argument('--logits_prefix', type=str, default='val', help='Prefix for saved logits files')
+    
 
     args =  parser.parse_args()
 

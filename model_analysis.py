@@ -1,6 +1,6 @@
 import os
 from PIL import Image
-from typing import List, Union, Optional, Sequence
+from typing import List, Union, Optional, Sequence, Mapping
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -97,31 +97,34 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 #region Funzioni per eseguire l'inferenza
 
-def predict_label(model, videos):    
-    #with torch.no_grad():
-    with torch.cuda.amp.autocast():
-        logits = model(videos)  # (B, nb_classes)
-        predicted_classes = torch.argmax(logits, dim=1)  # intero con l'indice di classe
+#####  USARE   validation_one_epoch_collect from engine_or_finetuning
+# val_stats, all_paths, all_preds, all_labels = validation_one_epoch_collect(val_m.data_loader, pretrained_model, device)
+#########################################
+# def predict_label(model, videos):    
+#     #with torch.no_grad():
+#     with torch.cuda.amp.autocast():
+#         logits = model(videos)  # (B, nb_classes)
+#         predicted_classes = torch.argmax(logits, dim=1)  # intero con l'indice di classe
     
-    return predicted_classes
+#     return predicted_classes
 
-def get_path_pred_label(model, data_loader):
-    all_paths = []
-    all_labels = []
-    all_preds = []
+# def get_path_pred_label(model, data_loader):
+#     all_paths = []
+#     all_labels = []
+#     all_preds = []
 
-    with torch.no_grad():
-        for videos, labels, folder_path in data_loader:
-            videos = videos.to(device, non_blocking=True)
-            predicted_classes = predict_label(model, videos) # shape (batch, num_class)
-            labels = labels.detach().cpu().numpy()
-            pred_classes = predicted_classes.detach().cpu().numpy()
+#     with torch.no_grad():
+#         for videos, labels, folder_path in data_loader:
+#             videos = videos.to(device, non_blocking=True)
+#             predicted_classes = predict_label(model, videos) # shape (batch, num_class)
+#             labels = labels.detach().cpu().numpy()
+#             pred_classes = predicted_classes.detach().cpu().numpy()
             
-            all_labels.extend(labels)
-            all_preds.extend(pred_classes)
-            all_paths.extend(folder_path)
+#             all_labels.extend(labels)
+#             all_preds.extend(pred_classes)
+#             all_paths.extend(folder_path)
 
-    return all_paths, all_preds, all_labels
+#     return all_paths, all_preds, all_labels
 
 def create_df_predictions(all_paths, all_preds, all_labels):
     video_folder_name = pd.Series(all_paths).str.split('/').str.get(-1)
@@ -293,6 +296,129 @@ def evaluate_binary_classifier(
     return pd.Series(metrics, name="metrics")
 
 
+def plot_confusion_and_results(
+    results: Union[pd.Series, Mapping[str, float]],
+    labels: Sequence[str] = ("Negative", "Positive"),
+    title: str = "Confusion matrix and metrics",
+    savepath: Optional[str] = None,
+    cmap: str = "Blues",
+    normalize: bool = True,
+) -> None:
+    """Plotta una matrice di confusione con annotazioni e, a lato, un riquadro
+    con le metriche principali contenute in ``results``.
+
+    Parametri
+    ---------
+    results: pandas.Series o dict
+        Output di ``evaluate_binary_classifier`` che include almeno
+        ``true_negatives``, ``false_positives``, ``false_negatives``, ``true_positives``
+        e le metriche scalari (es. ``accuracy``, ``balanced_accuracy``, ``recall``, ...).
+    labels: sequence of str
+        Nomi mostrati sugli assi [true, pred] in ordine (neg, pos).
+    title: str
+        Titolo della figura.
+    savepath: str or None
+        Se fornito, salva la figura in questo percorso (dpi=300, tight layout).
+    cmap: str
+        Colormap per la heatmap.
+    normalize: bool
+        Se True usa la matrice normalizzata per il colore; in ogni caso annota
+        sia il conteggio che la percentuale.
+    """
+
+    # Supporta sia Series che dict
+    tn = int(results.get("true_negatives", results.get("tn", 0)))
+    fp = int(results.get("false_positives", results.get("fp", 0)))
+    fn = int(results.get("false_negatives", results.get("fn", 0)))
+    tp = int(results.get("true_positives", results.get("tp", 0)))
+
+    counts = np.array([[tn, fp], [fn, tp]], dtype=float)
+    # Normalizzazione per riga (per true class)
+    row_sums = counts.sum(axis=1, keepdims=True)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        cm_norm = np.divide(counts, row_sums, where=row_sums != 0)
+        cm_norm[np.isnan(cm_norm)] = 0.0
+
+    # Setup figura con due pannelli
+    fig, (ax_cm, ax_txt) = plt.subplots(
+        1, 2, figsize=(10, 4.5), gridspec_kw={"width_ratios": [1.15, 1.0]}
+    )
+
+    data_for_color = cm_norm if normalize else counts
+    im = ax_cm.imshow(data_for_color, interpolation="nearest", cmap=cmap,
+                      vmin=0.0, vmax=(1.0 if normalize else data_for_color.max() or 1.0))
+
+    # Assi e ticks
+    ax_cm.set_title(title)
+    ax_cm.set_ylabel("True label")
+    ax_cm.set_xlabel("Predicted label")
+    ax_cm.set_xticks([0, 1], labels=labels)
+    ax_cm.set_yticks([0, 1], labels=labels)
+
+    # Annotazioni: conteggio + percentuale per cella
+    for i in range(2):
+        for j in range(2):
+            count = int(counts[i, j])
+            pct = cm_norm[i, j]
+            text = f"{count}\n({pct:,.1%})"
+            ax_cm.text(j, i, text, ha="center", va="center", color="black", fontsize=10)
+
+    # Barra colore
+    cbar = fig.colorbar(im, ax=ax_cm, fraction=0.046, pad=0.04)
+    #cbar.ax.set_ylabel("Row-normalized" if normalize else "Count", rotation=90, va="center")
+
+    # Pannello destro: lista metrica -> valore
+    ax_txt.axis("off")
+
+    # Ordine preferito di visualizzazione
+    preferred_keys = [
+        #"accuracy",
+        "balanced_accuracy",
+        "recall",
+        "far",
+        "csi",
+        "hss",
+        "roc_auc",
+        "pr_auc",
+        "brier_score_loss",
+        "log_loss",
+    ]
+
+    # Raccoglie metri che esistono in results
+    lines = []
+    for k in preferred_keys:
+        if k in results:
+            v = results[k]
+            # Formattazione: percentuali per metriche in [0,1], 3 decimali altrimenti
+            if k in { "balanced_accuracy", "recall", "far", "csi", "hss", "roc_auc", "pr_auc"}:   # "accuracy",
+                fmt = f"{v:.3f}"
+            else:
+                fmt = f"{v:.3f}"
+            nice = k.replace("_", " ").title()
+            lines.append((nice, fmt))
+
+    # Aggiunge i conteggi confusionali alla fine
+    #lines.append((" ", " "))
+    #lines.append(("True Negatives", f"{tn:d}"))
+    #lines.append(("False Positives", f"{fp:d}"))
+    #lines.append(("False Negatives", f"{fn:d}"))
+    #lines.append(("True Positives", f"{tp:d}"))
+
+    # Disegno testo in due colonne allineate
+    x_key, x_val = 0.05, 0.62
+    y = 0.95
+    dy = 0.085
+    for (name, val) in lines:
+        ax_txt.text(x_key, y, name, transform=ax_txt.transAxes, ha="left", va="top", fontsize=11)
+        ax_txt.text(x_val, y, val, transform=ax_txt.transAxes, ha="right", va="top", fontsize=11)
+        y -= dy
+
+    plt.tight_layout()
+    if savepath is not None:
+        plt.savefig(savepath, dpi=300, bbox_inches="tight")
+    plt.show()
+
+
 def evaluate_binary_classifier_torch(
     y_true: torch.Tensor,
     y_pred: torch.Tensor,
@@ -422,7 +548,7 @@ def plot_metrics_over_time(
 
 
 
-def calc_metrics():
+def calc_metrics_unsupervised():
     args = prepare_args()
     device = torch.device(args.device)
 
@@ -434,7 +560,7 @@ def calc_metrics():
     #specialized_model = get_model(args)
 
     patch_size = pretrained_model.encoder.patch_embed.patch_size
-    data_loader_test = get_dataloader(args, patch_size)
+    data_loader_test = None # get_dataloader(args, patch_size)
 
     # Ricostruzione e calcolo delle metriche
     with torch.no_grad():
@@ -468,4 +594,4 @@ def calc_metrics():
     #    print('Il modello preaddestrato ha una migliore ricostruzione.')
 
 if __name__ == "__main__":
-    calc_metrics(image_folder)
+    calc_metrics_unsupervised()#image_folder)
