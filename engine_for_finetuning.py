@@ -11,6 +11,7 @@ os.environ["INDUCTOR_DISABLE_CUDAGRAPHS"] = "1"
 
 import sys
 from multiprocessing import Pool
+from glob import glob
 from typing import Iterable, Optional
 
 import numpy as np
@@ -401,6 +402,177 @@ def validation_one_epoch_collect(
     stats['far'] = far_global
     return stats, all_paths, all_preds, all_labels
 
+
+@torch.no_grad()
+def validation_one_epoch_collect_logits(
+    data_loader,
+    model,
+    device,
+    save_dir: str,
+    criterion: Optional[torch.nn.Module] = None,
+    prefix: str = "val",
+):
+    """
+    Esegue validazione come `validation_one_epoch_collect`, raccogliendo anche i logits
+    per ogni sample (senza softmax) e salvando shard per-batch in file .npz compressi.
+
+    Scrive:
+      - Shard per-batch: `{prefix}_rank{rank}_part{idx:06d}.npz` in `save_dir`
+      - Merge per-rank:  `{prefix}_rank{rank}_merged.npz` in `save_dir`
+
+    Ritorno:
+      - `stats` (dict) con metriche globali.
+    """
+    criterion = criterion or torch.nn.CrossEntropyLoss()
+
+    os.makedirs(save_dir, exist_ok=True)
+
+    metric_logger = utils.MetricLogger(delimiter="  ")
+    header = 'Val:'
+
+    # switch to evaluation mode
+    model.eval()
+
+    rank = dist.get_rank() if dist.is_available() and dist.is_initialized() else 0
+    world_size = dist.get_world_size() if dist.is_available() and dist.is_initialized() else 1
+
+    # In questa variante non raccogliamo in memoria per evitare OOM
+
+    # Per-metrics accumulators
+    tp_total = 0
+    tn_total = 0
+    fp_total = 0
+    fn_total = 0
+
+    shard_paths = []
+    part_idx = 0
+
+    for batch in metric_logger.log_every(data_loader, 10, header):
+        images = batch[0]
+        target = batch[1]
+        batch_paths = batch[2] if len(batch) > 2 else None
+
+        images = images.to(device, non_blocking=True)
+        targets_ondevice = target.to(device, non_blocking=True)
+
+        # compute output
+        # autocast sicuro: abilita solo su CUDA
+        use_cuda = (device is not None and getattr(device, 'type', 'cpu') == 'cuda' and torch.cuda.is_available())
+        autocast_cm = torch.autocast(device_type='cuda', enabled=use_cuda)
+        with autocast_cm:
+            output = model(images)
+            loss = criterion(output, targets_ondevice)
+
+        preds = output.argmax(dim=1)
+        batch_metrics = evaluate_binary_classifier_torch(targets_ondevice, preds, show_report=False)
+        accuracy = batch_metrics["accuracy"]
+        balanced_accuracy = batch_metrics["balanced_accuracy"]
+        recall = batch_metrics["recall"]
+        far = batch_metrics["far"]
+
+        batch_size = images.shape[0]
+        metric_logger.update(loss=loss.item())
+        metric_logger.meters['acc'].update(accuracy, n=batch_size)
+        metric_logger.meters['bal_acc'].update(balanced_accuracy, n=batch_size)
+        metric_logger.meters['pod'].update(recall, n=batch_size)
+        metric_logger.meters['far'].update(far, n=batch_size)
+
+        # accumulate counts for global metrics
+        tp_total += int(((targets_ondevice == 1) & (preds == 1)).sum().item())
+        tn_total += int(((targets_ondevice == 0) & (preds == 0)).sum().item())
+        fp_total += int(((targets_ondevice == 0) & (preds == 1)).sum().item())
+        fn_total += int(((targets_ondevice == 1) & (preds == 0)).sum().item())
+
+        # Prepare numpy payloads
+        logits_np = output.detach().float().cpu().numpy()
+        labels_np = target.detach().cpu().numpy().astype(np.uint8)
+        preds_np = preds.detach().cpu().numpy().astype(np.uint8)
+        paths_list = batch_paths if batch_paths is not None else [None] * batch_size
+        paths_np = np.array(paths_list, dtype=object)
+
+        # Save shard to disk
+        shard_path = os.path.join(save_dir, f"{prefix}_rank{rank}_part{part_idx:06d}.npz")
+        np.savez_compressed(
+            shard_path,
+            logits=logits_np,
+            labels=labels_np,
+            preds=preds_np,
+            paths=paths_np,
+        )
+        shard_paths.append(shard_path)
+        part_idx += 1
+
+        # Nessuna raccolta in memoria
+
+    # Ensure all ranks finished writing shards
+    if dist.is_available() and dist.is_initialized():
+        dist.barrier()
+
+    # Reduce global counts across processes
+    totals = torch.tensor([tp_total, tn_total, fp_total, fn_total], device=device, dtype=torch.long)
+    if dist.is_available() and dist.is_initialized():
+        dist.all_reduce(totals, op=dist.ReduceOp.SUM)
+    tp_total, tn_total, fp_total, fn_total = [int(x.item()) for x in totals]
+
+    # compute global metrics from reduced counts
+    total = tp_total + tn_total + fp_total + fn_total
+    acc_global = (tp_total + tn_total) / total if total > 0 else 0.0
+    recall_global = tp_total / (tp_total + fn_total) if (tp_total + fn_total) > 0 else 0.0
+    specificity_global = tn_total / (tn_total + fp_total) if (tn_total + fp_total) > 0 else 0.0
+    bal_acc_global = (recall_global + specificity_global) / 2
+    far_global = fp_total / (fp_total + tp_total) if (fp_total + tp_total) > 0 else 0.0
+
+    # gather the stats from all processes (logging meters)
+    metric_logger.synchronize_between_processes()
+    print('* Balanced Acc@1 {:.3f}  loss {losses.global_avg:.3f}'
+        .format(bal_acc_global, losses=metric_logger.loss))
+
+    stats = {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+    stats['acc'] = acc_global
+    stats['bal_acc'] = bal_acc_global
+    stats['pod'] = recall_global
+    stats['far'] = far_global
+
+    # Merge local shards per-rank
+    merged_rank_path = os.path.join(save_dir, f"{prefix}_rank{rank}_merged.npz")
+    try:
+        _merge_npz_shards(shard_paths, merged_rank_path)
+        print(f"Saved merged (rank={rank}) to: {merged_rank_path}")
+    except Exception as e:
+        print(f"Warning: failed to merge rank {rank} shards: {e}")
+
+    # Non tentiamo il merge cross-rank: assumiamo FS non condiviso tra nodi
+    return stats
+
+
+def _merge_npz_shards(shard_paths, output_path):
+    """
+    Carica e concatena una lista di file .npz (con chiavi: logits, labels, preds, paths),
+    e salva un unico file compresso `output_path`.
+    """
+    logits_list = []
+    labels_list = []
+    preds_list = []
+    paths_list = []
+
+    for p in shard_paths:
+        with np.load(p, allow_pickle=True) as d:
+            logits_list.append(d['logits'])
+            labels_list.append(d['labels'])
+            preds_list.append(d['preds'])
+            paths_list.append(d['paths'])
+
+    if len(logits_list) == 0:
+        raise ValueError("No shards to merge.")
+
+    logits = np.concatenate(logits_list, axis=0)
+    labels = np.concatenate(labels_list, axis=0)
+    preds = np.concatenate(preds_list, axis=0)
+    # paths è un array object; concat mantiene dtype=object
+    paths = np.concatenate(paths_list, axis=0)
+
+    np.savez_compressed(output_path, logits=logits, labels=labels, preds=preds, paths=paths)
+    return output_path
 
 @torch.no_grad()
 def final_test(data_loader, model, device, file):

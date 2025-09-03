@@ -23,7 +23,6 @@
 - Interpretare i falsi positivi in base alla distanza dal vero positivo -> se sono tile limitrofe non è così grave: escluderli o contarli a parte da quelli lontani o comunque vicini ma senza nuvole.
 
 
-## verificare che la balanced accuracy torni uguale all'accuracy nel dataset bilanciato
 
 - Documentazione\
   completare il readme.md e agent.md
