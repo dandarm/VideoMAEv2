@@ -31,7 +31,7 @@ class DataManager():
         if specify_data_path is not None:
             self.file_path = specify_data_path   
 
-        print(args.train_path, args.test_path, args.val_path, self.file_path)
+        #print(args.train_path, args.test_path, args.val_path, self.file_path)
 
         self.world_size = world_size 
         self.rank = rank

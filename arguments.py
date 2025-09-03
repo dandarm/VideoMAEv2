@@ -277,7 +277,7 @@ def prepare_finetuning_args(machine=None):
         'auto_resume': False,
         'load_for_test_mode': False,
         'data_path': './',
-        'csv_folder': './output/traintest_csv',
+        #'csv_folder': './output/traintest_csv',
         'train_path': 'train_manos_w_1238.csv',   #'.csv',   #'train_manos_836.csv',   #  train_manos_unbalanced_6468
         'test_path': 'test_manos_w_354.csv',  # 'test_manos_372.csv',
         'val_path': 'val_manos_w_2400.csv', 
