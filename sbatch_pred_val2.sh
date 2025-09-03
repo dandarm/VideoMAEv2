@@ -4,7 +4,7 @@
 #SBATCH --partition=boost_usr_prod
 #SBATCH --gres=gpu:4
 #SBATCH --cpus-per-task=4
-#SBATCH --time=00:06:00
+#SBATCH --time=00:09:00
 #SBATCH --error=predjob.err
 #SBATCH --output=predjob.out
 
