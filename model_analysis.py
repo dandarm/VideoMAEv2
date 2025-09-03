@@ -1,4 +1,5 @@
 import os
+from glob import glob
 from PIL import Image
 from typing import List, Union, Optional, Sequence, Mapping
 import numpy as np
@@ -26,7 +27,7 @@ import torchvision.transforms as transforms
 #import torchvision.transforms.functional as F
 import torch.nn.functional as F
 
-
+from sklearn.decomposition import PCA
 
 from utils import NativeScalerWithGradNormCount as NativeScaler
 
@@ -37,7 +38,7 @@ from arguments import prepare_args, Args  # NON TOGLIERE: serve a torch.load per
 
 
 
-# Funzione per caricare le immagini
+# region  Funzione per caricare le immagini
 def load_images(image_folder, transform, device):
     images = []
     for filename in os.listdir(image_folder):
@@ -92,7 +93,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 #specialized_model_path = './output_old2/checkpoint-149.pth'  # Modello addestrato
 #image_folder = './sequenced_imgs/freq-1.6_part3'  # Cartella con le immagini di test
 
-
+# endregion
 
 
 #region Funzioni per eseguire l'inferenza
@@ -173,6 +174,190 @@ def video_pred_2_img_pred(df_video_w_predictions):
 #endregion
 
 
+# region raccogliere le logits
+
+def load_logits_dir(save_dir='output/val_logits', prefix='val'):
+    """Carica e concatena i file .npz prodotti dalla validazione.
+    Ordine di preferenza:
+      1) singolo file globale `{prefix}_all_merged.npz` (se esiste)
+      2) file merged per-rank `{prefix}_rank*_merged.npz`
+      3) shard per-batch `{prefix}_rank*_*part*.npz`
+
+    Ritorna: logits (N,C), labels (N,), preds (N,), paths (N,)
+    """
+    # 1) unico file globale
+    global_merged = os.path.join(save_dir, f"{prefix}_all_merged.npz")
+    if os.path.exists(global_merged):
+        files = [global_merged]
+    else:
+        # 2) merged per-rank
+        merged = sorted(glob(os.path.join(save_dir, f"{prefix}_rank*_merged.npz")))
+        # 3) altrimenti shard per-batch
+        files = merged if len(merged) > 0 else sorted(glob(os.path.join(save_dir, f"{prefix}_rank*_*part*.npz")))
+    if len(files) == 0:
+        raise FileNotFoundError(f'No npz files found in {save_dir}')
+    logits_list, labels_list, preds_list, paths_list = [], [], [], []
+    for f in files:
+        with np.load(f, allow_pickle=True) as d:
+            logits_list.append(d['logits'])
+            labels_list.append(d['labels'])
+            preds_list.append(d['preds'])
+            paths_list.append(d['paths'])
+    logits = np.concatenate(logits_list, axis=0)
+    labels = np.concatenate(labels_list, axis=0)
+    preds = np.concatenate(preds_list, axis=0)
+    paths = np.concatenate(paths_list, axis=0)
+    return logits, labels, preds, paths
+
+
+def merge_all_rank_merged(save_dir='output/val_logits', prefix='val', output_filename=None, delete_inputs=True):
+    """Unisce tutti i file merged per-rank in un unico `{prefix}_all_merged.npz`.
+
+    - Cerca: `{prefix}_rank*_merged.npz`
+    - Salva: `{output_filename}` se fornito, altrimenti `{prefix}_all_merged.npz`
+    - Se `delete_inputs=True`, cancella i singoli merged per-rank dopo il salvataggio.
+
+    Ritorna: percorso del file globale salvato.
+    """
+    files = sorted(glob(os.path.join(save_dir, f"{prefix}_rank*_merged.npz")))
+    if len(files) == 0:
+        raise FileNotFoundError(f"No per-rank merged files found in {save_dir}")
+
+    logits_list, labels_list, preds_list, paths_list = [], [], [], []
+    for f in files:
+        with np.load(f, allow_pickle=True) as d:
+            logits_list.append(d['logits'])
+            labels_list.append(d['labels'])
+            preds_list.append(d['preds'])
+            paths_list.append(d['paths'])
+
+    logits = np.concatenate(logits_list, axis=0)
+    labels = np.concatenate(labels_list, axis=0)
+    preds = np.concatenate(preds_list, axis=0)
+    paths = np.concatenate(paths_list, axis=0)
+
+    out = output_filename or os.path.join(save_dir, f"{prefix}_all_merged.npz")
+    np.savez_compressed(out, logits=logits, labels=labels, preds=preds, paths=paths)
+
+    if delete_inputs:
+        for f in files:
+            try:
+                os.remove(f)
+            except Exception as e:
+                print(f"Warning: could not remove {f}: {e}")
+    return out
+
+
+def cleanup_npz_shards(save_dir='output/val_logits', prefix='val', only_if_merged=True, dry_run=False):
+    """Cancella gli shard per-batch `{prefix}_rank*_*part*.npz`.
+
+    - Se `only_if_merged=True`, procede solo per i rank che hanno il corrispondente
+      `{prefix}_rank{R}_merged.npz` presente (più sicuro).
+    - `dry_run=True` stampa i file che verrebbero rimossi, senza cancellarli.
+
+    Ritorna: lista dei file (effettivamente) rimossi.
+    """
+    import re
+    part_files = sorted(glob(os.path.join(save_dir, f"{prefix}_rank*_*part*.npz")))
+    if len(part_files) == 0:
+        return []
+
+    removed = []
+    if only_if_merged:
+        merged_available = set()
+        for f in glob(os.path.join(save_dir, f"{prefix}_rank*_merged.npz")):
+            m = re.search(rf"{re.escape(prefix)}_rank(\d+)_merged\\.npz$", os.path.basename(f))
+            if m:
+                merged_available.add(m.group(1))
+
+        for f in part_files:
+            m = re.search(rf"{re.escape(prefix)}_rank(\d+)_part\d+\\.npz$", os.path.basename(f))
+            if not m:
+                continue
+            rk = m.group(1)
+            if rk in merged_available:
+                if dry_run:
+                    print(f"Would remove {f}")
+                else:
+                    try:
+                        os.remove(f)
+                        removed.append(f)
+                    except Exception as e:
+                        print(f"Warning: could not remove {f}: {e}")
+    else:
+        for f in part_files:
+            if dry_run:
+                print(f"Would remove {f}")
+            else:
+                try:
+                    os.remove(f)
+                    removed.append(f)
+                except Exception as e:
+                    print(f"Warning: could not remove {f}: {e}")
+
+    return removed
+
+
+_HAS_SK = True # usa la PCA per ridurre se ci sono pi ù di due dimensioni
+#_HAS_SK = False
+
+def plot_logits_by_label(logits, labels, class_names=None, max_points=20000, alpha=0.5):
+    logits = np.asarray(logits)
+    labels = np.asarray(labels).astype(int)
+    C = logits.shape[1]
+    # Subsample per scatter denso
+    if logits.shape[0] > max_points:
+        rng = np.random.RandomState(0)
+        idx = rng.choice(logits.shape[0], size=max_points, replace=False)
+        X = logits[idx]
+        y = labels[idx]
+    else:
+        X = logits
+        y = labels
+    uniq = np.unique(y)
+    cmap = plt.cm.get_cmap('tab10', max(10, len(uniq)))
+    if C == 2:
+        # Scatter 2D dei due logit (z0, z1) per label
+        z0, z1 = X[:, 0], X[:, 1]
+        plt.figure(figsize=(6, 6))
+        for i, lab in enumerate(uniq):
+            m = (y == lab)
+            lbl = class_names[lab] if class_names is not None and lab < len(class_names) else f'class {lab}'
+            plt.scatter(z0[m], z1[m], s=10, alpha=alpha, label=lbl, color=cmap(i))
+        # retta decisionale z1 = z0
+        lim_min = float(np.min(np.concatenate([z0, z1]))) - 1
+        lim_max = float(np.max(np.concatenate([z0, z1]))) + 1
+        lims = [lim_min, lim_max]
+        plt.plot(lims, lims, 'k--', linewidth=1, alpha=0.6)
+        plt.xlim(lims)
+        plt.ylim(lims)
+        plt.xlabel('logit[0]')
+        plt.ylabel('logit[1]')
+        plt.title('Logits binari per label (z0 vs z1)')
+        plt.legend()
+        plt.tight_layout()
+    else:
+        # PCA a 2D per scatter colorato per label
+        if _HAS_SK:
+            Z = PCA(n_components=2).fit_transform(X)
+            xlabel, ylabel = 'PC1', 'PC2'
+        else:
+            Z = X[:, :2] if X.shape[1] >= 2 else np.pad(X, ((0,0),(0, 2-X.shape[1])), mode='constant')
+            xlabel, ylabel = 'logit[0]', 'logit[1]'
+        plt.figure(figsize=(6, 6))
+        for i, lab in enumerate(uniq):
+            m = (y == lab)
+            lbl = class_names[lab] if class_names is not None and lab < len(class_names) else f'class {lab}'
+            plt.scatter(Z[m, 0], Z[m, 1], s=10, alpha=alpha, label=lbl, color=cmap(i))
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.title('Logits (ridotti) per label')
+        plt.legend()
+        plt.tight_layout()
+
+
+
+# endregion
 
 # region Funzioni per calcolare le metriche di classificazione
 
@@ -495,6 +680,11 @@ def evaluate_binary_classifier_torch(
     }
 
 
+# endregion
+
+
+#region altre
+
 def label_to_minutes(label: str) -> Optional[int]:
     """Estrae 'hh_mm' dal nome *label* e lo converte in minuti dopo mezzanotte.
 
@@ -595,3 +785,5 @@ def calc_metrics_unsupervised():
 
 if __name__ == "__main__":
     calc_metrics_unsupervised()#image_folder)
+
+# endregion

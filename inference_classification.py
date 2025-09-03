@@ -28,7 +28,11 @@ from timm.data.mixup import Mixup
 from utils import NativeScalerWithGradNormCount as NativeScaler
 
 from dataset.data_manager import DataManager
-from model_analysis import create_df_predictions
+from model_analysis import (
+    create_df_predictions,
+    merge_all_rank_merged,
+    cleanup_npz_shards,
+)
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -154,6 +158,23 @@ def launch_inference_classification(terminal_args):
             prefix=prefix,
         )
         print(f"val bal_acc: {val_stats['bal_acc']:.2f}%  (logits saved under {save_dir})")
+
+        # Sync all ranks before attempting cross-rank merge/cleanup
+        if dist.is_available() and dist.is_initialized():
+            dist.barrier()
+        # Perform final merge of per-rank merged files and cleanup shards on rank 0
+        if rank == 0:
+            try:
+                global_path = merge_all_rank_merged(save_dir=save_dir, prefix=prefix, delete_inputs=True)
+                print(f"Created global merged logits: {global_path}")
+            except Exception as e:
+                print(f"Warning: could not create global merged logits: {e}")
+            try:
+                removed = cleanup_npz_shards(save_dir=save_dir, prefix=prefix, only_if_merged=True, dry_run=False)
+                if len(removed) > 0:
+                    print(f"Removed {len(removed)} shard files.")
+            except Exception as e:
+                print(f"Warning: shard cleanup failed: {e}")
     else:
         # Standard path: collect predictions and save a CSV
         val_stats, all_paths, all_preds, all_labels = validation_one_epoch_collect(
