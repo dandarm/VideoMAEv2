@@ -12,7 +12,7 @@ os.environ["INDUCTOR_DISABLE_CUDAGRAPHS"] = "1"
 import sys
 from multiprocessing import Pool
 from glob import glob
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Callable
 
 import numpy as np
 import torch
@@ -206,78 +206,14 @@ def train_one_epoch(model: torch.nn.Module,
 
 @torch.no_grad()
 def validation_one_epoch(data_loader, model, device, criterion: Optional[torch.nn.Module] = None):
-    criterion = criterion or torch.nn.CrossEntropyLoss()
-
-    metric_logger = utils.MetricLogger(delimiter="  ")
-    header = 'Val:'
-
-    # switch to evaluation mode
-    model.eval()
-    # accumulators for global metrics over the whole validation set
-    tp_total = 0
-    tn_total = 0
-    fp_total = 0
-    fn_total = 0
-
-    for batch in metric_logger.log_every(data_loader, 10, header):
-        images = batch[0]
-        target = batch[1]
-        images = images.to(device, non_blocking=True)
-        targets_ondevice = target.to(device, non_blocking=True)
-
-        # compute output
-        with torch.cuda.amp.autocast():
-            output = model(images)
-            loss = criterion(output, targets_ondevice)
-
-        preds = output.argmax(dim=1)
-        batch_metrics = evaluate_binary_classifier_torch(targets_ondevice, preds, show_report=False)
-        accuracy = batch_metrics["accuracy"]
-        balanced_accuracy = batch_metrics["balanced_accuracy"]
-        recall = batch_metrics["recall"]
-        far = batch_metrics["far"]
-        # accumulate counts for global metrics
-        tp_total += int(((targets_ondevice == 1) & (preds == 1)).sum().item())
-        tn_total += int(((targets_ondevice == 0) & (preds == 0)).sum().item())
-        fp_total += int(((targets_ondevice == 0) & (preds == 1)).sum().item())
-        fn_total += int(((targets_ondevice == 1) & (preds == 0)).sum().item())
-
-        batch_size = images.shape[0]
-        metric_logger.update(loss=loss.item())
-        metric_logger.meters['acc'].update(accuracy, n=batch_size)
-        metric_logger.meters['bal_acc'].update(balanced_accuracy, n=batch_size)
-        #metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
-        metric_logger.meters['pod'].update(recall, n=batch_size)
-        metric_logger.meters['far'].update(far, n=batch_size)
-
-        
-    # Reduce global counts across processes if distributed
-    totals = torch.tensor([tp_total, tn_total, fp_total, fn_total], device=device, dtype=torch.long)
-    if dist.is_available() and dist.is_initialized():
-        dist.all_reduce(totals, op=dist.ReduceOp.SUM)
-    tp_total, tn_total, fp_total, fn_total = [int(x.item()) for x in totals]
-
-    # compute global metrics from reduced counts
-    total = tp_total + tn_total + fp_total + fn_total
-    acc_global = (tp_total + tn_total) / total if total > 0 else 0.0
-    recall_global = tp_total / (tp_total + fn_total) if (tp_total + fn_total) > 0 else 0.0
-    specificity_global = tn_total / (tn_total + fp_total) if (tn_total + fp_total) > 0 else 0.0
-    bal_acc_global = (recall_global + specificity_global) / 2
-    far_global = fp_total / (fp_total + tp_total) if (fp_total + tp_total) > 0 else 0.0
-
-    # gather the stats from all processes (logging meters)
-    metric_logger.synchronize_between_processes()
-    # print using the globally computed balanced accuracy
-    print('* Balanced Acc@1 {:.3f}  loss {losses.global_avg:.3f}'
-        .format(bal_acc_global, losses=metric_logger.loss))
-
-    stats = {k: meter.global_avg for k, meter in metric_logger.meters.items()}
-    # override meters-derived values with globally computed metrics
-    stats['acc'] = acc_global
-    stats['bal_acc'] = bal_acc_global
-    stats['pod'] = recall_global
-    stats['far'] = far_global
-    return stats
+    return _validation_common(
+        data_loader=data_loader,
+        model=model,
+        device=device,
+        criterion=criterion,
+        on_batch=None,
+        header='Val:'
+    )
 
 
 @torch.no_grad()
@@ -295,67 +231,27 @@ def validation_one_epoch_collect(
 
     Returns a tuple: (metrics_dict, all_paths, all_preds, all_labels)
     """
-    criterion = criterion or torch.nn.CrossEntropyLoss()
+    all_paths: list = []
+    all_labels: list = []
+    all_preds: list = []
 
-    metric_logger = utils.MetricLogger(delimiter="  ")
-    header = 'Val:'
-
-    # switch to evaluation mode
-    model.eval()
-
-    all_paths = []
-    all_labels = []
-    all_preds = []
-
-    # accumulators for global metrics over the whole validation set
-    tp_total = 0
-    tn_total = 0
-    fp_total = 0
-    fn_total = 0
-
-    for batch in metric_logger.log_every(data_loader, 10, header):
-        images = batch[0]
-        target = batch[1]
-        # optional third element (e.g., folder_path)
-        batch_paths = batch[2] if len(batch) > 2 else None
-
-        images = images.to(device, non_blocking=True)
-        targets_ondevice = target.to(device, non_blocking=True)
-
-        # compute output
-        with torch.cuda.amp.autocast():
-            output = model(images)
-            loss = criterion(output, targets_ondevice)
-
-        preds = output.argmax(dim=1)
-        batch_metrics = evaluate_binary_classifier_torch(targets_ondevice, preds, show_report=False)
-        accuracy = batch_metrics["accuracy"]
-        balanced_accuracy = batch_metrics["balanced_accuracy"]
-        recall = batch_metrics["recall"]
-        far = batch_metrics["far"]
-
-        batch_size = images.shape[0]
-        metric_logger.update(loss=loss.item())
-        metric_logger.meters['acc'].update(accuracy, n=batch_size)
-        metric_logger.meters['bal_acc'].update(balanced_accuracy, n=batch_size)
-        metric_logger.meters['pod'].update(recall, n=batch_size)
-        metric_logger.meters['far'].update(far, n=batch_size)
-
-        # accumulate counts for global metrics
-        tp_total += int(((targets_ondevice == 1) & (preds == 1)).sum().item())
-        tn_total += int(((targets_ondevice == 0) & (preds == 0)).sum().item())
-        fp_total += int(((targets_ondevice == 0) & (preds == 1)).sum().item())
-        fn_total += int(((targets_ondevice == 1) & (preds == 0)).sum().item())
-
+    def on_batch(output, targets_ondevice, preds, batch_paths, loss, batch_size):
         # Collect per-sample information
-        all_labels.extend(target.detach().cpu().numpy().tolist())
+        all_labels.extend(targets_ondevice.detach().cpu().numpy().tolist())
         all_preds.extend(preds.detach().cpu().numpy().tolist())
         if batch_paths is not None:
-            # batch_paths is expected to be a list/sequence of strings
             all_paths.extend(batch_paths)
         else:
-            # pad with None if paths not provided
             all_paths.extend([None] * batch_size)
+
+    stats = _validation_common(
+        data_loader=data_loader,
+        model=model,
+        device=device,
+        criterion=criterion,
+        on_batch=on_batch,
+        header='Val:'
+    )
 
     # gather predictions/labels/paths across processes if distributed
     if dist.is_available() and dist.is_initialized():
@@ -374,6 +270,76 @@ def validation_one_epoch_collect(
         except Exception as e:
             print(f"Warning: could not all_gather predictions: {e}")
 
+    return stats, all_paths, all_preds, all_labels
+
+
+def _validation_common(
+    data_loader,
+    model,
+    device,
+    criterion: Optional[torch.nn.Module],
+    on_batch: Optional[
+        Callable[[torch.Tensor, torch.Tensor, torch.Tensor, Optional[list], torch.Tensor, int], None]
+    ] = None,
+    header: str = 'Val:'
+):
+    """Core validation loop shared by collect/collect_logits.
+
+    on_batch receives: (output, targets_ondevice, preds, batch_paths, loss, batch_size).
+    Returns stats dict with globally reduced metrics.
+    """
+    criterion = criterion or torch.nn.CrossEntropyLoss()
+
+    metric_logger = utils.MetricLogger(delimiter="  ")
+    # switch to evaluation mode
+    model.eval()
+
+    # accumulators for global metrics over the whole validation set
+    tp_total = 0
+    tn_total = 0
+    fp_total = 0
+    fn_total = 0
+
+    for batch in metric_logger.log_every(data_loader, 10, header):
+        images = batch[0]
+        targets = batch[1]
+        batch_paths = batch[2] if len(batch) > 2 else None
+
+        images = images.to(device, non_blocking=True)
+        targets_ondevice = targets.to(device, non_blocking=True)
+
+        # compute output; align dtype with training (bfloat16 on CUDA)
+        if getattr(device, 'type', 'cpu') == 'cuda' and torch.cuda.is_available():
+            with torch.cuda.amp.autocast(dtype=torch.bfloat16):
+                output = model(images)
+                loss = criterion(output, targets_ondevice)
+        else:
+            output = model(images)
+            loss = criterion(output, targets_ondevice)
+
+        preds = output.argmax(dim=1)
+        batch_metrics = evaluate_binary_classifier_torch(targets_ondevice, preds, show_report=False)
+        accuracy = batch_metrics["accuracy"]
+        balanced_accuracy = batch_metrics["balanced_accuracy"]
+        recall = batch_metrics["recall"]
+        far = batch_metrics["far"]
+
+        batch_size = images.shape[0]
+        metric_logger.update(loss=loss.item())
+        metric_logger.meters['acc'].update(accuracy, n=batch_size)
+        metric_logger.meters['bal_acc'].update(balanced_accuracy, n=batch_size)
+        metric_logger.meters['pod'].update(recall, n=batch_size)
+        metric_logger.meters['far'].update(far, n=batch_size)
+
+        # accumulate counts for global metrics
+        tp_total += int(((targets_ondevice == 1) & (preds == 1)).sum().item())
+        tn_total += int(((targets_ondevice == 0) & (preds == 0)).sum().item())
+        fp_total += int(((targets_ondevice == 0) & (preds == 1)).sum().item())
+        fn_total += int(((targets_ondevice == 1) & (preds == 0)).sum().item())
+
+        if on_batch is not None:
+            on_batch(output, targets_ondevice, preds, batch_paths, loss, batch_size)
+
     # Reduce global counts across processes if distributed
     totals = torch.tensor([tp_total, tn_total, fp_total, fn_total], device=device, dtype=torch.long)
     if dist.is_available() and dist.is_initialized():
@@ -390,7 +356,6 @@ def validation_one_epoch_collect(
 
     # gather the stats from all processes (logging meters)
     metric_logger.synchronize_between_processes()
-    # print using the globally computed balanced accuracy
     print('* Balanced Acc@1 {:.3f}  loss {losses.global_avg:.3f}'
         .format(bal_acc_global, losses=metric_logger.loss))
 
@@ -400,8 +365,7 @@ def validation_one_epoch_collect(
     stats['bal_acc'] = bal_acc_global
     stats['pod'] = recall_global
     stats['far'] = far_global
-    return stats, all_paths, all_preds, all_labels
-
+    return stats
 
 @torch.no_grad()
 def validation_one_epoch_collect_logits(
@@ -427,71 +391,19 @@ def validation_one_epoch_collect_logits(
 
     os.makedirs(save_dir, exist_ok=True)
 
-    metric_logger = utils.MetricLogger(delimiter="  ")
-    header = 'Val:'
-
-    # switch to evaluation mode
-    model.eval()
-
     rank = dist.get_rank() if dist.is_available() and dist.is_initialized() else 0
-    world_size = dist.get_world_size() if dist.is_available() and dist.is_initialized() else 1
 
-    # In questa variante non raccogliamo in memoria per evitare OOM
+    shard_paths: list = []
+    part_idx = {'i': 0}
 
-    # Per-metrics accumulators
-    tp_total = 0
-    tn_total = 0
-    fp_total = 0
-    fn_total = 0
-
-    shard_paths = []
-    part_idx = 0
-
-    for batch in metric_logger.log_every(data_loader, 10, header):
-        images = batch[0]
-        target = batch[1]
-        batch_paths = batch[2] if len(batch) > 2 else None
-
-        images = images.to(device, non_blocking=True)
-        targets_ondevice = target.to(device, non_blocking=True)
-
-        # compute output
-        # autocast sicuro: abilita solo su CUDA
-        use_cuda = (device is not None and getattr(device, 'type', 'cpu') == 'cuda' and torch.cuda.is_available())
-        autocast_cm = torch.autocast(device_type='cuda', enabled=use_cuda)
-        with autocast_cm:
-            output = model(images)
-            loss = criterion(output, targets_ondevice)
-
-        preds = output.argmax(dim=1)
-        batch_metrics = evaluate_binary_classifier_torch(targets_ondevice, preds, show_report=False)
-        accuracy = batch_metrics["accuracy"]
-        balanced_accuracy = batch_metrics["balanced_accuracy"]
-        recall = batch_metrics["recall"]
-        far = batch_metrics["far"]
-
-        batch_size = images.shape[0]
-        metric_logger.update(loss=loss.item())
-        metric_logger.meters['acc'].update(accuracy, n=batch_size)
-        metric_logger.meters['bal_acc'].update(balanced_accuracy, n=batch_size)
-        metric_logger.meters['pod'].update(recall, n=batch_size)
-        metric_logger.meters['far'].update(far, n=batch_size)
-
-        # accumulate counts for global metrics
-        tp_total += int(((targets_ondevice == 1) & (preds == 1)).sum().item())
-        tn_total += int(((targets_ondevice == 0) & (preds == 0)).sum().item())
-        fp_total += int(((targets_ondevice == 0) & (preds == 1)).sum().item())
-        fn_total += int(((targets_ondevice == 1) & (preds == 0)).sum().item())
-
-        # Prepare numpy payloads
+    def on_batch(output, targets_ondevice, preds, batch_paths, loss, batch_size):
+        # Prepare numpy payloads e salva shard per-batch
         logits_np = output.detach().float().cpu().numpy()
-        labels_np = target.detach().cpu().numpy().astype(np.uint8)
+        labels_np = targets_ondevice.detach().cpu().numpy().astype(np.uint8)
         preds_np = preds.detach().cpu().numpy().astype(np.uint8)
         paths_list = batch_paths if batch_paths is not None else [None] * batch_size
         paths_np = np.array(paths_list, dtype=object)
-
-        # Save shard to disk
-        shard_path = os.path.join(save_dir, f"{prefix}_rank{rank}_part{part_idx:06d}.npz")
+        shard_path = os.path.join(save_dir, f"{prefix}_rank{rank}_part{part_idx['i']:06d}.npz")
         np.savez_compressed(
             shard_path,
             logits=logits_np,
@@ -500,38 +412,21 @@ def validation_one_epoch_collect_logits(
             paths=paths_np,
         )
         shard_paths.append(shard_path)
-        part_idx += 1
+        part_idx['i'] += 1
 
-        # Nessuna raccolta in memoria
+    # Esegui core di validazione con callback di salvataggio shard
+    stats = _validation_common(
+        data_loader=data_loader,
+        model=model,
+        device=device,
+        criterion=criterion,
+        on_batch=on_batch,
+        header='Val:'
+    )
 
     # Ensure all ranks finished writing shards
     if dist.is_available() and dist.is_initialized():
         dist.barrier()
-
-    # Reduce global counts across processes
-    totals = torch.tensor([tp_total, tn_total, fp_total, fn_total], device=device, dtype=torch.long)
-    if dist.is_available() and dist.is_initialized():
-        dist.all_reduce(totals, op=dist.ReduceOp.SUM)
-    tp_total, tn_total, fp_total, fn_total = [int(x.item()) for x in totals]
-
-    # compute global metrics from reduced counts
-    total = tp_total + tn_total + fp_total + fn_total
-    acc_global = (tp_total + tn_total) / total if total > 0 else 0.0
-    recall_global = tp_total / (tp_total + fn_total) if (tp_total + fn_total) > 0 else 0.0
-    specificity_global = tn_total / (tn_total + fp_total) if (tn_total + fp_total) > 0 else 0.0
-    bal_acc_global = (recall_global + specificity_global) / 2
-    far_global = fp_total / (fp_total + tp_total) if (fp_total + tp_total) > 0 else 0.0
-
-    # gather the stats from all processes (logging meters)
-    metric_logger.synchronize_between_processes()
-    print('* Balanced Acc@1 {:.3f}  loss {losses.global_avg:.3f}'
-        .format(bal_acc_global, losses=metric_logger.loss))
-
-    stats = {k: meter.global_avg for k, meter in metric_logger.meters.items()}
-    stats['acc'] = acc_global
-    stats['bal_acc'] = bal_acc_global
-    stats['pod'] = recall_global
-    stats['far'] = far_global
 
     # Merge local shards per-rank
     merged_rank_path = os.path.join(save_dir, f"{prefix}_rank{rank}_merged.npz")

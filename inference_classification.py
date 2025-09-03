@@ -33,6 +33,7 @@ from model_analysis import (
     merge_all_rank_merged,
     cleanup_npz_shards,
 )
+from glob import glob
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -165,16 +166,32 @@ def launch_inference_classification(terminal_args):
         # Perform final merge of per-rank merged files and cleanup shards on rank 0
         if rank == 0:
             try:
-                global_path = merge_all_rank_merged(save_dir=save_dir, prefix=prefix, delete_inputs=True)
+                # 1) Crea merged globale senza cancellare i per-rank (servono per pulire gli shard)
+                global_path = merge_all_rank_merged(save_dir=save_dir, prefix=prefix, delete_inputs=False)
                 print(f"Created global merged logits: {global_path}")
             except Exception as e:
                 print(f"Warning: could not create global merged logits: {e}")
+            # 2) Rimuovi sempre gli shard per-batch ora che i per-rank merged esistono
             try:
                 removed = cleanup_npz_shards(save_dir=save_dir, prefix=prefix, only_if_merged=True, dry_run=False)
                 if len(removed) > 0:
                     print(f"Removed {len(removed)} shard files.")
             except Exception as e:
                 print(f"Warning: shard cleanup failed: {e}")
+            # 3) Rimuovi sempre anche i merged per-rank, lasciando solo l'all_merged
+            try:
+                rank_merged_files = sorted(glob(os.path.join(save_dir, f"{prefix}_rank*_merged.npz")))
+                removed_cnt = 0
+                for f in rank_merged_files:
+                    try:
+                        os.remove(f)
+                        removed_cnt += 1
+                    except Exception as e:
+                        print(f"Warning: could not remove {f}: {e}")
+                if removed_cnt:
+                    print(f"Removed {removed_cnt} per-rank merged files.")
+            except Exception as e:
+                print(f"Warning: rank-merged cleanup failed: {e}")
     else:
         # Standard path: collect predictions and save a CSV
         val_stats, all_paths, all_preds, all_labels = validation_one_epoch_collect(
