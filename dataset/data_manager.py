@@ -161,7 +161,7 @@ class DataManager():
 
 
 
-from .build_dataset import create_df_video_from_master_df, filter_out_clear_sky, get_gruppi_date, create_final_df_csv
+from .build_dataset import create_df_video_from_master_df, filter_out_clear_sky, get_gruppi_date, create_final_df_csv, mark_neighboring_tiles
 
 
 class BuildDataset():
@@ -283,6 +283,11 @@ class BuildDataset():
         if self.args.cloudy:
             df_v = filter_out_clear_sky(output_dir, self)
             self.df_video = df_v.copy()
+
+        # Marca le tile adiacenti alle positive (8-neighborhood, solo negativi)
+        # Usa la stessa definizione di griglia degli offset (stride 213x196)
+        if self.df_video is not None and not self.df_video.empty:
+            self.df_video = mark_neighboring_tiles(self.df_video, stride_x=213, stride_y=196, include_diagonals=True, only_negatives=True)
 
         if csv_file is None:
             csv_file = f"data_{self.df_video.shape[0]}.csv"

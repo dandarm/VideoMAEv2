@@ -182,6 +182,7 @@ def draw_tiles_and_center(
     labeled_tiles_offsets=None,
     predicted_tiles=None,
     gray_offsets=None,
+    neighboring_tile=None,
     point_color=(255, 255, 255),
     point_radius=4
 ):
@@ -209,6 +210,7 @@ def draw_tiles_and_center(
     present_color = (0, 255, 0) # verde
     absent_color = (216,216,216)  # grigio 
     predicted_color = (255, 0, 0) # rosso
+    neighboring_color = (255, 165, 0) # arancione
     fill_color = (216,216,216, 120) # grigio semi trasparente
     for i, (x_off, y_off) in enumerate(offsets):
         x1, y1 = x_off, y_off
@@ -219,7 +221,18 @@ def draw_tiles_and_center(
             [(x1, y1), (x2, y2)],
             outline=color,
             width=width)
-        
+
+        # riquadro arancione per tile neighboring
+        if neighboring_tile is not None:
+            try:
+                if neighboring_tile[i]:
+                    draw.rectangle(
+                        [(x1, y1), (x2, y2)],
+                        outline=neighboring_color,
+                        width=2)
+            except Exception:
+                pass
+
         #print(f"labeled_tiles_offsets {labeled_tiles_offsets}")
         if labeled_tiles_offsets is not None:
             if not pd.isna(labeled_tiles_offsets[i]) and labeled_tiles_offsets[i] == 1:
@@ -351,9 +364,13 @@ def draw_rich_frame(path_img, group_df, basemap_obj, tile_offset_x, tile_offset_
     
     # Disegniamo
     offsets = calc_tile_offsets(stride_x=tile_offset_x, stride_y=tile_offset_y)
+    # neighboring: opzionale se presente nel group_df
+    neighboring_tiles = group_df['neighboring'].values if 'neighboring' in group_df.columns else None
+
     out_img = draw_tiles_and_center(img, offsets,
         cyclone_centers=xy_source_list,
-        labeled_tiles_offsets=labeled_tiles_offsets
+        labeled_tiles_offsets=labeled_tiles_offsets,
+        neighboring_tile=neighboring_tiles
         )
     stamped_img = draw_timestamp_in_bottom_right(out_img, date_str, margin=15)
     pi_img = plot_image(stamped_img, basemap_obj, draw_parallels_meridians=True)
@@ -493,6 +510,8 @@ def create_mediterranean_video(list_grouped_df, interval=200, dpi=96, width=1290
             to_be_filled_offsets = group_df[filling_missing_tile].values
         else:
             to_be_filled_offsets = None
+
+        neighboring_tiles = group_df['neighboring'].values if 'neighboring' in group_df.columns else None
         
         #offsets = calc_tile_offsets(stride_x=tile_offset_x, stride_y=tile_offset_y)
         offsets = list(group_df[['tile_offset_x','tile_offset_y']].value_counts().index.values)
@@ -503,7 +522,8 @@ def create_mediterranean_video(list_grouped_df, interval=200, dpi=96, width=1290
             cyclone_centers=xy_source_list,
             labeled_tiles_offsets=labeled_tiles_offsets,
             predicted_tiles=predicted_tiles_offsets,
-            gray_offsets=to_be_filled_offsets
+            gray_offsets=to_be_filled_offsets,
+            neighboring_tile=neighboring_tiles
         )
         #time_str = path.split('\\')[-1]    
         time_str = Path(path).name    
@@ -603,11 +623,14 @@ def compose_image(frame_idx, list_grouped_df, debug=False):
     #offsets = list(group_df[['tile_offset_x','tile_offset_y']].value_counts().index.values) TODO: VERIFICARE
     offsets = [tuple(riga) for riga in group_df[['tile_offset_x','tile_offset_y']].values]
     
+    neighboring_tiles = group_df['neighboring'].values if 'neighboring' in group_df.columns else None
+
     out_img = draw_tiles_and_center(img, offsets,
         cyclone_centers=xy_source_list,
         labeled_tiles_offsets=labeled_tiles_offsets,
         predicted_tiles=predicted_tiles_offsets,
-        gray_offsets=to_be_filled_offsets
+        gray_offsets=to_be_filled_offsets,
+        neighboring_tile=neighboring_tiles
     )
 
     # region add timestamp 
