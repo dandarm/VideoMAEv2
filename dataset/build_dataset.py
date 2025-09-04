@@ -1091,6 +1091,68 @@ def filter_out_clear_sky(output_dir, sup_data):
     df_v.path = df_v.path.str.split('/').str[-1]
     return df_v
 
+def mark_neighboring_tiles(df_video, stride_x=213, stride_y=196, include_diagonals=True, only_negatives=True, time_key='end_time'):
+    """
+    Aggiunge una colonna boolean "neighboring" che vale True per le tile
+    adiacenti (4- o 8-neighborhood) ad almeno una tile positiva (label == 1),
+    calcolate all'interno dello stesso istante temporale del video (per default, end_time).
+
+    - df_video: DataFrame prodotto da create_df_video_from_master_df / create_tile_videos*
+    - stride_x, stride_y: passi della griglia degli offset (in pixel)
+    - include_diagonals: se True usa l'8-neighborhood, altrimenti solo 4-neighborhood
+    - only_negatives: se True non marca come neighboring le tile positive stesse
+    - time_key: chiave temporale su cui ragionare (default 'end_time')
+
+    Ritorna una copia di df_video con la colonna "neighboring" (dtype bool).
+    """
+    if df_video is None or df_video.empty:
+        if df_video is None:
+            return df_video
+        out = df_video.copy()
+        out['neighboring'] = False
+        return out
+
+    required_cols = {time_key, 'tile_offset_x', 'tile_offset_y', 'label'}
+    missing = required_cols - set(df_video.columns)
+    if missing:
+        raise KeyError(f"Mancano colonne richieste in df_video: {missing}")
+
+    df = df_video.copy()
+
+    # Prepara i delta degli adiacenti rispetto al centro
+    steps = [-1, 0, 1]
+    shifts = [(dx, dy) for dx in steps for dy in steps if not (dx == 0 and dy == 0)]
+    if not include_diagonals:
+        shifts = [(dx, dy) for dx, dy in shifts if abs(dx) + abs(dy) == 1]
+
+    # Seleziona le tile positive
+    pos = df[df['label'] == 1][[time_key, 'tile_offset_x', 'tile_offset_y']].copy()
+    if pos.empty:
+        df['neighboring'] = False
+        return df
+
+    # Genera tutte le posizioni adiacenti alle positive (stesso time_key)
+    neighbor_frames = []
+    for dx, dy in shifts:
+        t = pos.copy()
+        t['tile_offset_x'] = t['tile_offset_x'] + dx * stride_x
+        t['tile_offset_y'] = t['tile_offset_y'] + dy * stride_y
+        neighbor_frames.append(t)
+
+    neighbors_df = pd.concat(neighbor_frames, ignore_index=True).drop_duplicates()
+
+    # Merge per marcare le righe di df che coincidono con una posizione adiacente ad una positiva
+    key_cols = [time_key, 'tile_offset_x', 'tile_offset_y']
+    neighbors_df['neighboring'] = True
+    out = df.merge(neighbors_df[key_cols + ['neighboring']], on=key_cols, how='left')
+    out['neighboring'] = out['neighboring'].fillna(False).astype(bool)
+
+    # Opzionale: non marcare come neighboring le tile positive stesse
+    if only_negatives:
+        out.loc[out['label'] == 1, 'neighboring'] = False
+
+    return out
+
 
 def get_train_test_df(tracks_df, percentage=0.7, id_col='id_cyc_unico', verbose=True):
     cicloni_unici_train, cicloni_unici_test = train_test_cyclones_num_split(tracks_df, train_p=percentage, id_col=id_col)
