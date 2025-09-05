@@ -302,7 +302,6 @@ class BuildDataset():
 
 
 # Calcola distanza minima rispetto all'intervallo [start_time, end_time]
-
 def calcola_delta_time(row):
     dt = row['datetime']
     start = row['start_time']
