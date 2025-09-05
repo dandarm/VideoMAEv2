@@ -721,6 +721,12 @@ ffmpeg_command = lambda folder,nomefile : [
             nomefile
         ]
 def make_animation_parallel_ffmpeg(df, id_cyc=None, output_folder = "./anim_frames", nomefile=None):    
+    # Safety check: ensure grayed tiles column is present when rendering full Mediterranean frames
+    assert filling_missing_tile in df.columns, (
+        f"Manca la colonna '{filling_missing_tile}'. "
+        "Assicurati di passare il DataFrame espanso (es. expanded_df) "
+        "ottenuto con expand_group per riempire di grigio le tile mancanti."
+    )
     if id_cyc is not None:
         nomefile=f"ciclone{id_cyc}.mp4"
         folder = Path(output_folder + '_' + str(id_cyc))
@@ -816,6 +822,12 @@ def get_writer4animation(ffmpeg_path_colon):
 
 
 def make_animation(df, nomefile='predictions_validation3.gif', writer='pillow'):
+    # Safety check: ensure grayed tiles column is present when rendering full Mediterranean frames
+    assert filling_missing_tile in df.columns, (
+        f"Manca la colonna '{filling_missing_tile}'. "
+        "Assicurati di passare il DataFrame espanso (es. expanded_df) "
+        "ottenuto con expand_group per riempire di grigio le tile mancanti."
+    )
     grouped = df.groupby("path", dropna=False)
     print(f" abbiamo {len(list(grouped))} gruppi", flush=True)
     start = time()

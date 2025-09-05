@@ -155,7 +155,7 @@ def plot_training_curves(tuple_vars, plot_file_name=None, log=True):
         
         ax2.axis["right"].toggle(all=True)
         p2 = ax2.plot(val_epochs, val_accs, color='g', marker='.', label='Validation Accuracy')        
-        p2 = ax2.plot(val_epochs, val_bal_acc, color='turquoise', marker='.', label='Validation Balanced Accuracy')
+        #p2 = ax2.plot(val_epochs, val_bal_acc, color='turquoise', marker='.', label='Validation Balanced Accuracy')
         colore_asse = p2[0].get_color()
         ax2.set_ylabel('Accuracy')
         ax2.grid(True, color=colore_asse, linestyle='--', linewidth=1.5, axis='y',  )

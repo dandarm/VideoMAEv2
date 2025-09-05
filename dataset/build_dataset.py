@@ -284,6 +284,92 @@ def get_cloud_idx_from_img(img):
 
 
 
+# region CLOUD INDEX on master_df (per-tile)
+
+def get_cloud_idx_from_image_tile(image_path, offset_x, offset_y, tile_size=224):
+    """
+    Legge l'immagine `image_path`, ritaglia la tile definita da (offset_x, offset_y)
+    di dimensione `tile_size` e calcola l'indice di nuvolosità su quella tile.
+    Ritorna un float in [0,1]. In caso di errore, ritorna 0.0.
+    """
+    try:
+        img = cv2.imread(str(image_path))
+        if img is None:
+            return 0.0
+        tile = img[offset_y:offset_y + tile_size, offset_x:offset_x + tile_size]
+        if tile.size == 0 or tile.shape[0] == 0 or tile.shape[1] == 0:
+            return 0.0
+        return get_cloud_idx_from_img(tile)
+    except Exception:
+        return 0.0
+
+
+def add_cloud_idx_to_master_df(df_master, col_name='cloud_idx', tile_size=224, efficient=True):
+    """
+    Aggiunge al master DataFrame (righe per singola tile) una colonna con
+    l'indice di nuvolosità calcolato sulla tile corrispondente.
+
+    - df_master: DataFrame con colonne 'path', 'tile_offset_x', 'tile_offset_y'.
+    - col_name: nome della nuova colonna (se già presente, non ricalcola nulla).
+    - efficient: se True, legge ogni immagine una sola volta e calcola per le sue tile.
+    """
+    if col_name in df_master.columns:
+        return df_master
+
+    if not efficient:
+        df_master[col_name] = df_master.apply(
+            lambda r: get_cloud_idx_from_image_tile(r['path'], int(r['tile_offset_x']), int(r['tile_offset_y']), tile_size),
+            axis=1
+        )
+        return df_master
+
+    # Versione efficiente: raggruppa per path e legge l'immagine una volta sola
+    values = []
+    for path_val, sub in df_master.groupby('path', sort=False):
+        img = cv2.imread(str(path_val))
+        if img is None:
+            vals = [0.0] * len(sub)
+        else:
+            # Calcola per tutte le tile di questa immagine
+            offs = sub[['tile_offset_x', 'tile_offset_y']].astype('int32').to_numpy()
+            vals = [
+                get_cloud_idx_from_img(
+                    img[y:y + tile_size, x:x + tile_size]
+                ) if 0 <= x < img.shape[1] and 0 <= y < img.shape[0] else 0.0
+                for x, y in offs
+            ]
+        values.append(pd.Series(vals, index=sub.index))
+
+    df_master[col_name] = pd.concat(values).sort_index()
+    return df_master
+
+
+def add_cloud_idx_to_master_df_file(master_df_csv_path, out_csv_path=None, col_name='cloud_idx', tile_size=224):
+    """
+    Carica un master_df da CSV, aggiunge la colonna dell'indice nuvoloso per tile se
+    mancante e salva il risultato (stesso file o nuovo percorso se specificato).
+    """
+    df = pd.read_csv(master_df_csv_path, dtype={
+        "path": 'string',
+        "tile_offset_x": 'int16',
+        "tile_offset_y": 'int16',
+        "label": 'int8',
+        "x_pix": 'object',
+        "y_pix": 'object',
+        "source": 'string',
+        'id_cyc_unico': 'int32'
+    }, parse_dates=['datetime', 'start_time', 'end_time'])
+    if 'Unnamed: 0' in df.columns:
+        df.drop(columns='Unnamed: 0', inplace=True)
+
+    df = add_cloud_idx_to_master_df(df, col_name=col_name, tile_size=tile_size, efficient=True)
+
+    out_path = out_csv_path if out_csv_path is not None else master_df_csv_path
+    df.to_csv(out_path, index=False, date_format="%Y-%m-%d %H:%M")
+    return out_path
+
+# endregion
+
 
 # crea il master dataframe
 def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_for_frame):   #, save_to_file=False):
@@ -1005,6 +1091,12 @@ def make_sup_dataset(input_dir, output_dir):
 
 
 def calc_avg_cld_idx(video_subfolder):
+    """
+    Calcola l'indice di nuvolosità medio per il video nella cartella video_subfolder.
+    Assume che ci siano 16 frame, img_00001.png, ..., img_00016.png e calcola l'indice per ciascuna immagine.
+    0 = cielo sereno, 1 = completamente nuvoloso.
+    Ritorna float tra 0 e 1.
+    """
     frames_cld_idx = []
     for k in range(16):
         frame_path = Path(video_subfolder) / f"img_{k+1:05d}.png"        
@@ -1080,13 +1172,17 @@ def make_relabeled_dataset(input_dir, output_dir, cloudy=False,
     df_dataset_csv = create_final_df_csv(df_video_test, output_dir)
     df_dataset_csv.to_csv(f"test_dataset{suffix}_{df_video_test.shape[0]}.csv", index=False)
 
-def filter_out_clear_sky(output_dir, sup_data):
+def filter_out_clear_sky(output_dir, sup_data, idx_thresh=0.1):
     sup_data.df_video.path = output_dir + sup_data.df_video.path
     new_col_name = "avg_cloud_idx"
+
     print(f"Calcolando l'indice di nuvolosità...")
+    # calcolo l'indice di nuvolosità medio per ogni video
     sup_data.df_video[new_col_name] = sup_data.df_video.path.apply(calc_avg_cld_idx)
-    mask_cloud = sup_data.df_video.avg_cloud_idx > 0.2
+    # filtro i video con indice di nuvolosità medio > 0.1
+    mask_cloud = sup_data.df_video.avg_cloud_idx > idx_thresh
     df_video_cloudy = sup_data.df_video[mask_cloud]
+    # rispristino i path relativi
     df_v = df_video_cloudy.copy()
     df_v.path = df_v.path.str.split('/').str[-1]
     return df_v
@@ -1234,6 +1330,8 @@ def make_master_df(input_dir, output_dir):
     sorted_metadata_files = load_all_images(input_dir)
     offsets_for_frame = calc_tile_offsets(stride_x=213, stride_y=196)
     df_data_CL7 = labeled_tiles_from_metadatafiles_maxfast(sorted_metadata_files, tracks_df_MED_CL7, offsets_for_frame)
+    # Aggiunge la colonna cloud_idx per tile se non presente
+    df_data_CL7 = add_cloud_idx_to_master_df(df_data_CL7, col_name='cloud_idx', tile_size=224, efficient=True)
     df_data_CL7.to_csv("./all_data_CL7_tracks_complete_fast.csv", date_format="%Y-%m-%d %H:%M")
 
 
