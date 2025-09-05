@@ -23,6 +23,9 @@
 - Interpretare i falsi positivi in base alla distanza dal vero positivo -> se sono tile limitrofe non è così grave: escluderli o contarli a parte da quelli lontani o comunque vicini ma senza nuvole.
 
 
+## View MEDI
+vedo che se la tile esclusa aveva una label positiva e quindi un riquadro verde, questo non viene più plottato, possiamo mantenere tutte le feature indipendentemente? ma allora non le devo togliere per poi riespanderle altrimenti ho proprio perso l'informazione sulla tile, anche quando conteneva un ciclone.
+
 
 - Documentazione\
   completare il readme.md e agent.md

@@ -8,7 +8,7 @@ from .pretrain_datasets import (  # noqa: F401
     DataAugmentationForVideoMAEv2, HybridVideoMAE, VideoMAE)
 from .datasets import MedicanesClsDataset  # RawFrameClsDataset, VideoClsDataset,
 from medicane_utils.load_files import  load_all_images, load_all_images_in_intervals, get_intervals_in_tracks_df
-from dataset.build_dataset import calc_tile_offsets, labeled_tiles_from_metadatafiles_maxfast, make_relabeled_master_df
+from dataset.build_dataset import calc_tile_offsets, labeled_tiles_from_metadatafiles_maxfast, make_relabeled_master_df, solve_paths, get_train_test_validation_df
 
 
 import utils
@@ -311,3 +311,18 @@ def calcola_delta_time(row):
     if pd.isna(dt) or pd.isna(start) or pd.isna(end):
         return pd.NaT  # oppure np.nan o pd.Timedelta.max, a seconda della logica
     return min(abs(dt - start), abs(dt - end))
+
+
+from arguments import prepare_finetuning_args, Args
+def make_validation_data_builder_from_manos_tracks(manos_track_file, input_dir, output_dir):
+    args = prepare_finetuning_args()
+
+    output_dir = solve_paths(output_dir)
+    input_dir = solve_paths(input_dir)
+
+    tracks_df = pd.read_csv(manos_track_file, parse_dates=['time', 'start_time', 'end_time'])
+    tracks_df_train, tracks_df_test, tracks_df_val = get_train_test_validation_df(tracks_df, 0.7, 0.15)
+    val_b = BuildDataset(type='SUPERVISED', args=args)
+    val_b.get_data_ready(tracks_df_val, input_dir, output_dir, csv_file="val_manos_w", is_to_balance=False)
+    #val_b.get_data_ready(tracks_df_test, input_dir, output_dir, csv_file="val_manos_w", is_to_balance=True)
+    return val_b
