@@ -468,6 +468,331 @@ def plot_logit_margin_hist(logits, labels, class_names=None, bins=50, density=Fa
 
 # endregion
 
+# region Plot: margin istogramma con info df (neighboring, avg_cloud_idx)
+
+def plot_logit_margin_hist_with_df(
+    df: pd.DataFrame,
+    bins: int = 50,
+    density: bool = False,
+    alpha: float = 0.9,
+    cmap_name: str = 'Blues_r',
+    label_col: str = 'labels',
+    margin_col: str = 'margin',
+    neighbor_col: str = 'neighboring',
+    cloud_col: str = 'avg_cloud_idx',
+    save_prefix: Optional[str] = None,
+):
+    """Crea due istogrammi del margine `z1 - z0`, uno per ciascuna classe
+    (label 0 e label 1), arricchiti con:
+    - colore delle barre proporzionale all'`avg_cloud_idx` medio nel bin (cmap blu→bianco, 0→blu, 1→bianco)
+    - overlay arancione per i soli esempi con `neighboring == True`.
+
+    Parametri
+    ---------
+    df : pd.DataFrame
+        DataFrame prodotto da `build_video_level_df` con colonne richieste.
+    bins : int
+        Numero di bin dell'istogramma.
+    density : bool
+        Se True normalizza le altezze (come in plt.hist(density=True)).
+    alpha : float
+        Opacità delle barre principali (colorate per cloud_idx).
+    cmap_name : str
+        Nome della colormap matplotlib (default 'Blues_r' per 0→blu, 1→bianco).
+    label_col, margin_col, neighbor_col, cloud_col : str
+        Nomi delle colonne nel DataFrame.
+    save_prefix : Optional[str]
+        Se fornito, salva i plot in file PNG con questo prefisso per label.
+    """
+    required = {label_col, margin_col, neighbor_col, cloud_col}
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise ValueError(f"plot_logit_margin_hist_with_df: colonne mancanti nel DataFrame: {missing}")
+
+    # Filtra righe valide (margin e label non null)
+    dfx = df.dropna(subset=[label_col, margin_col, cloud_col])
+    labels = dfx[label_col].astype(int).values
+    margins = dfx[margin_col].values
+    clouds = dfx[cloud_col].clip(lower=0.0, upper=1.0).values
+    neighb = dfx[neighbor_col].astype(bool).values
+
+    # Usa stessi bin per entrambe le classi per confronto corretto
+    data_min, data_max = np.nanmin(margins), np.nanmax(margins)
+    if not np.isfinite(data_min) or not np.isfinite(data_max) or data_min == data_max:
+        # fallback
+        data_min, data_max = -1.0, 1.0
+    bin_edges = np.linspace(data_min, data_max, bins + 1)
+
+    # Colormap 0→blu, max→bianco (usa max reale, non 1 fisso)
+    cmap = plt.cm.get_cmap(cmap_name)
+    global_max_cloud = float(np.nanmax(dfx[cloud_col].values)) if cloud_col in dfx.columns else 1.0
+    if not np.isfinite(global_max_cloud) or global_max_cloud <= 0:
+        global_max_cloud = 1.0
+    norm = plt.Normalize(vmin=0.0, vmax=global_max_cloud)
+
+    for lab in [0, 1]:
+        m = (labels == lab)
+        if not np.any(m):
+            continue
+        d_lab = margins[m]
+        c_lab = clouds[m]
+        n_lab = neighb[m]
+
+        # Conteggio principale per tutti i sample (colorato per avg_cloud_idx medio nel bin)
+        counts_all, _ = np.histogram(d_lab, bins=bin_edges)
+        # Media cloud per bin (usiamo somma pesata / conteggio)
+        sum_cloud = np.zeros_like(counts_all, dtype=float)
+        # Assegna ciascun valore al bin e accumula
+        bin_idx = np.clip(np.digitize(d_lab, bin_edges) - 1, 0, len(counts_all) - 1)
+        for ci, bi in zip(c_lab, bin_idx):
+            sum_cloud[bi] += float(ci)
+        with np.errstate(invalid='ignore', divide='ignore'):
+            mean_cloud = np.where(counts_all > 0, sum_cloud / counts_all, np.nan)
+
+        # Eventuale normalizzazione densities
+        heights_all = counts_all.astype(float)
+        if density:
+            total = heights_all.sum()
+            if total > 0:
+                heights_all = heights_all / total
+
+        # Larghezze e posizioni barre
+        widths = np.diff(bin_edges)
+        centers = bin_edges[:-1]
+
+        # Colore per bin in base alla media cloud
+        bar_colors = [cmap(norm(mc)) if np.isfinite(mc) else (0.9, 0.9, 0.9, 1.0) for mc in mean_cloud]
+
+        fig, ax = plt.subplots(figsize=(9, 4.5))
+        # Barre base colorate per cloud
+        ax.bar(centers, heights_all, width=widths, align='edge', color=bar_colors, alpha=alpha, edgecolor='none', label='Tutti (colorati per avg_cloud_idx)')
+
+        # Overlay per neighboring=True in arancione
+        if np.any(n_lab):
+            counts_nei, _ = np.histogram(d_lab[n_lab], bins=bin_edges)
+            heights_nei = counts_nei.astype(float)
+            if density:
+                total = counts_all.sum()
+                if total > 0:
+                    heights_nei = heights_nei / total
+            # Disegna come barre più strette e trasparenti
+            ax.bar(centers + 0.1 * widths, heights_nei, width=0.8 * widths, align='edge', color='orange', alpha=0.6, edgecolor='none', label=f'neighboring=True (N={counts_nei.sum()})')
+
+        # Stile asse y coerente con plot originale
+        ax.set_yscale('log')
+        ax.axvline(0.0, color='k', linestyle='--', linewidth=1, alpha=0.7)
+        ax.set_xlabel('logit[1] - logit[0]')
+        ax.set_ylabel('density' if density else 'count')
+        ax.set_title(f'Distribuzione margine logit — label {lab}')
+
+        # Annotazione conteggi a sinistra/destra di 0 (totale su questo label)
+        n_left = int(np.sum(d_lab < 0))
+        n_right = int(np.sum(d_lab >= 0))
+        txt = f"N<0={n_left}\nN>=0={n_right}"
+        ax.text(0.99, 0.98, txt, transform=ax.transAxes, ha='right', va='top', fontsize=9,
+                bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.7, edgecolor='none'))
+
+        # Colorbar per avg_cloud_idx
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        cbar = fig.colorbar(sm, ax=ax, pad=0.01)
+        cbar.set_label(f'avg_cloud_idx (0=blu, max≈{global_max_cloud:.2f}=bianco)')
+
+        ax.legend()
+        fig.tight_layout()
+
+        if save_prefix is not None:
+            out = f"{save_prefix}_label{lab}.png"
+            try:
+                fig.savefig(out, dpi=150)
+            except Exception:
+                pass
+
+# endregion
+
+# region Nuovi plot: scatter cloud_idx e istogrammi per neighboring
+
+def scatter_margin_vs_cloud(
+    df: pd.DataFrame,
+    sample: Optional[int] = 50000,
+    alpha: float = 0.3,
+    s: float = 8.0,
+    label_col: str = 'labels',
+    margin_col: str = 'margin',
+    cloud_col: str = 'avg_cloud_idx',
+    neighbor_col: str = 'neighboring',
+    save_path: Optional[str] = None,
+):
+    """Scatter plot: x = margin (z1 - z0), y = avg_cloud_idx, colore per classe (0/1).
+
+    - Usa un eventuale sottocampionamento per performance (parametro `sample`).
+    - Limita l'asse Y al massimo reale del dataset (non 1 fisso).
+    """
+    required = {label_col, margin_col, cloud_col}
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise ValueError(f"scatter_margin_vs_cloud: colonne mancanti: {missing}")
+
+    # neighbor_col è opzionale: se manca, non verrà usato
+    subset_cols = [label_col, margin_col, cloud_col] + ([neighbor_col] if neighbor_col in df.columns else [])
+    dfx = df.dropna(subset=subset_cols).copy()
+    dfx[label_col] = dfx[label_col].astype(int)
+    has_neighbor = neighbor_col in dfx.columns
+    if has_neighbor:
+        dfx[neighbor_col] = dfx[neighbor_col].astype(bool)
+
+    if sample is not None and len(dfx) > sample:
+        rng = np.random.RandomState(0)
+        dfx = dfx.iloc[rng.choice(len(dfx), size=sample, replace=False)]
+
+    x = dfx[margin_col].values
+    y = dfx[cloud_col].values
+    y_max = float(np.nanmax(y)) if len(y) else 1.0
+    if not np.isfinite(y_max) or y_max <= 0:
+        y_max = 1.0
+
+    uniq = sorted(dfx[label_col].unique())
+    # Colori convenzionali per classi: 0 blu, 1 arancione
+    base_cmap = plt.cm.get_cmap('tab10', 10)
+    class_colors = {0: base_cmap(0), 1: base_cmap(1)}
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    handles = []
+    labels = []
+    for lab in uniq:
+        m = (dfx[label_col].values == lab)
+        color = class_colors.get(int(lab), base_cmap(int(lab)))
+        if has_neighbor:
+            m_true = m & (dfx[neighbor_col].values == True)
+            m_false = m & (dfx[neighbor_col].values == False)
+            # Non-neighboring: punti standard
+            sc1 = ax.scatter(x[m_false], y[m_false], s=s, alpha=alpha, color=color)
+            # Neighboring=True: triangolino rosso con riempimento del colore della classe 0
+            sc2 = ax.scatter(
+                x[m_true], y[m_true],
+                marker='^',
+                s=s*1.6,
+                alpha=min(1.0, alpha+0.1),
+                facecolors=class_colors.get(0, base_cmap(0)),
+                edgecolors='red',
+                linewidths=0.8,
+            )
+            if np.any(m):
+                handles.append(sc1)
+                labels.append(f'class {lab}')
+        else:
+            sc = ax.scatter(x[m], y[m], s=s, alpha=alpha, color=color, label=f'class {lab}')
+            handles.append(sc)
+            labels.append(f'class {lab}')
+
+    ax.axvline(0.0, color='k', linestyle='--', linewidth=1, alpha=0.7)
+    ax.set_xlabel('logit[1] - logit[0] (margin)')
+    ax.set_ylabel('avg_cloud_idx')
+    ax.set_ylim(0, y_max * 1.02)
+    ax.set_title('Margin vs Cloud Index (colori per classe)')
+    # Legenda: classi + indicatore neighboring (se presente)
+    if has_neighbor:
+        from matplotlib.lines import Line2D
+        neigh_handle = Line2D(
+            [0], [0], marker='^', linestyle='None',
+            markerfacecolor=class_colors.get(0, base_cmap(0)),
+            markeredgecolor='red', markeredgewidth=1.0,
+            label='neighboring=True'
+        )
+        handles = handles + [neigh_handle]
+        labels = labels + ['neighboring=True']
+        ax.legend(handles, labels, loc='best')
+    else:
+        ax.legend(loc='best')
+    fig.tight_layout()
+
+    if save_path is not None:
+        try:
+            fig.savefig(save_path, dpi=150)
+        except Exception:
+            pass
+
+
+def plot_margin_hist_by_neighboring(
+    df: pd.DataFrame,
+    bins: int = 50,
+    density: bool = False,
+    alpha: float = 0.5,
+    label_col: str = 'labels',
+    margin_col: str = 'margin',
+    neighbor_col: str = 'neighboring',
+    save_prefix: Optional[str] = None,
+):
+    """Crea due istogrammi del margine, uno per neighboring=True e uno per neighboring=False,
+    sovrapponendo le due classi con colori distinti (0/1).
+    """
+    required = {label_col, margin_col, neighbor_col}
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise ValueError(f"plot_margin_hist_by_neighboring: colonne mancanti: {missing}")
+
+    dfx = df.dropna(subset=[label_col, margin_col, neighbor_col]).copy()
+    dfx[label_col] = dfx[label_col].astype(int)
+    dfx[neighbor_col] = dfx[neighbor_col].astype(bool)
+
+    margins = dfx[margin_col].values
+    data_min, data_max = np.nanmin(margins), np.nanmax(margins)
+    if not np.isfinite(data_min) or not np.isfinite(data_max) or data_min == data_max:
+        data_min, data_max = -1.0, 1.0
+    bin_edges = np.linspace(data_min, data_max, bins + 1)
+
+    base_cmap = plt.cm.get_cmap('tab10', 10)
+    class_colors = {0: base_cmap(0), 1: base_cmap(1)}
+
+    for neigh_val in [True, False]:
+        sub = dfx[dfx[neighbor_col] == neigh_val]
+        if sub.empty:
+            continue
+        fig, ax = plt.subplots(figsize=(9, 4.5))
+
+        for lab in [0, 1]:
+            s = sub[sub[label_col] == lab]
+            if s.empty:
+                continue
+            vals = s[margin_col].values
+            ax.hist(vals, bins=bin_edges, density=density, alpha=alpha, color=class_colors[lab], label=f'class {lab}')
+
+        ax.set_yscale('log')
+        ax.axvline(0.0, color='k', linestyle='--', linewidth=1, alpha=0.7)
+        ax.set_xlabel('logit[1] - logit[0]')
+        ax.set_ylabel('density' if density else 'count')
+        ax.set_title(f'Distribuzione margine — neighboring={neigh_val}')
+        # Annotazioni: N<0 in alto a sinistra, N>=0 a destra (totale o per-classe)
+        n_left = int(np.sum(sub[margin_col].values < 0))
+        ax.text(0.01, 0.98, f"N<0 = {n_left}", transform=ax.transAxes, ha='left', va='top', fontsize=9,
+                bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.7, edgecolor='none'))
+
+        if neigh_val is False:
+            n_right_cls0 = int(np.sum((sub[label_col].values == 0) & (sub[margin_col].values >= 0)))
+            n_right_cls1 = int(np.sum((sub[label_col].values == 1) & (sub[margin_col].values >= 0)))
+            ax.text(0.99, 0.98, f"N>=0 class 0 = {n_right_cls0}", transform=ax.transAxes, ha='right', va='top', fontsize=9,
+                    color=class_colors[0],
+                    bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.7, edgecolor='none'))
+            ax.text(0.99, 0.90, f"N>=0 class 1 = {n_right_cls1}", transform=ax.transAxes, ha='right', va='top', fontsize=9,
+                    color=class_colors[1],
+                    bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.7, edgecolor='none'))
+        else:
+            n_right = int(np.sum(sub[margin_col].values >= 0))
+            ax.text(0.99, 0.98, f"N>=0 = {n_right}", transform=ax.transAxes, ha='right', va='top', fontsize=9,
+                    bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.7, edgecolor='none'))
+
+        ax.legend(loc='center')
+        fig.tight_layout()
+
+        if save_prefix is not None:
+            out = f"{save_prefix}_neighboring_{str(neigh_val).lower()}.png"
+            try:
+                fig.savefig(out, dpi=150)
+            except Exception:
+                pass
+
+# endregion
+
 # region Funzioni per calcolare le metriche di classificazione
 
 def confusion_counts_per_label(
