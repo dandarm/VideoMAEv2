@@ -149,6 +149,7 @@ data/
 /pytorch_model.bin
 /output/
 /sequenced_imgs/
+medicane_video/
 *.gif
 *.bin
 *.pth
@@ -159,6 +160,7 @@ data/
 *.png
 *.ttf
 *.mp4
+*.npz
 from_gcloud/
 output*
 .aider*

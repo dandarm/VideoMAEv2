@@ -22,7 +22,11 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.distributed as dist
-from tensorboardX import SummaryWriter
+try:
+    from tensorboardX import SummaryWriter
+except:
+    print("PRobabile errore di protobuf con tensorboardX -> carico tensorboard")
+    from torch.utils.tensorboard import SummaryWriter
 
 from timm.utils import get_state_dict
 from timm.models import create_model

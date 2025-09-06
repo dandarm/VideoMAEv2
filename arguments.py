@@ -302,7 +302,7 @@ def prepare_finetuning_args(machine=None):
         'save_ckpt_freq': 50,
         'decoder_depth': 4,
         'testing_epochs': 1,
-        'cloudy': True,
+        'cloudy': False,
         'use_class_weight': False,
 
         'epochs': 500,
