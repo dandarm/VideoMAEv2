@@ -35,6 +35,8 @@ from dataset import build_pretraining_dataset
 from torch.utils.data import DataLoader
 from utils import get_model
 from arguments import prepare_args, Args  # NON TOGLIERE: serve a torch.load per caricare il mio modello addestrato
+from dataset.data_manager import make_validation_data_builder_from_manos_tracks
+from dataset.build_dataset import calc_avg_cld_idx
 
 
 
@@ -296,6 +298,80 @@ def cleanup_npz_shards(save_dir='output/val_logits', prefix='val', only_if_merge
                     print(f"Warning: could not remove {f}: {e}")
 
     return removed
+
+
+def build_video_level_df(
+    manos_csv: str = 'medicane_data_input/medicanes_new_windows.csv',
+    input_dir: str = '../fromgcloud',
+    output_dir: str = '../airmassRGB/supervised/',
+    logits_dir: str = 'output/val_logits',
+    prefix: str = 'val',
+    add_logit_scores: bool = True,
+    compute_avg_cloud_if_missing: bool = True,
+) -> pd.DataFrame:
+    """Crea un DataFrame a livello di video unendo:
+    - logits/predizioni/label dalla validazione
+    - info da df_video (neighboring, offsets, tempi)
+    - avg_cloud_idx per video (calcolato se mancante)
+
+    Parametri
+    ---------
+    manos_csv: CSV delle finestre di validazione (Manos) per costruire df_video
+    input_dir: cartella con le immagini di partenza
+    output_dir: cartella dei video (cartelle con img_00001.png..)
+    logits_dir: cartella dove sono gli npz di validazione
+    prefix: prefisso file npz (es. 'val')
+    add_logit_scores: se True aggiunge colonne logit_0/1, margin, prob_pos
+    compute_avg_cloud_if_missing: calcola avg_cloud_idx se non presente in df_video
+
+    Ritorna
+    -------
+    DataFrame con una riga per video e colonne:
+      path, predictions, labels, [logit_0, logit_1, margin, prob_pos],
+      label (da df_video), neighboring, avg_cloud_idx, tile_offset_x, tile_offset_y,
+      start_time, end_time
+    """
+    # 1) Carica logits/preds/labels/paths
+    logits, labels, preds, paths = load_logits_dir(save_dir=logits_dir, prefix=prefix)
+    df_predictions = create_df_predictions(paths, preds, labels)  # path, predictions, labels
+
+    # 2) Punteggi derivati dai logits (opzionale)
+    df_scores = None
+    if add_logit_scores and logits is not None:
+        logits = np.asarray(logits)
+        if logits.ndim == 2 and logits.shape[1] >= 2:
+            # softmax numericamente stabile via shift
+            z = logits - logits.max(axis=1, keepdims=True)
+            expz = np.exp(z)
+            prob_pos = expz[:, 1] / expz.sum(axis=1)
+            df_scores = pd.DataFrame({
+                'path': pd.Series(paths).astype(str).str.split('/').str.get(-1),
+                'logit_0': logits[:, 0],
+                'logit_1': logits[:, 1],
+                'margin': logits[:, 1] - logits[:, 0],
+                'prob_pos': prob_pos,
+            })
+
+    # 3) Costruisce builder di validation (df_video contiene 'neighboring')
+    val_b = make_validation_data_builder_from_manos_tracks(manos_csv, input_dir, output_dir)
+    df_video = val_b.df_video.copy()
+
+    # 4) Assicura avg_cloud_idx per video
+    if compute_avg_cloud_if_missing and 'avg_cloud_idx' not in df_video.columns:
+        base = output_dir if output_dir.endswith('/') else output_dir + '/'
+        df_video['avg_cloud_idx'] = (base + df_video['path']).apply(calc_avg_cld_idx)
+
+    # 5) Merge finale livello video
+    cols_keep = [
+        'path', 'label', 'neighboring', 'avg_cloud_idx',
+        'tile_offset_x', 'tile_offset_y', 'start_time', 'end_time'
+    ]
+    base_df = df_predictions
+    if df_scores is not None:
+        base_df = base_df.merge(df_scores, on='path', how='left')
+
+    df_merged = base_df.merge(df_video[cols_keep], on='path', how='left')
+    return df_merged
 
 
 _HAS_SK = True # usa la PCA per ridurre se ci sono pi ù di due dimensioni
