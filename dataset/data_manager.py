@@ -164,6 +164,28 @@ class DataManager():
 from .build_dataset import create_df_video_from_master_df, filter_out_clear_sky, get_gruppi_date, create_final_df_csv, mark_neighboring_tiles
 
 
+diz_types = {
+        "path": 'string',
+        "tile_offset_x": 'int16',
+        "tile_offset_y": 'int16',
+        "label": 'int16',
+        "lat": 'object',
+        "lon": 'object',
+        "x_pix": 'object',
+        "y_pix": 'object',
+        "name": 'string',
+        "source": 'string',
+        'id_cyc_unico': 'int32'
+    }
+
+# Converters per colonne ID: gestiscono valori vuoti/float/stringa (es. "7001283.0")
+# convertendoli in interi o pd.NA, così si può mantenere diz_types invariato in read_csv.
+conv = {
+    'id_cyc_unico': lambda s: pd.NA if s is None or str(s).strip() == '' else int(float(s)),
+    'idorig': lambda s: pd.NA if s is None or str(s).strip() == '' else int(float(s)),
+    'id_final': lambda s: pd.NA if s is None or str(s).strip() == '' else int(float(s)),
+}
+
 class BuildDataset():
     def __init__(self, type, args=None, master_df_path=None):
         self.args = args
