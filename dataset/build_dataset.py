@@ -1294,7 +1294,13 @@ def get_train_test_validation_df(tracks_df, percentage=0.7, validation_percentag
 
     return tracks_df_train, tracks_df_test, tracks_df_validation
 
+
+
 def make_dataset_from_manos_tracks(manos_track_file, input_dir, output_dir):
+    """
+    Versione più snella di make_master_df perché non carica tutte le immagini presenti nella input_dir,
+    ma soltanto quelle necessarie comprese negli intervalli definiti dal tracks_df
+    """
     # vecchio file di manos "manos_CL10_pixel.csv"    
     from dataset.data_manager import BuildDataset
     args = prepare_finetuning_args()
@@ -1325,6 +1331,7 @@ def make_dataset_from_manos_tracks(manos_track_file, input_dir, output_dir):
 
 
 def make_master_df(input_dir, output_dir):
+    # salva su file df_data_CL7 che è un master_df
     input_dir = solve_paths(input_dir)
     tracks_df_MED_CL7 = pd.read_csv("./manos_CL7_pixel.csv", parse_dates=['time', 'start_time', 'end_time'])
     sorted_metadata_files = load_all_images(input_dir)
