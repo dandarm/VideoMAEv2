@@ -1,7 +1,7 @@
 import os
 from glob import glob
 from PIL import Image
-from typing import List, Union, Optional, Sequence, Mapping
+from typing import List, Union, Optional, Sequence, Mapping, Tuple
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -782,6 +782,111 @@ def plot_margin_hist_by_neighboring(
                     bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.7, edgecolor='none'))
 
         ax.legend(loc='center')
+        fig.tight_layout()
+
+    if save_prefix is not None:
+            out = f"{save_prefix}_neighboring_{str(neigh_val).lower()}.png"
+            try:
+                fig.savefig(out, dpi=150)
+            except Exception:
+                pass
+
+# endregion
+
+# region Plot: avg_cloud_idx istogramma separato per neighboring, con filtro margin>0
+
+def plot_cloud_hist_by_neighboring(
+    df: pd.DataFrame,
+    bins: int = 50,
+    density: bool = False,
+    alpha: float = 0.5,
+    label_col: str = 'labels',
+    margin_col: str = 'margin',
+    neighbor_col: str = 'neighboring',
+    cloud_col: str = 'avg_cloud_idx',
+    save_prefix: Optional[str] = None,
+    margin_threshold: float = 0.0,
+    clip_cloud_to: Optional[Tuple[float, float]] = (0.0, 1.0),
+):
+    """Crea due istogrammi di ``avg_cloud_idx`` (asse x), uno per ``neighboring=True`` e
+    uno per ``neighboring=False``, sovrapponendo le due classi (0/1) con colori distinti.
+
+    I dati inclusi rispettano il filtro ``margin > margin_threshold`` (default 0.0).
+
+    Parametri
+    ---------
+    df : pd.DataFrame
+        DataFrame con colonne: labels, margin, neighboring, avg_cloud_idx.
+    bins : int
+        Numero di bin dell'istogramma.
+    density : bool
+        Se True normalizza le altezze.
+    alpha : float
+        Opacità delle barre.
+    label_col, margin_col, neighbor_col, cloud_col : str
+        Nomi colonne nel DataFrame.
+    save_prefix : Optional[str]
+        Se valorizzato salva i plot PNG con questo prefisso.
+    margin_threshold : float
+        Filtro su margin; vengono considerati i soli sample con ``margin > margin_threshold``.
+    clip_cloud_to : Optional[Tuple[float, float]]
+        Se non None, i valori di ``avg_cloud_idx`` sono troncati nell'intervallo dato (default (0, 1)).
+    """
+
+    required = {label_col, margin_col, neighbor_col, cloud_col}
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise ValueError(f"plot_cloud_hist_by_neighboring: colonne mancanti: {missing}")
+
+    dfx = df.dropna(subset=[label_col, margin_col, neighbor_col, cloud_col]).copy()
+    dfx[label_col] = dfx[label_col].astype(int)
+    dfx[neighbor_col] = dfx[neighbor_col].astype(bool)
+
+    # Filtro: margin > threshold
+    dfx = dfx[dfx[margin_col] > margin_threshold]
+    if dfx.empty:
+        raise ValueError("plot_cloud_hist_by_neighboring: nessun dato dopo il filtro margin > threshold")
+
+    # Range bin su avg_cloud_idx
+    clouds = dfx[cloud_col].values.astype(float)
+    if clip_cloud_to is not None:
+        lo, hi = clip_cloud_to
+        clouds = np.clip(clouds, lo, hi)
+    cmin, cmax = float(np.nanmin(clouds)), float(np.nanmax(clouds))
+    if not np.isfinite(cmin) or not np.isfinite(cmax) or cmin == cmax:
+        cmin, cmax = 0.0, 1.0
+    bin_edges = np.linspace(cmin, cmax, bins + 1)
+
+    base_cmap = plt.cm.get_cmap('tab10', 10)
+    class_colors = {0: base_cmap(0), 1: base_cmap(1)}
+
+    for neigh_val in [True, False]:
+        sub = dfx[dfx[neighbor_col] == neigh_val]
+        if sub.empty:
+            continue
+        fig, ax = plt.subplots(figsize=(9, 4.5))
+
+        for lab in [0, 1]:
+            s = sub[sub[label_col] == lab]
+            if s.empty:
+                continue
+            vals = s[cloud_col].values.astype(float)
+            if clip_cloud_to is not None:
+                lo, hi = clip_cloud_to
+                vals = np.clip(vals, lo, hi)
+            ax.hist(vals, bins=bin_edges, density=density, alpha=alpha, color=class_colors[lab], label=f'class {lab}')
+
+        #ax.set_yscale('log')
+        ax.set_xlabel('avg_cloud_idx')
+        ax.set_ylabel('density' if density else 'count')
+        ax.set_title(f'Distribuzione avg_cloud_idx — neighboring={neigh_val} — margin>{margin_threshold}')
+
+        # Annotazioni di supporto
+        n_total = int(len(sub))
+        ax.text(0.01, 0.98, f"N = {n_total}", transform=ax.transAxes, ha='left', va='top', fontsize=9,
+                bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.7, edgecolor='none'))
+
+        ax.legend(loc='best')
         fig.tight_layout()
 
         if save_prefix is not None:
