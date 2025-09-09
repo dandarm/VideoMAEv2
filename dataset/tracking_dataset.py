@@ -1,5 +1,5 @@
 import os
-from typing import Tuple
+from typing import Tuple, Optional
 
 import torch
 from torch.utils.data import Dataset
@@ -9,18 +9,11 @@ from .datasets import MedicanesClsDataset
 
 
 class MedicanesTrackDataset(MedicanesClsDataset):
-    """Dataset for cyclone tracking.
+    """Dataset for cyclone tracking (pixel coordinates only).
 
-    This dataset reuses :class:`MedicanesClsDataset` to load the video
-    tiles but filters the entries so that only cyclonic tiles
-    (``label == 1``) are kept.  Each sample returns the video tensor and
-    the coordinates of the cyclone centre at the **last frame** of the
-    tile.
-
-    The annotation CSV is expected to contain at least the columns
-    ``path``, ``label`` and two coordinate columns (default
-    ``lon`` and ``lat``).  Coordinate values are returned as a tensor of
-    shape ``[2]`` ordered as ``(lon, lat)``.
+    - Expects CSV columns: ``path``, ``x_pix``, ``y_pix``. Optionally ``label``.
+    - If ``label`` exists, keeps only rows with ``label == 1``.
+    - Returns: ``video`` tensor and ``coords`` tensor of shape ``[2]`` as ``(x, y)``.
     """
 
     def __init__(
@@ -28,9 +21,10 @@ class MedicanesTrackDataset(MedicanesClsDataset):
         anno_path: str,
         data_root: str = "",
         clip_len: int = 16,
-        transform: transforms.Compose | None = None,
-        lon_col: str = "lon",
-        lat_col: str = "lat",
+        transform: Optional[transforms.Compose] = None,
+        # Column names for pixel-coordinates (required)
+        x_col: str = "x_pix",
+        y_col: str = "y_pix",
     ) -> None:
         super().__init__(
             anno_path=anno_path,
@@ -40,22 +34,18 @@ class MedicanesTrackDataset(MedicanesClsDataset):
             transform=transform,
         )
 
-        # Keep only the cyclonic tiles (label == 1)
+        # Keep only the cyclonic tiles (label == 1) if label exists
         if "label" in self.df.columns:
             self.df = self.df[self.df["label"] == 1].reset_index(drop=True)
 
-        # Columns containing the coordinates of the last frame
-        if lon_col not in self.df.columns or lat_col not in self.df.columns:
-            raise ValueError(
-                f"CSV must contain columns '{lon_col}' and '{lat_col}' for coordinates"
-            )
-        self.lon_col = lon_col
-        self.lat_col = lat_col
+        # Require pixel coordinate columns
+        if x_col not in self.df.columns or y_col not in self.df.columns:
+            raise ValueError(f"CSV must contain pixel coordinate columns '{x_col}' and '{y_col}'")
+        self.x_col = x_col
+        self.y_col = y_col
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, str]:
         video, _label_unused, folder_path = super().__getitem__(idx)
         row = self.df.iloc[idx]
-        coords = torch.tensor(
-            [row[self.lon_col], row[self.lat_col]], dtype=torch.float32
-        )
+        coords = torch.tensor([row[self.x_col], row[self.y_col]], dtype=torch.float32)
         return video, coords, folder_path

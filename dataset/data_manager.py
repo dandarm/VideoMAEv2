@@ -8,7 +8,7 @@ from .pretrain_datasets import (  # noqa: F401
     DataAugmentationForVideoMAEv2, HybridVideoMAE, VideoMAE)
 from .datasets import MedicanesClsDataset  # RawFrameClsDataset, VideoClsDataset,
 from medicane_utils.load_files import  load_all_images, load_all_images_in_intervals, get_intervals_in_tracks_df
-from dataset.build_dataset import calc_tile_offsets, labeled_tiles_from_metadatafiles_maxfast, make_relabeled_master_df, solve_paths, get_train_test_validation_df
+from dataset.build_dataset import calc_tile_offsets, labeled_tiles_from_metadatafiles_maxfast, make_relabeled_master_df, solve_paths, get_train_test_validation_df, calc_avg_cld_idx
 
 
 import utils
@@ -227,6 +227,22 @@ class BuildDataset():
         offsets_for_frame = calc_tile_offsets(stride_x=213, stride_y=196)
         self.master_df = labeled_tiles_from_metadatafiles_maxfast(sorted_metadata_files, tracks_df, offsets_for_frame)
         
+    def create_master_df_year(self, input_dir_images, tracks_df, year: int):
+        """Crea il master_df includendo TUTTE le immagini dell'anno richiesto,
+        non solo quelle vicine alle tracce dei cicloni.
+
+        - Filtra i file per anno prima di etichettare, così da mantenere anche
+          i periodi senza cicloni (label=0).
+        """
+        # 1) Leggi tutte le immagini disponibili
+        sorted_metadata_files = load_all_images(input_dir_images)
+        # 2) Filtra per anno richiesto (robusto a dt None)
+        filtered = [(p, dt) for (p, dt) in sorted_metadata_files if dt is not None and getattr(dt, 'year', None) == int(year)]
+        print(f"Immagini nell'anno {year}: {len(filtered)}")
+        # 3) Costruisci il master_df completo per quell'anno
+        offsets_for_frame = calc_tile_offsets(stride_x=213, stride_y=196)
+        self.master_df = labeled_tiles_from_metadatafiles_maxfast(filtered, tracks_df, offsets_for_frame)
+
 
     def load_master_df(self, master_df_path=None):
         if master_df_path:
@@ -317,10 +333,131 @@ class BuildDataset():
             csv_file = csv_file + f"_{self.df_video.shape[0]}.csv"
         self.create_final_df_csv(output_dir, csv_file)
 
+    def get_data_ready_full_year(self, df_tracks, input_dir, output_dir, year: int, csv_file=None):
+        """Prepara i dati includendo tutte le immagini di un anno intero.
+
+        - Non limita il caricamento ai soli intervalli attorno ai cicloni.
+        - Etichetta comunque usando df_tracks (label=1 se inside, altrimenti 0).
+        - Costruisce il df_video e salva il CSV finale se richiesto.
+        """
+        # 1) Master df di un anno intero
+        self.create_master_df_year(input_dir_images=input_dir, tracks_df=df_tracks, year=year)
+
+        # 2) Dataframe video
+        self.make_df_video(output_dir=output_dir, is_to_balance=False)
+
+        # 3) Opzionale: calcolo indice nuvolosità medio per video (senza filtrare)
+        if self.args is not None and getattr(self.args, 'cloudy', False):
+            print("Calcolo avg_cloud_idx per video (senza filtrare)...")
+            try:
+                full_paths = output_dir + self.df_video['path']
+                self.df_video['avg_cloud_idx'] = full_paths.apply(calc_avg_cld_idx)
+            except Exception as e:
+                print(f"Warning: impossibile calcolare avg_cloud_idx: {e}")
+
+        # 4) Marca neighboring
+        if self.df_video is not None and not self.df_video.empty:
+            self.df_video = mark_neighboring_tiles(self.df_video, stride_x=213, stride_y=196, include_diagonals=True, only_negatives=True)
+
+        # 5) CSV
+        if csv_file is None:
+            csv_file = f"data_{self.df_video.shape[0]}.csv"
+        else:
+            csv_file = csv_file + f"_{self.df_video.shape[0]}.csv"
+        self.create_final_df_csv(output_dir, csv_file)
+
         
 
 
 
+
+
+# New builder for tracking with pixel coordinates
+class BuildTrackingDataset(BuildDataset):
+    """
+    Build a CSV for tracking that includes pixel coordinates for the last
+    frame of each video. It keeps only videos with label == 1 by default
+    and drops tile offsets in the final CSV.
+
+    Output CSV columns: path, start, end, x_pix, y_pix
+    - path: absolute folder path (output_dir + relative path)
+    - start: 1
+    - end: number of frames (default: 16)
+    - x_pix, y_pix: pixel coordinates at the video's end_time
+    """
+
+    @staticmethod
+    def _first_val(val):
+        """Extract first element if list-like; try to parse from string, else return NaN."""
+        import ast
+        import math
+        if isinstance(val, (list, tuple)):
+            return float(val[0]) if len(val) > 0 else math.nan
+        if isinstance(val, str):
+            s = val.strip()
+            try:
+                parsed = ast.literal_eval(s)
+                if isinstance(parsed, (list, tuple)) and len(parsed) > 0:
+                    return float(parsed[0])
+                # fallthrough to try converting directly
+                return float(parsed)
+            except Exception:
+                try:
+                    return float(s)
+                except Exception:
+                    return math.nan
+        try:
+            return float(val)
+        except Exception:
+            return float('nan')
+
+    def create_tracking_df(self, output_dir: str, only_label_1: bool = True, num_frames: int = 16) -> pd.DataFrame:
+        if self.df_video is None or self.master_df is None:
+            raise RuntimeError("df_video/master_df non pronti. Esegui make_df_video/create_master_df prima.")
+
+        dfv = self.df_video.copy()
+        if only_label_1 and 'label' in dfv.columns:
+            dfv = dfv[dfv['label'] == 1]
+
+        # Join df_video rows with the corresponding master_df row at end_time and the same offsets
+        coords_cols = ['datetime', 'tile_offset_x', 'tile_offset_y', 'x_pix', 'y_pix']
+        mdf = self.master_df[coords_cols].copy()
+
+        merged = dfv.merge(
+            mdf,
+            left_on=['end_time', 'tile_offset_x', 'tile_offset_y'],
+            right_on=['datetime', 'tile_offset_x', 'tile_offset_y'],
+            how='left'
+        )
+
+        merged['x_pix_last'] = merged['x_pix'].apply(self._first_val)
+        merged['y_pix_last'] = merged['y_pix'].apply(self._first_val)
+        # Convert to tile-relative coordinates and drop offsets in final CSV
+        merged['x_pix_rel'] = merged['x_pix_last'] - merged['tile_offset_x']
+        merged['y_pix_rel'] = merged['y_pix_last'] - merged['tile_offset_y']
+
+        out = merged[['path']].copy()
+        out['path'] = output_dir + out['path']
+        out['start'] = 1
+        out['end'] = int(num_frames)
+        out['x_pix'] = merged['x_pix_rel']
+        out['y_pix'] = merged['y_pix_rel']
+
+        return out
+
+    def create_tracking_csv(self, output_dir: str, path_csv: str, only_label_1: bool = True, num_frames: int = 16) -> None:
+        df = self.create_tracking_df(output_dir=output_dir, only_label_1=only_label_1, num_frames=num_frames)
+        df.to_csv(path_csv, index=False)
+        self.csv_file = path_csv
+
+    def prepare_data(self, df_tracks, input_dir: str, output_dir: str, relabeling: bool = False, is_to_balance: bool = False) -> None:
+        """Prepare master_df and df_video without writing a classification CSV.
+
+        Mirrors BuildDataset.get_data_ready but avoids saving the classif CSV.
+        """
+        self.create_master_df_short(input_dir_images=input_dir, tracks_df=df_tracks)
+
+        self.make_df_video(output_dir=output_dir, is_to_balance=is_to_balance)
 
 
 # Calcola distanza minima rispetto all'intervallo [start_time, end_time]
