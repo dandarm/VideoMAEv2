@@ -247,9 +247,16 @@ def create_df_unlabeled_tiles_from_metadatafiles(sorted_metadata_files, offsets_
 # region CLOUD INDEX copertura nuvolosa delle tile
 
 def threshold_image(img, thresh_val=150):
-    green_channel = img[:,:,1]    
+    green_channel = img[:,:,1]
     cloud_mask = green_channel > thresh_val
     return cloud_mask
+
+def green_mean(img):
+    try:
+        g = img[:, :, 1]
+        return float(g.mean()) if g.size > 0 else 0.0
+    except Exception:
+        return 0.0
 
 def cloud_idx(cloud_mask):
     v = cloud_mask.sum()/cloud_mask.size
@@ -304,7 +311,13 @@ def get_cloud_idx_from_image_tile(image_path, offset_x, offset_y, tile_size=224)
         return 0.0
 
 
-def add_cloud_idx_to_master_df(df_master, col_name='cloud_idx', tile_size=224, efficient=True):
+def add_cloud_idx_to_master_df(
+    df_master,
+    col_name='cloud_idx',
+    tile_size=224,
+    efficient=True,
+    green_col_name=None,
+):
     """
     Aggiunge al master DataFrame (righe per singola tile) una colonna con
     l'indice di nuvolosità calcolato sulla tile corrispondente.
@@ -313,34 +326,62 @@ def add_cloud_idx_to_master_df(df_master, col_name='cloud_idx', tile_size=224, e
     - col_name: nome della nuova colonna (se già presente, non ricalcola nulla).
     - efficient: se True, legge ogni immagine una sola volta e calcola per le sue tile.
     """
-    if col_name in df_master.columns:
+    if col_name in df_master.columns and (green_col_name is None or green_col_name in df_master.columns):
         return df_master
 
     if not efficient:
         df_master[col_name] = df_master.apply(
-            lambda r: get_cloud_idx_from_image_tile(r['path'], int(r['tile_offset_x']), int(r['tile_offset_y']), tile_size),
-            axis=1
+            lambda r: get_cloud_idx_from_image_tile(
+                r['path'], int(r['tile_offset_x']), int(r['tile_offset_y']), tile_size
+            ),
+            axis=1,
         )
+        if green_col_name is not None and green_col_name not in df_master.columns:
+            def _green_for_row(r):
+                try:
+                    img = cv2.imread(str(r['path']))
+                    if img is None:
+                        return 0.0
+                    x, y = int(r['tile_offset_x']), int(r['tile_offset_y'])
+                    tile = img[y:y + tile_size, x:x + tile_size]
+                    if tile.size == 0 or tile.shape[0] == 0 or tile.shape[1] == 0:
+                        return 0.0
+                    return green_mean(tile)
+                except Exception:
+                    return 0.0
+            df_master[green_col_name] = df_master.apply(_green_for_row, axis=1)
         return df_master
 
     # Versione efficiente: raggruppa per path e legge l'immagine una volta sola
     values = []
+    green_values = [] if green_col_name is not None and green_col_name not in df_master.columns else None
     for path_val, sub in df_master.groupby('path', sort=False):
         img = cv2.imread(str(path_val))
         if img is None:
             vals = [0.0] * len(sub)
+            gvals = [0.0] * len(sub) if green_values is not None else None
         else:
             # Calcola per tutte le tile di questa immagine
             offs = sub[['tile_offset_x', 'tile_offset_y']].astype('int32').to_numpy()
-            vals = [
-                get_cloud_idx_from_img(
-                    img[y:y + tile_size, x:x + tile_size]
-                ) if 0 <= x < img.shape[1] and 0 <= y < img.shape[0] else 0.0
-                for x, y in offs
-            ]
+            vals = []
+            gvals = [] if green_values is not None else None
+            for x, y in offs:
+                if 0 <= x < img.shape[1] and 0 <= y < img.shape[0]:
+                    tile = img[y:y + tile_size, x:x + tile_size]
+                    vals.append(get_cloud_idx_from_img(tile))
+                    if gvals is not None:
+                        gvals.append(green_mean(tile))
+                else:
+                    vals.append(0.0)
+                    if gvals is not None:
+                        gvals.append(0.0)
         values.append(pd.Series(vals, index=sub.index))
+        if green_values is not None:
+            green_values.append(pd.Series(gvals, index=sub.index))
 
     df_master[col_name] = pd.concat(values).sort_index()
+    if green_values is not None:
+        df_master[green_col_name] = pd.concat(green_values).sort_index()
     return df_master
 
 
