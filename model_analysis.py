@@ -35,7 +35,7 @@ from dataset import build_pretraining_dataset
 from torch.utils.data import DataLoader
 from utils import get_model
 from arguments import prepare_args, Args  # NON TOGLIERE: serve a torch.load per caricare il mio modello addestrato
-from dataset.data_manager import make_validation_data_builder_from_manos_tracks
+from dataset.data_manager import make_validation_data_builder_from_manos_tracks, make_validation_data_builder_from_entire_year
 from dataset.build_dataset import calc_avg_cld_idx
 
 
@@ -188,7 +188,7 @@ def load_logits_dir(save_dir='output/val_logits', prefix='val'):
     Ritorna: logits (N,C), labels (N,), preds (N,), paths (N,)
     """
     # 1) unico file globale
-    global_merged = os.path.join(save_dir, f"{prefix}_all_merged.npz")
+    global_merged = os.path.join(save_dir, f"{prefix}_merged.npz")
     if os.path.exists(global_merged):
         files = [global_merged]
     else:
@@ -308,6 +308,7 @@ def build_video_level_df(
     prefix: str = 'val',
     add_logit_scores: bool = True,
     compute_avg_cloud_if_missing: bool = True,
+    entire_year: int=None,
 ) -> pd.DataFrame:
     """Crea un DataFrame a livello di video unendo:
     - logits/predizioni/label dalla validazione
@@ -353,7 +354,10 @@ def build_video_level_df(
             })
 
     # 3) Costruisce builder di validation (df_video contiene 'neighboring')
-    val_b = make_validation_data_builder_from_manos_tracks(manos_csv, input_dir, output_dir)
+    if entire_year is not None:
+        val_b = make_validation_data_builder_from_entire_year(entire_year, input_dir, output_dir)
+    else:
+        val_b = make_validation_data_builder_from_manos_tracks(manos_csv, input_dir, output_dir)
     df_video = val_b.df_video.copy()
 
     # 4) Assicura avg_cloud_idx per video
