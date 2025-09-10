@@ -1341,6 +1341,9 @@ def make_dataset_from_entire_year(year, input_dir, output_dir):
     from dataset.data_manager import BuildDataset
     from arguments import prepare_finetuning_args
 
+    output_dir = solve_paths(output_dir)
+    input_dir = solve_paths(input_dir)
+
     # Parametri principali
     manos_csv = "medicane_data_input/more_medicanes_time_updated.csv"
 
