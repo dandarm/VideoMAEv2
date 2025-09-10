@@ -30,3 +30,9 @@ Usare le seguenti definizioni, raccordarle a quelle usate in sklearn e già calc
     e vedere se rimangono valori distribuiti diversamente da questi 4 casi.
   - Eventulamente analizzare i valori logits per le video tiles cloudy in funzione del cloud index
 - Interpretare i falsi positivi in base alla distanza dal vero positivo -> se sono tile limitrofe non è così grave: escluderli o contarli a parte da quelli lontani o comunque vicini ma senza nuvole.
+
+
+## Dataset
+- Dataset di test di un anno intero
+    - Devo prendere un master_df caricato su tutte le immagini, non sulle righe di un manos track, perché altrimenti andrei a prendere solo gli intervalli relativi a cicloni,
+      invece voglio tutto un anno, anche quando non ci sono cicloni

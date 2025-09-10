@@ -485,3 +485,17 @@ def make_validation_data_builder_from_manos_tracks(manos_track_file, input_dir, 
     val_b.get_data_ready(tracks_df_val, input_dir, output_dir, csv_file="val_manos_w", is_to_balance=False)
     #val_b.get_data_ready(tracks_df_test, input_dir, output_dir, csv_file="val_manos_w", is_to_balance=True)
     return val_b
+
+def make_validation_data_builder_from_entire_year(year, input_dir, output_dir):
+    args = prepare_finetuning_args()
+
+    output_dir = solve_paths(output_dir)
+    input_dir = solve_paths(input_dir)
+
+    manos_track_file = "medicane_data_input/more_medicanes_time_updated.csv"
+    tracks_df = pd.read_csv(manos_track_file, parse_dates=['time', 'start_time', 'end_time'])
+
+    bd_full = BuildDataset(type='SUPERVISED', args=args)
+    bd_full.get_data_ready_full_year(tracks_df, input_dir, output_dir, year, csv_file=f"full_year_{year}")
+
+    return bd_full

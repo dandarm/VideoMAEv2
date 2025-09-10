@@ -9,7 +9,7 @@ import pandas as pd
 import torch
 
 from arguments import prepare_finetuning_args
-from dataset.data_manager import make_validation_data_builder_from_manos_tracks
+from dataset.data_manager import make_validation_data_builder_from_manos_tracks, make_validation_data_builder_from_entire_year
 from dataset.build_dataset import calc_tile_offsets
 from view_test_tiles import filling_missing_tile, render_and_save_frame
 from view_test_tiles import make_animation_parallel_ffmpeg
@@ -17,7 +17,7 @@ from view_test_tiles import make_animation_parallel_ffmpeg
 
 
 
-def view_mediterranean_predictions(df_pred_path, input_dir, output_dir):
+def view_mediterranean_predictions(df_pred_path, input_dir, output_dir, entire_year=None):
 
     args = prepare_finetuning_args()
 
@@ -34,8 +34,11 @@ def view_mediterranean_predictions(df_pred_path, input_dir, output_dir):
     args.device=dev
 
 
-
-    val_builder = make_validation_data_builder_from_manos_tracks("medicane_data_input/medicanes_new_windows.csv", input_dir, output_dir)
+    if entire_year is not None:
+        print(f"data builder form year {entire_year}")
+        val_builder = make_validation_data_builder_from_entire_year(entire_year, input_dir, output_dir)
+    else:
+        val_builder = make_validation_data_builder_from_manos_tracks("medicane_data_input/medicanes_new_windows.csv", input_dir, output_dir)
     
     df_predictions = pd.read_csv(df_pred_path)
     df_filtrato_on_video_path = val_builder.df_video.merge(df_predictions, on='path')
@@ -95,12 +98,13 @@ def view_mediterranean_predictions(df_pred_path, input_dir, output_dir):
     # render_and_save_frame((90, list_grouped_df, "./"), overwrite=True)
 
     
-    make_animation_parallel_ffmpeg(expanded_df, nomefile='validation_prova_neighboring_idx01')
+    make_animation_parallel_ffmpeg(expanded_df, nomefile='validation_entire_2023')
 
 
 
 if __name__ == "__main__":
     input_dir = "../fromgcloud"
     output_dir = "../airmassRGB/supervised/"
-    df_pred_path = 'output/inference_predictions.csv'
-    view_mediterranean_predictions(df_pred_path, input_dir, output_dir)
+    df_pred_path = 'output/inference_predictions_entire_year.csv'
+    entire_year = 2023
+    view_mediterranean_predictions(df_pred_path, input_dir, output_dir, entire_year)

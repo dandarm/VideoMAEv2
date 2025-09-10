@@ -6,10 +6,6 @@
 
 - Tiling dinamico che dipenda dalla posizione del ciclone, con la classe aggiuntiva (questo risolverebbe anche il problema dello spostamento temporale del centro del ciclone, per cui una tile passa da 1 a 0 o viceversa con minimi cambiamenti visivi dovuti al cambiamento istantaneo del centro da una tile a quella vicina)
 
-- Dataset di test di un anno intero
-    - Devo prendere un master_df caricato su tutte le immagini, non sulle righe di un manos track, perché altrimenti andrei a prendere solo gli intervalli relativi a cicloni,
-      invece voglio tutto un anno, anche quando non ci sono cicloni
-
 - Crossfold validation 
 
 
@@ -19,7 +15,7 @@ vedo che se la tile esclusa aveva una label positiva e quindi un riquadro verde,
 
 - Documentazione\
   completare il readme.md e agent.md
+- Classe per gestire più facilmente il modello
 
 
 
-# lost codex chats
