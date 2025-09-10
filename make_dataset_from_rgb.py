@@ -7,25 +7,31 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         'Crea il dataset di video tiles per training su arimassRGB',
         add_help=False)
+    
     parser.add_argument('--on',
         type=str,
         default='leonardo',
         #metavar='NAME',
         help='imposta i path sulla macchina')
+    
     parser.add_argument('--master_df',
         action='store_true',
         help='se creare il master dataframe')
+    
     parser.add_argument('--relabeled_df',
         action='store_true',
         help='se modificare le label')
+    
     parser.add_argument('--cloudy',
         action='store_true',
         help='se escludere il cielo sereno')
+    
     parser.add_argument('--manos_tracks',
         #action='store_true',
         type=str,
-        default='medicanes_new_windows.csv',
+        #default='medicanes_new_windows.csv',
         help='specificare il file csv di tracks derivato da Manos')
+    
     parser.add_argument('--all_year',
         #action='store_true',
         type=int,
@@ -52,6 +58,6 @@ if __name__ == "__main__":
     elif args.manos_tracks:
         make_dataset_from_manos_tracks(args.manos_tracks, input_dir, output_dir)
     elif args.all_year:
-        make_dataset_from_entire_year(args.manos_tracks, input_dir, output_dir)
+        make_dataset_from_entire_year(args.all_year, input_dir, output_dir)
     else:
         make_sup_dataset(input_dir, output_dir)
