@@ -1336,6 +1336,24 @@ def get_train_test_validation_df(tracks_df, percentage=0.7, validation_percentag
     return tracks_df_train, tracks_df_test, tracks_df_validation
 
 
+def make_dataset_from_entire_year(year, input_dir, output_dir):
+    import pandas as pd
+    from dataset.data_manager import BuildDataset
+    from arguments import prepare_finetuning_args
+
+    # Parametri principali
+    manos_csv = "medicane_data_input/more_medicanes_time_updated.csv"
+
+    # In directory già definite sopra
+    # input_dir = "../fromgcloud"
+    # output_dir = "../airmassRGB/supervised/"
+
+    args = prepare_finetuning_args()
+    tracks_df = pd.read_csv(manos_csv, parse_dates=['time','start_time','end_time'])
+    bd_full = BuildDataset(type='SUPERVISED', args=args)
+    bd_full.get_data_ready_full_year(tracks_df, input_dir, output_dir, year, csv_file=f"full_year_{year}")
+
+
 
 def make_dataset_from_manos_tracks(manos_track_file, input_dir, output_dir):
     """

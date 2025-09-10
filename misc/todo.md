@@ -23,4 +23,3 @@ vedo che se la tile esclusa aveva una label positiva e quindi un riquadro verde,
 
 
 # lost codex chats
-$HOME/.codex/sessions/2025/09/09
