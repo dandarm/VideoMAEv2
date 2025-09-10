@@ -1,6 +1,6 @@
 
 import argparse
-from dataset.build_dataset import make_sup_dataset, make_unsup_dataset, make_master_df, make_relabeled_dataset, make_dataset_from_manos_tracks
+from dataset.build_dataset import make_sup_dataset, make_unsup_dataset, make_master_df, make_relabeled_dataset, make_dataset_from_manos_tracks, make_dataset_from_entire_year
 
 
 if __name__ == "__main__":
@@ -26,6 +26,11 @@ if __name__ == "__main__":
         type=str,
         default='medicanes_new_windows.csv',
         help='specificare il file csv di tracks derivato da Manos')
+    parser.add_argument('--all_year',
+        #action='store_true',
+        type=int,
+        #default=2023,
+        help="specificare l'anno ")
 
     args = parser.parse_args()
 
@@ -46,6 +51,7 @@ if __name__ == "__main__":
         #                       master_df_path="all_data_CL7_tracks_SHORT4TEST.csv")
     elif args.manos_tracks:
         make_dataset_from_manos_tracks(args.manos_tracks, input_dir, output_dir)
-
+    elif args.all_year:
+        make_dataset_from_entire_year(args.manos_tracks, input_dir, output_dir)
     else:
         make_sup_dataset(input_dir, output_dir)
