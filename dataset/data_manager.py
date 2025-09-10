@@ -235,6 +235,7 @@ class BuildDataset():
           i periodi senza cicloni (label=0).
         """
         # 1) Leggi tutte le immagini disponibili
+        print(f"Carico tutte le immagini in {input_dir_images}...")
         sorted_metadata_files = load_all_images(input_dir_images)
         # 2) Filtra per anno richiesto (robusto a dt None)
         filtered = [(p, dt) for (p, dt) in sorted_metadata_files if dt is not None and getattr(dt, 'year', None) == int(year)]
