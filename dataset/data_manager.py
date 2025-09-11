@@ -492,8 +492,17 @@ class BuildTrackingDataset(BuildDataset):
         Mirrors BuildDataset.get_data_ready but avoids saving the classif CSV.
         """
         self.create_master_df_short(input_dir_images=input_dir, tracks_df=df_tracks)
+        # Build df_video WITHOUT saving any tiles yet
+        self.make_df_video(output_dir=None, is_to_balance=is_to_balance)
 
-        self.make_df_video(output_dir=output_dir, is_to_balance=is_to_balance)
+        # Save only positive (label==1) video tiles
+        from dataset.build_dataset import create_and_save_tile_from_complete_df
+        if self.df_video is not None and not self.df_video.empty:
+            df_pos = self.df_video
+            if 'label' in df_pos.columns:
+                df_pos = df_pos[df_pos['label'] == 1]
+            if not df_pos.empty:
+                create_and_save_tile_from_complete_df(df_pos, output_dir)
 
 
 # Calcola distanza minima rispetto all'intervallo [start_time, end_time]
