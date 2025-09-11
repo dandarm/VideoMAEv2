@@ -59,7 +59,7 @@ def launch_finetuning_classification(terminal_args):
     cudnn.benchmark = True
 
 
-    ############################# Distributed Training #############################
+    # region ############################ Distributed Training #############################
 
     rank, local_rank, world_size, local_size, num_workers = utils.get_resources()
     #print(f"rank, local_rank, world_size, local_size, num_workers: {rank, local_rank, world_size, local_size, num_workers}")
@@ -86,6 +86,8 @@ def launch_finetuning_classification(terminal_args):
     if args.log_dir and not os.path.exists(args.log_dir):
         os.makedirs(args.log_dir)
     setup_for_distributed(rank == 0)
+
+    # endregion ######################### Distributed Training #############################
 
     #print("=============== ARGS ===============")
     # Se vuoi stampare i parametri

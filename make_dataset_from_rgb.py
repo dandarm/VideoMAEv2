@@ -1,6 +1,14 @@
 
 import argparse
-from dataset.build_dataset import make_sup_dataset, make_unsup_dataset, make_master_df, make_relabeled_dataset, make_dataset_from_manos_tracks, make_dataset_from_entire_year
+from dataset.build_dataset import (
+    make_sup_dataset,
+    make_unsup_dataset,
+    make_master_df,
+    make_relabeled_dataset,
+    make_dataset_from_manos_tracks,
+    make_dataset_from_entire_year,
+    make_tracking_dataset_from_manos_tracks,
+)
 
 
 if __name__ == "__main__":
@@ -31,6 +39,9 @@ if __name__ == "__main__":
         type=str,
         #default='medicanes_new_windows.csv',
         help='specificare il file csv di tracks derivato da Manos')
+    parser.add_argument('--tracking_manos',
+        type=str,
+        help='file CSV Manos per creare dataset di tracking (split train/test/val)')
     
     parser.add_argument('--all_year',
         #action='store_true',
@@ -57,6 +68,8 @@ if __name__ == "__main__":
         #                       master_df_path="all_data_CL7_tracks_SHORT4TEST.csv")
     elif args.manos_tracks:
         make_dataset_from_manos_tracks(args.manos_tracks, input_dir, output_dir)
+    elif args.tracking_manos:
+        make_tracking_dataset_from_manos_tracks(args.tracking_manos, input_dir, output_dir)
     elif args.all_year:
         make_dataset_from_entire_year(args.all_year, input_dir, output_dir)
     else:

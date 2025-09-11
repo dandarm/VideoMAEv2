@@ -1389,6 +1389,46 @@ def make_dataset_from_manos_tracks(manos_track_file, input_dir, output_dir):
     return train_b, tracks_df_train
 
 
+def make_tracking_dataset_from_manos_tracks(manos_track_file, input_dir, output_dir,
+                                            train_csv_name: str = "train_tracking.csv",
+                                            test_csv_name: str = "test_tracking.csv",
+                                            val_csv_name: str = "val_tracking.csv"):
+    """Build tracking dataset CSVs (train/test/val) with pixel coordinates.
+
+    - Loads only images in the intervals defined by Manos tracks (fast path).
+    - Saves only positive tiles to disk (label==1), via BuildTrackingDataset.prepare_data.
+    - Writes CSVs with columns: path, start, end, x_pix, y_pix
+    """
+    import pandas as pd
+    from dataset.data_manager import BuildTrackingDataset
+    from arguments import prepare_finetuning_args
+
+    output_dir = solve_paths(output_dir)
+    input_dir = solve_paths(input_dir)
+
+    args = prepare_finetuning_args()
+    tracks_df = pd.read_csv(manos_track_file, parse_dates=['time', 'start_time', 'end_time'])
+
+    tracks_df_train, tracks_df_test, tracks_df_val = get_train_test_validation_df(tracks_df, 0.7, 0.15, id_col='id_final')
+
+    print("Building TRAIN tracking set (tiles + CSV)...")
+    train_b = BuildTrackingDataset(type='SUPERVISED', args=args)
+    train_b.prepare_data(tracks_df_train, input_dir, output_dir)
+    train_b.create_tracking_csv(output_dir, train_csv_name, only_label_1=True, num_frames=args.num_frames)
+
+    print("Building TEST tracking set (tiles + CSV)...")
+    test_b = BuildTrackingDataset(type='SUPERVISED', args=args)
+    test_b.prepare_data(tracks_df_test, input_dir, output_dir)
+    test_b.create_tracking_csv(output_dir, test_csv_name, only_label_1=True, num_frames=args.num_frames)
+
+    print("Building VAL tracking set (tiles + CSV)...")
+    val_b = BuildTrackingDataset(type='SUPERVISED', args=args)
+    val_b.prepare_data(tracks_df_val, input_dir, output_dir)
+    val_b.create_tracking_csv(output_dir, val_csv_name, only_label_1=True, num_frames=args.num_frames)
+
+    return train_b
+
+
 
 
 

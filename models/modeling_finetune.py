@@ -400,8 +400,11 @@ class VisionTransformer(nn.Module):
 
         self.apply(self._init_weights)
 
-        self.head.weight.data.mul_(init_scale)
-        self.head.bias.data.mul_(init_scale)
+        # If num_classes <= 0, head is Identity and has no weights/bias.
+        if isinstance(self.head, nn.Linear):
+            self.head.weight.data.mul_(init_scale)
+            if self.head.bias is not None:
+                self.head.bias.data.mul_(init_scale)
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
