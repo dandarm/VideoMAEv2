@@ -18,7 +18,7 @@ class RegressionHead(nn.Module):
         return self.mlp(x)
 
 
-def create_tracking_model(model_name: str, init_ckpt: str = "", num_outputs: int = 2, **kwargs) -> nn.Module:
+def create_tracking_model(model_name: str, num_outputs: int = 2, **kwargs) -> nn.Module:
     """Build a model for cyclone tracking starting from a classification checkpoint.
 
     This function loads the specified transformer architecture with weights
@@ -27,11 +27,9 @@ def create_tracking_model(model_name: str, init_ckpt: str = "", num_outputs: int
     units is attached for coordinate regression.
     """
     extra_kwargs = dict(num_classes=0, **kwargs)
-    if init_ckpt:
-        extra_kwargs["init_ckpt"] = init_ckpt
-        model = create_model(model_name, pretrained=True, **extra_kwargs)
-    else:
-        model = create_model(model_name, pretrained=False, **extra_kwargs)
+    
+    model = create_model(model_name, **extra_kwargs)
+    
 
     model.head = RegressionHead(model.embed_dim, num_outputs)
     return model
