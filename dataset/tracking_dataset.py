@@ -6,6 +6,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 
 from .datasets import MedicanesClsDataset
+from PIL import Image
 
 
 class MedicanesTrackDataset(MedicanesClsDataset):
@@ -45,7 +46,36 @@ class MedicanesTrackDataset(MedicanesClsDataset):
         self.y_col = y_col
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, str]:
-        video, _label_unused, folder_path = super().__getitem__(idx)
+        """Return video tensor, coords tensor (x,y), and folder path.
+
+        Overrides parent to avoid requiring a 'label' column, since this is
+        a regression target with pixel coordinates.
+        """
         row = self.df.iloc[idx]
+        folder_path = row['path']
+
+        # If path is relative, compose with data_root
+        if not os.path.isabs(folder_path):
+            folder_path = os.path.join(self.data_root, folder_path)
+
+        # Load up to clip_len frames from the folder
+        frame_files = sorted(os.listdir(folder_path))
+        frames = []
+        for file in frame_files[: self.clip_len]:
+            file_path = os.path.join(folder_path, file)
+            try:
+                img = Image.open(file_path).convert("RGB")
+                img = self.transform(img)
+                frames.append(img)
+            except Exception:
+                print(f"Problema nel caricamento di {file_path}")
+
+        # Pad by repeating last frame if needed, to ensure clip_len
+        if len(frames) != self.clip_len and len(frames) > 0:
+            frames = frames + [frames[-1]] * (self.clip_len - len(frames))
+
+        # [T, C, H, W] -> [C, T, H, W]
+        video = torch.stack(frames, dim=0).permute(1, 0, 2, 3)
+
         coords = torch.tensor([row[self.x_col], row[self.y_col]], dtype=torch.float32)
         return video, coords, folder_path

@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader, DistributedSampler
 from .pretrain_datasets import (  # noqa: F401
     DataAugmentationForVideoMAEv2, HybridVideoMAE, VideoMAE)
 from .datasets import MedicanesClsDataset  # RawFrameClsDataset, VideoClsDataset,
+from .tracking_dataset import MedicanesTrackDataset
 from medicane_utils.load_files import  load_all_images, load_all_images_in_intervals, get_intervals_in_tracks_df
 from dataset.build_dataset import calc_tile_offsets, labeled_tiles_from_metadatafiles_maxfast, make_relabeled_master_df, solve_paths, get_train_test_validation_df, calc_avg_cld_idx
 
@@ -157,6 +158,40 @@ class DataManager():
             persistent_workers=True,
             sampler=sampler,
         )
+
+    # region Tracking dataset/dataloader
+    def get_tracking_dataset(self, args):
+        print("Getting TRACKING dataset (pixel coords)...")
+        dataset = MedicanesTrackDataset(
+            anno_path=self.file_path,
+            data_root=args.data_root,
+            clip_len=args.num_frames,
+            transform=None,
+        )
+        self.dataset_len = len(dataset)
+        print(f"DATASET length: {self.dataset_len}")
+        return dataset
+
+    def create_tracking_dataloader(self, args):
+        self.dataset = self.get_tracking_dataset(args)
+        sampler = self.get_dist_sampler()
+        print(f"Batch_size local: {args.batch_size}")
+        self.data_loader = DataLoader(
+            self.dataset,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
+            pin_memory=args.pin_mem,
+            drop_last=self.is_train,
+            collate_fn=self.collate_func,
+            persistent_workers=True,
+            sampler=sampler,
+        )
+        return self.data_loader
+
+    # Convenience alias to mirror naming used elsewhere
+    def get_tracking_dataloader(self, args):
+        return self.create_tracking_dataloader(args)
+    # endregion
 
 
 

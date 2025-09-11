@@ -1,6 +1,9 @@
 # Todo List per il progetto VideoMAEv2 su dataset satellitari
 
 ## Dataset
+- scaricare tutto il 2023
+
+- verificare se nelle finestre dei medicane ci sono altri cicloni, e considerarli correttamente
 
 - Aumentare le classi per le tile vicine spazialmente (limitrofe), tile nuvolose e clear sky
 
