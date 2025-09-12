@@ -1,6 +1,9 @@
 import os
 from typing import Tuple, Optional
 
+import numpy as np
+import pandas as pd
+
 import torch
 from torch.utils.data import Dataset
 from torchvision import transforms
@@ -26,7 +29,7 @@ class MedicanesTrackDataset(MedicanesClsDataset):
         # Column names for pixel-coordinates (required)
         x_col: str = "x_pix",
         y_col: str = "y_pix",
-    ) -> None:
+        ) -> None:
         super().__init__(
             anno_path=anno_path,
             data_root=data_root,
@@ -44,6 +47,16 @@ class MedicanesTrackDataset(MedicanesClsDataset):
             raise ValueError(f"CSV must contain pixel coordinate columns '{x_col}' and '{y_col}'")
         self.x_col = x_col
         self.y_col = y_col
+
+        # Coerce to numeric and drop rows with missing/non-finite coordinates
+        before = len(self.df)
+        self.df[self.x_col] = pd.to_numeric(self.df[self.x_col], errors='coerce')
+        self.df[self.y_col] = pd.to_numeric(self.df[self.y_col], errors='coerce')
+        mask_finite = np.isfinite(self.df[self.x_col].values) & np.isfinite(self.df[self.y_col].values)
+        self.df = self.df[mask_finite].reset_index(drop=True)
+        dropped = before - len(self.df)
+        if dropped > 0:
+            print(f"[INFO][TrackingDataset] Dropped {dropped} rows with missing/non-finite coordinates from {anno_path} (kept {len(self.df)}/{before}).")
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, str]:
         """Return video tensor, coords tensor (x,y), and folder path.
@@ -77,5 +90,6 @@ class MedicanesTrackDataset(MedicanesClsDataset):
         # [T, C, H, W] -> [C, T, H, W]
         video = torch.stack(frames, dim=0).permute(1, 0, 2, 3)
 
+        # Build target coords as float tensor
         coords = torch.tensor([row[self.x_col], row[self.y_col]], dtype=torch.float32)
         return video, coords, folder_path
