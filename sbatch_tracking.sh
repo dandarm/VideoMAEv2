@@ -6,7 +6,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --time=05:58:00
 #SBATCH --error=myJob.err
-#SBATCH --output=myJob_medicanes.out
+#SBATCH --output=tracking_job.out
 
 module load profile/deeplrn
 module load cineca-ai/4.3.0
