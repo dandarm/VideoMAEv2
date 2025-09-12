@@ -78,6 +78,14 @@ def launch_tracking(terminal_args: argparse.Namespace) -> None:
         **args.__dict__
     )
 
+    # Informative print: confirm regression head is active
+    try:
+        from models.tracking_model import RegressionHead  # local import for isinstance check
+        head_is_reg = isinstance(model.head, RegressionHead)
+    except Exception:
+        head_is_reg = False
+    print(f"[INFO] Model built: {args.model} | Head: {type(model.head).__name__} | Regression active: {head_is_reg}")
+
     model.to(device)
     model_without_ddp = model
     if args.distributed:
@@ -92,14 +100,16 @@ def launch_tracking(terminal_args: argparse.Namespace) -> None:
     best_loss = float("inf")
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
+        print(f"start epoch{epoch}")
         train_stats = train_one_epoch(
             model, criterion, train_loader, optimizer, device, epoch
         )
+        print("train step")
         # Evaluate on test and optionally validation
         val_stats = evaluate(model, criterion, test_loader, device)
         if val_loader is not None:
             _ = evaluate(model, criterion, val_loader, device)
-
+        print("eval step")
         val_loss = val_stats.get("loss", float("inf"))
         if args.output_dir and val_loss < best_loss and args.rank == 0:
             best_loss = val_loss
