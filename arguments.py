@@ -277,7 +277,7 @@ def prepare_finetuning_args(machine=None):
         'auto_resume': False,
         'load_for_test_mode': False,
         'data_path': './',
-        #'csv_folder': './output/traintest_csv',
+        'csv_folder': './',
         'train_path': 'train_manos_w_1238.csv',   #'.csv',   #'train_manos_836.csv',   #  train_manos_unbalanced_6468
         'test_path': 'test_manos_w_354.csv',  # 'test_manos_372.csv',
         'val_path': 'val_manos_w_2400.csv', 
@@ -330,13 +330,13 @@ def prepare_finetuning_args(machine=None):
         if machine == 'leonardo':
             machine_args_override['batch_size'] = 2
 
-            ckpath = '$FAST/checkpoint-149.pth'
-            exp_path = os.path.expandvars(ckpath)
-            if "$HOME" in exp_path:
-                raise EnvironmentError("La variabile d'ambiente HOME non è definita.")
-            machine_args_override['init_ckpt'] = exp_path
-            machine_args_override['pretrained'] = True
-            machine_args_override['csv_folder'] = "./"
+            # ckpath = '$FAST/checkpoint-149.pth'
+            # exp_path = os.path.expandvars(ckpath)
+            # if "$HOME" in exp_path:
+            #     raise EnvironmentError("La variabile d'ambiente HOME non è definita.")
+            # machine_args_override['init_ckpt'] = exp_path
+            # machine_args_override['pretrained'] = True
+            # machine_args_override['csv_folder'] = "./"
         elif machine == 'ewc':
             machine_args_override['device'] = 'cpu'
             machine_args_override['csv_folder'] = "./"
