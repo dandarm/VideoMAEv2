@@ -785,13 +785,21 @@ def create_and_save_tile_from_complete_df(df, output_dir, overwrite=False):
         salvati_ora = 0
         gia_salvati = 0
         totali = 0
+        folders_created = 0
 
         for idx, row in df.iterrows():
             # crea la cartella di destinazione
             path_name = row.path
             subfolder = Path(output_dir) / path_name
             #print(subfolder)
-            subfolder.mkdir(parents=True, exist_ok=True)
+            # Conta solo le nuove cartelle realmente create
+            if not subfolder.exists():
+                subfolder.mkdir(parents=True, exist_ok=True)
+                folders_created += 1
+                if folders_created % 50 == 0:
+                    print(folders_created, end=' ', flush=True)
+            else:
+                subfolder.mkdir(parents=True, exist_ok=True)
 
             offset_x, offset_y = row.tile_offset_x, row.tile_offset_y
             for k, orig_p in enumerate(row.orig_paths):
@@ -807,6 +815,7 @@ def create_and_save_tile_from_complete_df(df, output_dir, overwrite=False):
                     #print(f"non c'è stato bisogno di risalvarlo")
                     gia_salvati += 1
 
+        print()  # newline dopo il progresso in tempo reale
         print(f"Salvati {salvati_ora} file - Erano già presenti {gia_salvati} file - File totali {totali}")
 
 
