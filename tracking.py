@@ -111,7 +111,7 @@ def launch_tracking(terminal_args: argparse.Namespace) -> None:
             _ = evaluate(model, criterion, val_loader, device)
         print("eval step")
         val_loss = val_stats.get("loss", float("inf"))
-        if args.output_dir and val_loss < best_loss and args.rank == 0:
+        if args.output_dir and val_loss < best_loss and args.rank == 0 and epoch > args.start_epoch_for_saving_best_ckpt:
             best_loss = val_loss
             checkpoint_path = os.path.join(args.output_dir, "checkpoint-tracking-best.pth")
             torch.save(
