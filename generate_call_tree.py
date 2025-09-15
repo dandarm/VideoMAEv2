@@ -179,6 +179,7 @@ def write_svg(root: str, tree: Dict[str, Dict], path: str) -> None:
 def main() -> None:
     md_lines: List[str] = ["# High-Level Training Call Tree\n"]
     os.makedirs("docs", exist_ok=True)
+
     for script in TARGETS:
         with open(script, "r", encoding="utf-8") as f:
             tree = ast.parse(f.read(), filename=script)
@@ -215,4 +216,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 

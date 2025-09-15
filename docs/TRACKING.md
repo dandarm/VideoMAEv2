@@ -4,7 +4,7 @@ This document describes the cyclone-centre tracking task built on top of VideoMA
 
 ## Dataset
 - In tracking, we do coordinate regression (x, y), not classification.
-- [`MedicanesTrackDataset`](../dataset/tracking_dataset.py) loads only tiles labelled as cyclones (`label == 1`).
+- [`MedicanesTrackDataset`](../dataset/datasets.py) loads only tiles labelled as cyclones (`label == 1`).
 - Each video spans 80 minutes and is aligned so the last frame ends on the hour, as in classification.
 - Training targets are the cyclone centre coordinates from the **last frame** of each clip.
 
