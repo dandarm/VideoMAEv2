@@ -2,6 +2,7 @@
 import os
 import warnings
 
+from typing import Optional, Union  
 import numpy as np
 import pandas as pd
 import torch
@@ -696,7 +697,8 @@ class MedicanesTrackDataset(MedicanesClsDataset):
         anno_path: str,
         data_root: str = "",
         clip_len: int = 16,
-        transform: transforms.Compose | None = None,
+        #transform: transforms.Compose | None = None,
+        transform: Optional[transforms.Compose] = None,
         x_col: str = "x_pix",
         y_col: str = "y_pix",
     ) -> None:
