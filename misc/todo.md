@@ -1,9 +1,14 @@
 # Todo List per il progetto VideoMAEv2 su dataset satellitari
 
+# PRESENTAZIONE
+rifare la conf matrix con font più grandi , e RECALL -> POD   
+
+fare video inference di Ianos
+
 ## Dataset
 - scaricare tutto il 2023
 
-- verificare se nelle finestre dei medicane ci sono altri cicloni, e considerarli correttamente
+- verificare se nelle finestre temporali dei medicane ci sono altri cicloni contemporanei, e considerarli correttamente
 
 - Aumentare le classi per le tile vicine spazialmente (limitrofe), tile nuvolose e clear sky
 
@@ -14,13 +19,20 @@
 - training senza clear sky
 
 
+## Tracking
+  - plot della traccia predetta (punto rosso) e traccia ground truth (punto verde)
+  - stima della metrica MSE in km
+  - renbdere la loss meno stringente, o accettare un risultato più approssimativo
+
+
 ## View MEDI
 CLOUDY: vedo che se la tile esclusa aveva una label positiva e quindi un riquadro verde, questo non viene più plottato, possiamo mantenere tutte le feature indipendentemente? ma allora non le devo togliere per poi riespanderle altrimenti ho proprio perso l'informazione sulla tile, anche quando conteneva un ciclone.
 
 
 - Documentazione\
   completare il readme.md e agent.md
-- Classe per gestire più facilmente il modello
+
+- Video inference di tutti i medicane case studies in validation
 
 
 
