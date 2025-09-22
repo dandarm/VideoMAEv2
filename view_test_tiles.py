@@ -1,8 +1,10 @@
 import os
 import multiprocessing
+import shutil
 from time import time
 import re
 from pathlib import Path
+import matplotlib
 # import datetime
 # import random
 # import json
@@ -315,12 +317,28 @@ def create_gif_pil(image_paths, output_gif, duration=100, loop=0):
 
 
 
+
 ##### l'ho usata per l'animazione della singola tile con play in jupyter
 
-def display_video_clip(frames_tensors, interval=200):
-    """
+def _resolve_ffmpeg_executable():
+    """Trova il binario ffmpeg nel PATH o nella cartella locale del progetto."""
+    found = shutil.which("ffmpeg")
+    if found:
+        return found
+
+    local_ffmpeg = Path(__file__).resolve().parent / "ffmpeg-7.0.2-amd64-static" / "ffmpeg"
+    if local_ffmpeg.exists():
+        return str(local_ffmpeg)
+
+    return None
+
+
+def display_video_clip(frames_tensors, interval=200, save_path=None):
+    """Crea l'animazione e (opzionalmente) la salva su file.
+
     frames_tensors: array di shape (T, H, W, 3) in formato RGB normalizzato 0-1
     interval: intervallo in millisecondi tra i frame dell'animazione
+    save_path: path di output. Se None, l'animazione non viene salvata
     """
     fig = plt.figure()
     ims = []
@@ -336,6 +354,28 @@ def display_video_clip(frames_tensors, interval=200):
         ims.append([im])
 
     ani = animation.ArtistAnimation(fig, ims, interval=interval, blit=True, repeat_delay=1000)
+
+    if save_path is not None:
+        save_path = Path(save_path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        fps = 1000.0 / interval if interval else 5
+        try:
+            if save_path.suffix.lower() == ".gif":
+                writer = animation.PillowWriter(fps=fps)
+            else:
+                ffmpeg_exec = _resolve_ffmpeg_executable()
+                if ffmpeg_exec is None:
+                    raise RuntimeError(
+                        "ffmpeg non è stato trovato nel PATH né in 'ffmpeg-7.0.2-amd64-static/'. "
+                        "Aggiungi il binario a PATH oppure passare un percorso valido."
+                    )
+                matplotlib.rcParams['animation.ffmpeg_path'] = ffmpeg_exec
+                writer = animation.FFMpegWriter(fps=fps)
+            ani.save(str(save_path), writer=writer)
+        except Exception as exc:
+            plt.close(fig)
+            raise RuntimeError(f"Impossibile salvare l'animazione in '{save_path}': {exc}") from exc
+
     plt.close(fig)  # Chiudiamo la figura per evitare doppia visualizzazione
     return HTML(ani.to_jshtml())
 

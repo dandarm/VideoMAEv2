@@ -462,7 +462,7 @@ def plot_logit_margin_hist(logits, labels, class_names=None, bins=50, density=Fa
     plt.axvline(0.0, color='k', linestyle='--', linewidth=1, alpha=0.7)
     plt.xlabel('logit[1] - logit[0]')
     plt.ylabel('density' if density else 'count')
-    plt.title('Distribuzione del margine logit per label')
+    plt.title('Logit distribution for each class')
     plt.legend()
     plt.tight_layout()
     
@@ -765,7 +765,7 @@ def plot_margin_hist_by_neighboring(
         ax.axvline(0.0, color='k', linestyle='--', linewidth=1, alpha=0.7)
         ax.set_xlabel('logit[1] - logit[0]')
         ax.set_ylabel('density' if density else 'count')
-        ax.set_title(f'Distribuzione margine — neighboring={neigh_val}')
+        ax.set_title(f'Logit distribution — neighboring={neigh_val}')
         # Annotazioni: N<0 in alto a sinistra, N>=0 a destra (totale o per-classe)
         n_left = int(np.sum(sub[margin_col].values < 0))
         ax.text(0.01, 0.98, f"N<0 = {n_left}", transform=ax.transAxes, ha='left', va='top', fontsize=9,
@@ -788,12 +788,12 @@ def plot_margin_hist_by_neighboring(
         ax.legend(loc='center')
         fig.tight_layout()
 
-    if save_prefix is not None:
-            out = f"{save_prefix}_neighboring_{str(neigh_val).lower()}.png"
-            try:
-                fig.savefig(out, dpi=150)
-            except Exception:
-                pass
+        if save_prefix is not None:
+                out = f"{save_prefix}_neighboring_{str(neigh_val).lower()}.png"
+                try:
+                    fig.savefig(out, dpi=150)
+                except Exception:
+                    pass
 
 # endregion
 
