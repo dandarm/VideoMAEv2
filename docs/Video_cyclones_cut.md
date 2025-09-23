@@ -4,7 +4,7 @@
 Notebook interattivo per tagliare e annotare videoclips di cicloni. Consente di selezionare gli istanti di inizio e fine direttamente da un player video o da una sequenza di frame generata precedentemente, e di salvare i nuovi limiti temporali in un CSV riutilizzabile (`new_cyc_limits.csv`).
 
 ## Componenti principali
-- Import di librerie per la UI (`ipywidgets`), manipolazione file (`Path`, `re`, `json`), gestione immagini (`PIL.Image`) e animazione (`matplotlib.animation`).
+- Import di librerie per la UI (`ipywidgets`)
 - Raccolta dei frame da una cartella (`anim_frames_{id}`) e ordinamento numerico per ricostruire la sequenza originale.
 - Creazione di un’animazione Matplotlib che carica ogni frame on-demand attraverso `FuncAnimation`, utile come preview rapida.
 - Implementazione di una cache LRU (`load_jpeg`) per ridurre il costo di caricamento quando si lavora con molti frame.
@@ -20,6 +20,3 @@ Notebook interattivo per tagliare e annotare videoclips di cicloni. Consente di 
 ## Output
 - CSV `new_cyc_limits.csv` contenente coppie (nome ciclone, start, end) aggiornate manualmente.
 
-## Note
-- Il notebook include più varianti dell’interfaccia (alcune commentate) per provare approcci diversi; è sufficiente eseguire la versione completa.
-- Per il player video è necessario che `src_url` punti a un file servito da Jupyter (`/files/...`).

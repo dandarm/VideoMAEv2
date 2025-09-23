@@ -14,6 +14,8 @@ Notebook di supporto per verificare le costanti geografiche e le conversioni lat
 - Correzione della coordinata y (invertendo l’asse verticale) per mappare correttamente le coordinate sul sistema di riferimento delle immagini.
 - Disegno del punto trovato su un’immagine (`img_pil`) utilizzando `PIL.ImageDraw` per una verifica visiva.
 
+TODO: in 'production' non viene usata `trova_indici_vicini`, ma la funzione ottimizzata `get_cyclone_center_pixel_vector` usata in Analyze_Manos_tracks.ipynb. Verificare quale è la migliore e tenere solo quella.
+
 ## Output
 - Figure di debug con le coste e il punto selezionato.
 

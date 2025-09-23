@@ -10,6 +10,7 @@ Notebook che raccoglie numerosi esperimenti di plotting dei log di training. Per
 - Plot aggiuntivi come `plot_fprfnr` per analizzare FPR/FNR su dataset multipli.
 
 ## Sezioni tematiche
+- **Detection** e **Tracking** per tracciare le loss dei due tipi di training
 - **Run principali**: confronto del log base (`log.txt`) con varianti su learning rate e pesatura delle classi.
 - **Studio del learning rate**: costruzione di array di LR e weight decay pianificati, conversione da step a epoche, plot dei valori medi per epoca e della curva step-by-step.
 - **Studi storici**: grafici per run più vecchie (600/1000 medicanes) per vedere l’evoluzione delle performance negli esperimenti iniziali.
