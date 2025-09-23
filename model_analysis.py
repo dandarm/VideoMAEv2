@@ -212,12 +212,14 @@ def load_logits_dir(save_dir='output/val_logits', prefix='val'):
     return logits, labels, preds, paths
 
 
-def merge_all_rank_merged(save_dir='output/val_logits', prefix='val', output_filename=None, delete_inputs=True):
+def merge_all_rank_merged(save_dir='output/val_logits', prefix='val', output_filename=None,
+                          delete_inputs=True, value_key: str = 'logits'):
     """Unisce tutti i file merged per-rank in un unico `{prefix}_all_merged.npz`.
 
     - Cerca: `{prefix}_rank*_merged.npz`
     - Salva: `{output_filename}` se fornito, altrimenti `{prefix}_all_merged.npz`
     - Se `delete_inputs=True`, cancella i singoli merged per-rank dopo il salvataggio.
+    - `value_key` indica la chiave principale da concatenare (es. 'logits' o 'embeddings').
 
     Ritorna: percorso del file globale salvato.
     """
@@ -225,21 +227,25 @@ def merge_all_rank_merged(save_dir='output/val_logits', prefix='val', output_fil
     if len(files) == 0:
         raise FileNotFoundError(f"No per-rank merged files found in {save_dir}")
 
-    logits_list, labels_list, preds_list, paths_list = [], [], [], []
+    values_list, labels_list, preds_list, paths_list = [], [], [], []
     for f in files:
         with np.load(f, allow_pickle=True) as d:
-            logits_list.append(d['logits'])
+            values_list.append(d[value_key])
             labels_list.append(d['labels'])
             preds_list.append(d['preds'])
             paths_list.append(d['paths'])
 
-    logits = np.concatenate(logits_list, axis=0)
+    merged_values = np.concatenate(values_list, axis=0)
     labels = np.concatenate(labels_list, axis=0)
     preds = np.concatenate(preds_list, axis=0)
     paths = np.concatenate(paths_list, axis=0)
 
     out = output_filename or os.path.join(save_dir, f"{prefix}_all_merged.npz")
-    np.savez_compressed(out, logits=logits, labels=labels, preds=preds, paths=paths)
+    np.savez_compressed(out,
+                        **{value_key: merged_values},
+                        labels=labels,
+                        preds=preds,
+                        paths=paths)
 
     if delete_inputs:
         for f in files:

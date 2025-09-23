@@ -19,6 +19,7 @@ from engine_for_finetuning import (
     validation_one_epoch,
     validation_one_epoch_collect,
     validation_one_epoch_collect_logits,
+    validation_one_epoch_collect_embeddings,
 )
 from optim_factory import create_optimizer
 import models # NON TOGLIERE: serve a torch.load per caricare il mio modello addestrato
@@ -142,7 +143,10 @@ def launch_inference_classification(terminal_args):
 
     
     start_time = time.time()
-    # VAL flow: either collect simple preds into CSV, or collect logits into NPZ shards
+    if getattr(terminal_args, 'get_logits', False) and getattr(terminal_args, 'get_embeddings', False):
+        raise ValueError('Specify only one of --get_logits or --get_embeddings.')
+
+    # VAL flow: collect embeddings/logits or simple preds
     if getattr(terminal_args, 'get_logits', False):
         # Choose directory to save logits shards/merged
         base_out = args.output_dir if args.output_dir else '.'
@@ -194,6 +198,64 @@ def launch_inference_classification(terminal_args):
                 print(f"Warning: rank-merged cleanup failed: {e}")
                 
         # Save predictions CSV (per-rank gather done inside collect_logits)
+        if args.output_dir:
+            os.makedirs(args.output_dir, exist_ok=True)
+        df = create_df_predictions(all_paths, all_preds, all_labels)
+        preds_name = getattr(terminal_args, 'preds_csv', 'inference_predictions.csv')
+        out_csv = preds_name if not args.output_dir else os.path.join(args.output_dir, preds_name)
+        if rank == 0:
+            try:
+                df.to_csv(out_csv, index=False)
+                print(f"Saved predictions to {out_csv}")
+            except Exception as e:
+                print(f"Warning: could not save predictions CSV: {e}")
+    elif getattr(terminal_args, 'get_embeddings', False):
+        base_out = args.output_dir if args.output_dir else '.'
+        emb_subdir = getattr(terminal_args, 'embeddings_dir', 'val_embeddings')
+        save_dir = os.path.join(base_out, emb_subdir)
+        os.makedirs(save_dir, exist_ok=True)
+
+        prefix = getattr(terminal_args, 'embeddings_prefix', 'val')
+        val_stats, all_paths, all_preds, all_labels = validation_one_epoch_collect_embeddings(
+            val_m.data_loader,
+            pretrained_model,
+            device,
+            save_dir=save_dir,
+            prefix=prefix,
+        )
+        print(f"val bal_acc: {val_stats['bal_acc']:.2f}%  (embeddings saved under {save_dir})")
+
+        if dist.is_available() and dist.is_initialized():
+            dist.barrier()
+        if rank == 0:
+            try:
+                global_path = merge_all_rank_merged(
+                    save_dir=save_dir,
+                    prefix=prefix,
+                    delete_inputs=False,
+                    value_key='embeddings')
+                print(f"Created global merged embeddings: {global_path}")
+            except Exception as e:
+                print(f"Warning: could not create global merged embeddings: {e}")
+            try:
+                removed = cleanup_npz_shards(save_dir=save_dir, prefix=prefix, only_if_merged=False, dry_run=False)
+                print(f"Removed {len(removed)} embedding shard files.")
+            except Exception as e:
+                print(f"Warning: embedding shard cleanup failed: {e}")
+            try:
+                rank_merged_files = sorted(glob(os.path.join(save_dir, f"{prefix}_rank*_merged.npz")))
+                removed_cnt = 0
+                for f in rank_merged_files:
+                    try:
+                        os.remove(f)
+                        removed_cnt += 1
+                    except Exception as e:
+                        print(f"Warning: could not remove {f}: {e}")
+                if removed_cnt:
+                    print(f"Removed {removed_cnt} per-rank embedding merged files.")
+            except Exception as e:
+                print(f"Warning: embedding rank-merged cleanup failed: {e}")
+
         if args.output_dir:
             os.makedirs(args.output_dir, exist_ok=True)
         df = create_df_predictions(all_paths, all_preds, all_labels)
@@ -263,6 +325,9 @@ if __name__ == '__main__':
     parser.add_argument('--get_logits', action='store_true', help='Collect logits and save .npz shards')
     parser.add_argument('--logits_dir', type=str, default='val_logits', help='Subfolder under output_dir to store logits npz files')
     parser.add_argument('--logits_prefix', type=str, default='val', help='Prefix for saved logits files')
+    parser.add_argument('--get_embeddings', action='store_true', help='Collect backbone embeddings and save .npz shards')
+    parser.add_argument('--embeddings_dir', type=str, default='val_embeddings', help='Subfolder under output_dir to store embedding npz files')
+    parser.add_argument('--embeddings_prefix', type=str, default='val', help='Prefix for saved embedding files')
     
 
     args =  parser.parse_args()
