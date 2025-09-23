@@ -25,6 +25,44 @@ import utils
 from model_analysis import evaluate_binary_classifier_torch
 
 
+def _unwrap_model(model: torch.nn.Module) -> torch.nn.Module:
+    """Return the underlying model, unwrapping DataParallel/DDP wrappers if present."""
+    return model.module if hasattr(model, 'module') else model
+
+
+def _forward_with_optional_features(model: torch.nn.Module,
+                                    images: torch.Tensor,
+                                    collect_features: bool):
+    """Run a forward pass and optionally return backbone features before the head."""
+    features = None
+    if collect_features:
+        base_model = _unwrap_model(model)
+        if hasattr(base_model, 'forward_features'):
+            features = base_model.forward_features(images)
+            forward_head = getattr(base_model, 'forward_head', None)
+            if callable(forward_head):
+                try:
+                    output = forward_head(features)
+                except TypeError:
+                    # Some implementations expect explicit pre_logits flag
+                    output = forward_head(features, pre_logits=False)
+            else:
+                logits_input = features
+                head_dropout = getattr(base_model, 'head_dropout', None)
+                if callable(head_dropout):
+                    logits_input = head_dropout(logits_input)
+                head = getattr(base_model, 'head', None)
+                if callable(head):
+                    output = head(logits_input)
+                else:
+                    # Fallback to full forward if head is unavailable
+                    features = None
+                    output = model(images)
+            return features, output
+    output = model(images)
+    return features, output
+
+
 def train_class_batch(model, samples, target, criterion):
     outputs = model(samples)
     loss = criterion(outputs, target)
@@ -212,7 +250,8 @@ def validation_one_epoch(data_loader, model, device, criterion: Optional[torch.n
         device=device,
         criterion=criterion,
         on_batch=None,
-        header='Val:'
+        header='Val:',
+        collect_features=False,
     )
 
 
@@ -235,7 +274,7 @@ def validation_one_epoch_collect(
     all_labels: list = []
     all_preds: list = []
 
-    def on_batch(output, targets_ondevice, preds, batch_paths, loss, batch_size):
+    def on_batch(output, targets_ondevice, preds, batch_paths, loss, batch_size, **kwargs):
         # Collect per-sample information
         all_labels.extend(targets_ondevice.detach().cpu().numpy().tolist())
         all_preds.extend(preds.detach().cpu().numpy().tolist())
@@ -250,7 +289,8 @@ def validation_one_epoch_collect(
         device=device,
         criterion=criterion,
         on_batch=on_batch,
-        header='Val:'
+        header='Val:',
+        collect_features=False,
     )
 
     # gather predictions/labels/paths across processes if distributed
@@ -281,11 +321,17 @@ def _validation_common(
     on_batch: Optional[
         Callable[[torch.Tensor, torch.Tensor, torch.Tensor, Optional[list], torch.Tensor, int], None]
     ] = None,
-    header: str = 'Val:'
+    header: str = 'Val:',
+    collect_features: bool = False,
 ):
-    """Core validation loop shared by collect/collect_logits.
+    """Core validation loop shared by collect/collect_logits/collect_embeddings.
 
-    on_batch receives: (output, targets_ondevice, preds, batch_paths, loss, batch_size).
+    on_batch receives positional arguments (output, targets_ondevice, preds,
+    batch_paths, loss, batch_size) and additional keyword arguments:
+      - features: backbone features if `collect_features` is True, else None
+      - images: the batch tensor on device
+      - model: the (possibly wrapped) model instance
+
     Returns stats dict with globally reduced metrics.
     """
     criterion = criterion or torch.nn.CrossEntropyLoss()
@@ -311,10 +357,12 @@ def _validation_common(
         # compute output; align dtype with training (bfloat16 on CUDA)
         if getattr(device, 'type', 'cpu') == 'cuda' and torch.cuda.is_available():
             with torch.cuda.amp.autocast(dtype=torch.bfloat16):
-                output = model(images)
+                features, output = _forward_with_optional_features(
+                    model, images, collect_features)
                 loss = criterion(output, targets_ondevice)
         else:
-            output = model(images)
+            features, output = _forward_with_optional_features(
+                model, images, collect_features)
             loss = criterion(output, targets_ondevice)
 
         preds = output.argmax(dim=1)
@@ -338,7 +386,16 @@ def _validation_common(
         fn_total += int(((targets_ondevice == 1) & (preds == 0)).sum().item())
 
         if on_batch is not None:
-            on_batch(output, targets_ondevice, preds, batch_paths, loss, batch_size)
+            on_batch(
+                output,
+                targets_ondevice,
+                preds,
+                batch_paths,
+                loss,
+                batch_size,
+                features=features,
+                images=images,
+                model=model)
 
     # Reduce global counts across processes if distributed
     totals = torch.tensor([tp_total, tn_total, fp_total, fn_total], device=device, dtype=torch.long)
@@ -400,7 +457,7 @@ def validation_one_epoch_collect_logits(
     all_labels: list = []
     all_preds: list = []
 
-    def on_batch(output, targets_ondevice, preds, batch_paths, loss, batch_size):
+    def on_batch(output, targets_ondevice, preds, batch_paths, loss, batch_size, **kwargs):
         # Prepare numpy payloads e salva shard per-batch
         logits_np = output.detach().float().cpu().numpy()
         labels_np = targets_ondevice.detach().cpu().numpy().astype(np.uint8)
@@ -468,33 +525,132 @@ def validation_one_epoch_collect_logits(
     return stats, all_paths, all_preds, all_labels
 
 
-def _merge_npz_shards(shard_paths, output_path):
+@torch.no_grad()
+def validation_one_epoch_collect_embeddings(
+    data_loader,
+    model,
+    device,
+    save_dir: str,
+    criterion: Optional[torch.nn.Module] = None,
+    prefix: str = "val",
+):
+    """Validation loop that stores backbone embeddings (pre-head features).
+
+    Each batch writes a shard with keys: embeddings, labels, preds, paths.
+    Returns stats dict plus gathered metadata (paths/preds/labels).
     """
-    Carica e concatena una lista di file .npz (con chiavi: logits, labels, preds, paths),
+    criterion = criterion or torch.nn.CrossEntropyLoss()
+
+    os.makedirs(save_dir, exist_ok=True)
+
+    rank = dist.get_rank() if dist.is_available() and dist.is_initialized() else 0
+
+    shard_paths: list = []
+    part_idx = {'i': 0}
+    all_paths: list = []
+    all_labels: list = []
+    all_preds: list = []
+
+    def on_batch(output, targets_ondevice, preds, batch_paths, loss, batch_size, **kwargs):
+        features = kwargs.get('features', None)
+        if features is None:
+            raise RuntimeError('Embeddings requested but `features` is None. '
+                               'Ensure the model exposes forward_features().')
+
+        embeddings_np = features.detach().float().cpu().numpy()
+        labels_np = targets_ondevice.detach().cpu().numpy().astype(np.uint8)
+        preds_np = preds.detach().cpu().numpy().astype(np.uint8)
+        paths_list = batch_paths if batch_paths is not None else [None] * batch_size
+        paths_np = np.array(paths_list, dtype=object)
+
+        shard_path = os.path.join(
+            save_dir, f"{prefix}_rank{rank}_part{part_idx['i']:06d}.npz")
+        np.savez_compressed(
+            shard_path,
+            embeddings=embeddings_np,
+            labels=labels_np,
+            preds=preds_np,
+            paths=paths_np,
+        )
+        shard_paths.append(shard_path)
+        part_idx['i'] += 1
+
+        all_labels.extend(labels_np.tolist())
+        all_preds.extend(preds_np.tolist())
+        if batch_paths is not None:
+            all_paths.extend(paths_list)
+        else:
+            all_paths.extend([None] * batch_size)
+
+    stats = _validation_common(
+        data_loader=data_loader,
+        model=model,
+        device=device,
+        criterion=criterion,
+        on_batch=on_batch,
+        header='Val:',
+        collect_features=True,
+    )
+
+    if dist.is_available() and dist.is_initialized():
+        dist.barrier()
+
+    merged_rank_path = os.path.join(save_dir, f"{prefix}_rank{rank}_merged.npz")
+    try:
+        _merge_npz_shards(shard_paths, merged_rank_path, array_key='embeddings')
+        print(f"Saved merged embeddings (rank={rank}) to: {merged_rank_path}")
+    except Exception as e:
+        print(f"Warning: failed to merge rank {rank} embedding shards: {e}")
+
+    if dist.is_available() and dist.is_initialized():
+        try:
+            world_size = dist.get_world_size()
+            gathered_paths = [None for _ in range(world_size)]
+            gathered_preds = [None for _ in range(world_size)]
+            gathered_labels = [None for _ in range(world_size)]
+            dist.all_gather_object(gathered_paths, all_paths)
+            dist.all_gather_object(gathered_preds, all_preds)
+            dist.all_gather_object(gathered_labels, all_labels)
+            all_paths = sum(gathered_paths, [])
+            all_preds = sum(gathered_preds, [])
+            all_labels = sum(gathered_labels, [])
+        except Exception as e:
+            print(f"Warning: could not all_gather embedding metadata: {e}")
+
+    return stats, all_paths, all_preds, all_labels
+
+
+def _merge_npz_shards(shard_paths, output_path, array_key: str = 'logits'):
+    """
+    Carica e concatena una lista di file .npz (con chiavi: array_key, labels, preds, paths),
     e salva un unico file compresso `output_path`.
     """
-    logits_list = []
+    array_list = []
     labels_list = []
     preds_list = []
     paths_list = []
 
     for p in shard_paths:
         with np.load(p, allow_pickle=True) as d:
-            logits_list.append(d['logits'])
+            array_list.append(d[array_key])
             labels_list.append(d['labels'])
             preds_list.append(d['preds'])
             paths_list.append(d['paths'])
 
-    if len(logits_list) == 0:
+    if len(array_list) == 0:
         raise ValueError("No shards to merge.")
 
-    logits = np.concatenate(logits_list, axis=0)
+    merged_array = np.concatenate(array_list, axis=0)
     labels = np.concatenate(labels_list, axis=0)
     preds = np.concatenate(preds_list, axis=0)
     # paths è un array object; concat mantiene dtype=object
     paths = np.concatenate(paths_list, axis=0)
 
-    np.savez_compressed(output_path, logits=logits, labels=labels, preds=preds, paths=paths)
+    np.savez_compressed(output_path,
+                        **{array_key: merged_array},
+                        labels=labels,
+                        preds=preds,
+                        paths=paths)
     return output_path
 
 @torch.no_grad()
