@@ -319,7 +319,7 @@ if __name__ == '__main__':
     )
     parser.add_argument('--csvfile', type=str, default='val_manos_w_2400.csv')
     
-    parser.add_argument('--inference_model', type=str, default='output/checkpoint-best.pth')
+    parser.add_argument('--inference_model', type=str, default='output/checkpoint-best-90_25lug25.pth')
     parser.add_argument('--preds_csv', type=str, default='inference_predictions.csv', help='Output CSV filename for predictions')
 
     parser.add_argument('--get_logits', action='store_true', help='Collect logits and save .npz shards')
