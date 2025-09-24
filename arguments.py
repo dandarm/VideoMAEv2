@@ -339,7 +339,10 @@ def prepare_finetuning_args(machine=None):
             # machine_args_override['csv_folder'] = "./"
         elif machine == 'ewc':
             machine_args_override['device'] = 'cpu'
-            machine_args_override['csv_folder'] = "./"
+            #machine_args_override['csv_folder'] = "./"
+            machine_args_override['train_path'] = 'val_quick_test.csv'
+            machine_args_override['test_path'] = 'val_quick_test.csv'
+            machine_args_override['val_path'] = 'val_quick_test.csv'
 
         args_dict = {**args_dict, **machine_args_override}
 
@@ -452,6 +455,7 @@ def prepare_tracking_args(machine=None):
         'val_path': 'val_tracking.csv',
         'log_dir': './output',
         'output_dir': './output',
+        'csv_folder': './',
         'data_set': 'medicanes',
         'nb_classes': 2,
         'mask_type': 'tube',
@@ -492,16 +496,14 @@ def prepare_tracking_args(machine=None):
         machine_args_override = {}
         if machine == 'leonardo':
             machine_args_override['batch_size'] = 2
-            ckpath = '$FAST/checkpoint-149.pth'
-            exp_path = os.path.expandvars(ckpath)
-            if "$HOME" in exp_path:
-                raise EnvironmentError("La variabile d'ambiente HOME non è definita.")
-            machine_args_override['init_ckpt'] = exp_path
-            machine_args_override['pretrained'] = True
-            machine_args_override['csv_folder'] = "./"
+            #ckpath = '$FAST/checkpoint-149.pth'
+            #exp_path = os.path.expandvars(ckpath)
+            #if "$HOME" in exp_path:
+            #    raise EnvironmentError("La variabile d'ambiente HOME non è definita.")
+            #machine_args_override['init_ckpt'] = exp_path
+            #machine_args_override['pretrained'] = True
         elif machine == 'ewc':
             machine_args_override['device'] = 'cpu'
-            machine_args_override['csv_folder'] = "./"
 
         args_dict = {**args_dict, **machine_args_override}
 
