@@ -18,7 +18,7 @@ from arguments import prepare_finetuning_args, Args  # NON TOGLIERE: serve a tor
 
 from dataset import build_dataset
 import torch.backends.cudnn as cudnn
-from engine_for_finetuning import train_one_epoch, validation_one_epoch, final_test
+from engine_for_finetuning import train_one_epoch, validation_one_epoch
 from optim_factory import create_optimizer
 import models # NON TOGLIERE: serve a torch.load per caricare il mio modello addestrato
 from timm.models import create_model
