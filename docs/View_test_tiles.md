@@ -32,3 +32,6 @@ Notebook complesso dedicato all’ispezione del dataset di validazione/test, all
 ## Note operative
 - Il notebook manipola path relativi e assoluti; verificare `output_dir`, `input_dir` e `ffmpeg` in PATH prima dell’esecuzione.
 - Alcune sezioni sono pensate per esecuzioni lunghe; conviene lavorare su subset o cicloni specifici per debug rapido.
+
+
+TODO: aggiornare e ricontrollare - anche per uniformare rispetto a view_MED_val_preds
