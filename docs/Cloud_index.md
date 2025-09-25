@@ -6,7 +6,7 @@ Il notebook esplora la stima della copertura nuvolosa nelle immagini Airmass RGB
 ## Analisi di un singolo frame
 - Caricamento di un frame (`img_00010.png`), conversione in scala di grigi e calcolo di soglie tramite Otsu o percentile.
 - Visualizzazione dei canali e della maschera binaria corrispondente usando Matplotlib.
-- Uso delle utility `threshold_image` e `cloud_idx` per computare la frazione di pixel nuvolosi; salvataggio della maschera come immagine.
+- Uso delle utility `threshold_image` e `cloud_idx` per computare la frazione di pixel nuvolosi.
 
 ## Ispezione di clip campione
 - Creazione di un dataloader di validation con `build_dataset`.
@@ -31,3 +31,4 @@ Il notebook esplora la stima della copertura nuvolosa nelle immagini Airmass RGB
 - Il notebook dipende da OpenCV (`cv2`) per il caricamento e il thresholding; assicura che le immagini siano accessibili in `output_dir`.
 - I widget interattivi richiedono un ambiente notebook con supporto `ipywidgets`.
 - I valori soglia possono essere modificati facilmente cambiando il percentile o i parametri nelle funzioni helper.
+TODO: provare a usare non solo il canale verde (eccezione nel caso di Juliette in cui il rosso era predominante)

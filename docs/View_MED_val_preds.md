@@ -1,27 +1,30 @@
 # View_MED_val_preds.ipynb
 
 ## Overview
-Documento di analisi per la fase di validazione: abbina le predizioni del classificatore sui video di validation con le tile originali, arricchisce i dati con informazioni di nuvolosità e genera visualizzazioni/animazioni del Mediterraneo completo. Il notebook mostra come filtrare i video in base all’indice di copertura nuvolosa e come espandere le predizioni dalle sequenze aggregate ai singoli frame.
+Documento di analisi per la fase di validazione: abbina le predizioni del classificatore sui video di validation dell'intero Mediterraneo, arricchisce i dati con informazioni di nuvolosità e genera visualizzazioni/animazioni. Il notebook mostra come filtrare i video in base all’indice di copertura nuvolosa e come espandere le predizioni dalle sequenze aggregate ai singoli frame.
 
 ## Preparazione del dataset di validazione
-- Caricamento degli argomenti (`prepare_finetuning_args`) e forzatura del device a CPU per la visualizzazione.
+- Caricamento degli argomenti (`prepare_finetuning_args`)
 - Creazione del `DataManager` in modalità valutazione sul CSV di validation (`args.val_path`).
 - Opzione per filtrare i video in validazione in base alla nuvolosità: lettura del CSV, calcolo della colonna `avg_cloud_idx` con `calc_avg_cld_idx` e salvataggio dei path conservati in `kept`.
 - Ricostruzione del dataloader utilizzando eventuali CSV filtrati.
 
 ## Predizioni
 - Configurazione del modello VideoMAE (`create_model`) con checkpoint dedicato (es. `checkpoint-best-90_25lug25.pth`).
-- Raccolta dei percorsi, delle predizioni e delle label vere tramite `get_only_labels` e costruzione del `DataFrame` con `create_df_predictions`.
-- Possibilità alternativa: caricare direttamente un CSV precomputato (`output/inference_predictions.csv`).
+- Raccolta dei percorsi delle predizioni e delle label vere, o tramite `get_only_labels` e costruzione del `DataFrame` con `create_df_predictions`.
+- Possibilità alternativa: caricare direttamente un CSV salvato da inference_classification.py (`output/inference_predictions.csv`).
 
 ## Unione con il builder di validation
-- Creazione di un `BuildDataset` di validazione tramite la funzione helper `make_validation_data_builder_from_manos_tracks`, che riproduce le sequenze video per i periodi indicati in `medicanes_new_windows.csv`.
-- Merge tra `df_video` del builder e il DataFrame delle predizioni; ogni riga rappresenta un video tile con la lista dei frame originali (`orig_paths`) e informazioni di contesto (`neighboring`, coordinate offset).
+- Creazione di un `BuildDataset` di validazione tramite la funzione helper `make_validation_data_builder_from_manos_tracks`, che istanzia le sequenze video per i periodi indicati in `medicanes_new_windows.csv`.
+- Merge tra `df_video` del builder e il DataFrame delle predizioni; ogni riga rappresenta un video tile con la lista dei frame originali (`orig_paths`) e la label del video, insieme a quella predetta, e informazioni di contesto (`neighboring`, coordinate offset).
 
-## Espansione al livello immagine
-- Iterazione su ogni riga per associare la predizione aggregata ai singoli frame (`records.append({...})`), generando `df_mapping` con colonne `path`, `predictions`, `tmp_label`, `tile_offset_x/y`, `neighboring`.
-- Join con `master_df` per recuperare coordinate geografiche e altri metadati; sostituzione della colonna `label` con quella temporanea.
-- Gestione delle tile mancanti: calcolo degli offset teorici (`calc_tile_offsets`) e funzione `expand_group` che riempie eventuali lacune mantenendo i valori costanti del gruppo (timestamp, prediction, ecc.).
+- Espansione al livello immagine: iterazione su ogni riga per associare la predizione aggregata ai singoli frame (`records.append({...})`), generando `df_mapping` con colonne `path`, `predictions`, `tmp_label`, `tile_offset_x/y`, `neighboring`.
+
+- Join con `master_df` per recuperare coordinate geografiche e altri metadati; 
+
+(sostituzione della colonna `label` con quella temporanea.)
+
+- Se sono state tolte delle tile dalla validation: gestione con calcolo degli offset teorici (`calc_tile_offsets`) e funzione `expand_group` che riempie le tile mancanti mantenendo i valori costanti del gruppo (timestamp, prediction, ecc.).
 
 ## Visualizzazione
 - Creazione di animazioni tramite `make_animation_parallel_ffmpeg` o `render_and_save_frame`, che generano file MP4 o singoli frame con overlay delle predizioni.
