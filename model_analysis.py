@@ -256,6 +256,85 @@ def merge_all_rank_merged(save_dir='output/val_logits', prefix='val', output_fil
     return out
 
 
+def plot_embeddings_umap(npz_path: str,
+                         color_by: str = 'labels',
+                         output_path: str = 'embeddings_umap.png',
+                         random_state: int = 42,
+                         n_neighbors: int = 15,
+                         min_dist: float = 0.1,
+                         show: bool = False):
+    """Carica un file npz e produce una proiezione UMAP 2D delle embeddings.
+
+    Parametri
+    ---------
+    npz_path: file generato da collect_embeddings con chiave `embeddings`.
+    color_by: 'labels', 'preds' oppure 'none'.
+    output_path: file immagine di output (PNG).
+    random_state, n_neighbors, min_dist: iperparametri UMAP.
+    show: se True richiama plt.show() oltre a salvare.
+    """
+    import numpy as np
+
+    try:
+        import umap
+    except ImportError as e:
+        raise ImportError("Richiede il pacchetto 'umap-learn'.") from e
+
+    data = np.load(npz_path, allow_pickle=True)
+    if 'embeddings' not in data:
+        raise KeyError(f"Il file {npz_path} non contiene la chiave 'embeddings'.")
+
+    embeddings = data['embeddings']
+    labels = data['labels'] if 'labels' in data else None
+    preds = data['preds'] if 'preds' in data else None
+
+    if embeddings.ndim != 2:
+        raise ValueError(f"Attesa matrice 2D, trovata shape {embeddings.shape}")
+
+    n_samples, emb_dim = embeddings.shape
+
+    reducer = umap.UMAP(
+        n_components=2,
+        random_state=random_state,
+        n_neighbors=n_neighbors,
+        min_dist=min_dist,
+        metric='euclidean'
+    )
+    projection = reducer.fit_transform(embeddings)
+
+    if color_by == 'labels' and labels is not None:
+        colors = labels
+        color_label = 'Label'
+    elif color_by == 'preds' and preds is not None:
+        colors = preds
+        color_label = 'Prediction'
+    else:
+        colors = None
+        color_label = None
+
+    plt.figure(figsize=(8, 6))
+    scatter_kwargs = dict(s=8, alpha=0.7, cmap='Spectral')
+    if colors is None:
+        plt.scatter(projection[:, 0], projection[:, 1], color='tab:blue', **scatter_kwargs)
+    else:
+        plt.scatter(projection[:, 0], projection[:, 1], c=colors, **scatter_kwargs)
+        cbar = plt.colorbar()
+        cbar.set_label(color_label)
+
+    title = f"UMAP embeddings (N={n_samples}, dim={emb_dim})"
+    plt.title(title)
+    plt.xlabel('UMAP-1')
+    plt.ylabel('UMAP-2')
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=200)
+    if show:
+        plt.show()
+    plt.close()
+
+    print(title)
+    print(f"Salvato plot in: {output_path}")
+
+
 def cleanup_npz_shards(save_dir='output/val_logits', prefix='val', only_if_merged=True, dry_run=False):
     """Cancella gli shard per-batch `{prefix}_rank*_*part*.npz`.
 
