@@ -18,23 +18,20 @@ Questo notebook raccoglie l'intero flusso di generazione dei dataset video, sia 
 3. Analisi del master: raggruppamento per segmenti temporali contigui (`get_gruppi_date`), verifica della lunghezza dei blocchi, suddivisione in gruppi di tile con lo stesso ofsset (`group_df_by_offsets`). 
 4. Costruzione del dataframe dei video etichettati con `create_tile_videos`.
 - Prove di bilanciamento tra esempi positivi e negativi (`balance_time_group`), 
-- Si concatenano i DataFrame ottenuti per gruppi temporali diversi, si suddividono in train/test e si richiama `create_final_df_csv` per generare `train_supervised.csv` e `val_supervised.csv`, necessari per istanziare il DataLoader.
+- Si concatenano i DataFrame ottenuti per gruppi temporali diversi, si suddividono in train/test e si richiama `create_final_df_csv` per generare `train_supervised.csv`, `test_supervised.csv`  e `val_supervised.csv`, necessari per istanziare il DataLoader.  Questi 3 file csv sono l'output finale del flusso, contengono i path delle folder con i frame, che costituiscono i sample video del dataset, insieme con il relativo salvataggio delle folder.
 
-In aggiunta viene mostrato lo stesso flusso usando la classe `BuildDataset` (con metodi `load_master_df`, `get_sequential_periods`, `make_df_video`, `create_final_df_csv`).
-5. Ulteriori esperimenti: ripartizione secondo ratio temporali manuali, salvataggio di dataset multipli (ad esempio `train_dataset_1954.csv`, `test_dataset_2802.csv`), bilanciamento custom tramite la funzione `balance_df_by_label` e split 70/20/10 con esportazione di `train_supervised.csv`, `val_supervised.csv` e `test_supervised.csv`.
+5. In aggiunta viene mostrato lo stesso flusso usando la classe `BuildDataset` (con metodi `create_master_df` e varianti, o `load_master_df`, `get_sequential_periods`, `make_df_video`, `create_final_df_csv`),
+e usando il metodo `get_data_ready`. Quindi l’utilizzo della classe `BuildDataset` consente di replicare l’intero processo via codice “production ready”, mentre le celle iniziali offrono una versione esplicita adatta a debugging e analisi.
 
-## Validazioni e controlli
-Il notebook dedica varie sezioni a controllare la coerenza dei dati:
-- Visualizzazione dei gruppi temporali e del numero di tile per timestamp.
-- Verifica delle fusioni tra DataFrame di predizioni e dataset video (`merge` su `path`).
-- Test di coerenza con `DataLoader` PyTorch: costruzione del dataloader di validazione tramite `build_dataset`, raccolta di percorsi, label e predizioni (`get_only_labels`, `create_df_predictions`), merge con i dataset video e ordinamento per data.
-- Analisi dello stato delle cartelle su disco (filtraggio di path inesistenti, conteggio di esempi positivi/negativi) e bilanciamento randomizzato tramite sampling.
 
-## Output principali
+6. Creazione dataset di un anno intero: usando il medoto `get_data_ready_full_year` e `create_master_df_year` che non limita il caricamento ai soli intervalli temporali attorno ai cicloni come contenuto nel df_tracks di Manos.
+
+
+## Output principali (TODO: controllare quali csv si possono eliminare, non servono tutti, mantenere quelli più generici, in base a scelte sui training da ancora effettuare o quelli che hanno dato risultati migliori)
 - Cartelle contenenti i video supervisionati e non supervisionati, organizzate per tile e periodo temporale.
 - CSV: `train_960_UNsupervised.csv`, `all_data_CL7_tracks_complete_fast.csv`, `train_supervised.csv`, `val_supervised.csv`, `test_supervised.csv`, oltre ai dataset intermedi creati per esperimenti specifici.
 
 ## Note operative
 - Tutte le funzioni delegate (dal modulo `dataset.build_dataset`) assumono che le immagini siano già scaricate e disponibili in `../fromgcloud` e che le tracce di Manos siano coerenti con i timestamp delle immagini.
 - Gli step di bilanciamento e filtraggio sono modulari: il notebook mostra diverse strategie (sampling casuale, selezione di periodi storici, filtri su nuvolosità) che possono essere riprese singolarmente.
-- L’utilizzo della classe `BuildDataset` consente di replicare l’intero processo via codice “production ready”, mentre le celle iniziali offrono una versione esplicita adatta a debugging e analisi.
+
