@@ -5,9 +5,9 @@ Notebook sperimentale dedicato alla manipolazione del master dataframe supervisi
 
 ## Relabeling basato sul tempo
 - Caricamento del master `all_data_CL7_tracks_complete_fast.csv` tramite `BuildDataset`.
-- Invocazione di `calc_delta_time` per calcolare l’intervallo temporale rispetto al ciclone attivo.
-- Uso di `aggiorna_label_distanza_temporale` per impostare un’etichetta ausiliaria che marca come `-1` i frame oltre 12 ore dal centro del ciclone, e sostituzione della colonna `label` con tale valore (dopo aver escluso le righe `-1`).
-- Generazione del DataFrame video con `make_df_video`, bilanciamento opzionale, split temporale 70/30 tra train e test.
+- Invocazione di `calc_delta_time` per calcolare la distanza temporale rispetto al momento iniziale e finale del ciclone corrente: in data_manager.py  `calcola_delta_time` calcola il valore minimo tra l'inizio e la fine.
+- Uso di `aggiorna_label_distanza_temporale` per impostare una colonna di etichetta ausiliaria (es. "label_12_00") che marca come `-1` i frame oltre 12 ore dal centro del ciclone, e sostituzione della colonna `label` con tale valore (dopo aver escluso le righe `-1`).
+- Generazione del DataFrame video con `make_df_video`, bilanciamento opzionale, split temporale 70/30 tra train e test. Questo df_video ha appunto la colonna 'delta_time' calcolata 
 
 ## Split basati sulle tracce CL10
 - Import delle utility per creare intervalli e suddividerli (`train_test_cyclones_num_split`, `get_intervals_in_tracks_df`).
@@ -15,10 +15,11 @@ Notebook sperimentale dedicato alla manipolazione del master dataframe supervisi
 - Invocazione di `BuildDataset` per costruire dataset supervisionati per entrambi gli split, con salvataggio dei CSV (`train_CL10`, `test_CL10`).
 
 ## Dataset di soli medicanes
-- Lettura di `manos_medicanes_only.csv` e `more_medicanes_time_updated.csv`.
+- Lettura di `manos_medicanes_only.csv` e `more_medicanes_time_updated.csv` (che sono dei Tracks di Manos).
 - Normalizzazione della colonna `id_final` assegnando ID numerici anche ai cicloni nominati (via `utils.str2num`).
-- Filtraggio delle righe fuori dal range temporale dichiarato, salvataggio in `medicanes_new_windows.csv` e split 70/15/15 con `get_train_test_validation_df`.
+- Filtraggio delle righe fuori dal range temporale dichiarato, salvataggio in `medicanes_new_windows.csv` e split 70/15/15 con `get_train_test_validation_df`. (la differenza tra more_medicanes_time_updated e medicanes_new_windows è che nel secondo sono state tole le righe il cui time cade fuori dagli start_time e end_time 'updated' )
 - Creazione dei dataset `train_manos_w`, `test_manos_w`, `val_manos_w` tramite `BuildDataset` passando i rispettivi DataFrame delle tracce.
+TODO: costruire un dataset che non esclude le righe fuori dal range temporale dichiarato, ma che assegna label 0 a queste righe. 
 
 ## Output
 - DataFrame video (spesso con bilanciamento) e CSV associati: `train_CL10.csv`, `test_CL10.csv`, `train_manos_w.csv`, `test_manos_w.csv`, ecc.
