@@ -29,7 +29,7 @@ fare video inference di Ianos
 CLOUDY: vedo che se la tile esclusa aveva una label positiva e quindi un riquadro verde, questo non viene più plottato, possiamo mantenere tutte le feature indipendentemente? ma allora non le devo togliere per poi riespanderle altrimenti ho proprio perso l'informazione sulla tile, anche quando conteneva un ciclone.
 
 
-- Documentazione\
+
   completare il readme.md e agent.md
 
 - Video inference di tutti i medicane case studies in validation
