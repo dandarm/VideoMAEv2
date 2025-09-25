@@ -39,6 +39,11 @@ Questo notebook è dedicato all’analisi esplorativa delle tracce dei cicloni f
 - Il risultato finale è salvato come `more_medicanes_time_updated.csv`, base per successive pipeline di costruzione dataset e visualizzazione.
 
 ## Output e note
-- CSV esportati: `manos_CL10_pixel.csv`, `manos_CL7_pixel.csv`, `manos_medicanes_only.csv`, `more_medicanes.csv`, `more_medicanes_time_updated.csv`.
+- CSV esportati: 
+    - `manos_CL10_pixel.csv`: tracce CL10 (pixel coordinates)
+    - `manos_CL7_pixel.csv`:  tracce CL10 (pixel coordinates)
+    - `manos_medicanes_only.csv`: contiene solo Medicanes  
+    - `more_medicanes.csv`:  sono stati aggiunti ulteriori id al dataset
+    - `more_medicanes_time_updated.csv`: sono state cambiate le finestre temporali, ridotte al periodo in cui una rotazione è chiaramente visibile
 - Il notebook fornisce analisi diagnostic (conteggi, confronto di coordinate) utili per comprendere la qualità delle tracce originali e per documentare differenze fra classi.
 - Le funzioni di supporto qui impiegate (per generare chiavi ibride, calcolare ID numerici, valutare durate) possono essere riaffiorate quando si costruiscono dataset supervisionati o si filtrano periodi specifici.
