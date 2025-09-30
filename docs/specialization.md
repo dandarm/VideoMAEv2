@@ -1,6 +1,9 @@
 ## Scopo del modulo
 Script di addestramento per la fase di "specialization" (fine-tuning auto-supervisionato) del modello VideoMAE. Configura ambiente distribuito, carica un modello pre-addestrato tramite `get_model`, costruisce dataset dedicati con finestre e patch coerenti e gestisce l'intero ciclo di training/test con logging su TensorBoard e checkpointing periodico.
 
+## SLURM - OPENMPI traning
+Utilizzare lo script sbatch_job.sh per lanciare questo training di su un cluster di nodi distribuiti (TODO: modificare o creare nuovo script)
+
 ## Flusso ad alto livello
 ```text
 1. Ricevere argomenti macchina tramite `prepare_args` e recuperarne iperparametri e percorsi.

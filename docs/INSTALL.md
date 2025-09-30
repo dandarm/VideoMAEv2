@@ -3,10 +3,10 @@
 The required packages are in the file `requirements.txt`, and you can run the following command to install the environment
 
 ```
-conda create --name videomae python=3.8 -y
+conda create --name videomae python=3.10 -y
 conda activate videomae
 
-conda install pytorch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 -c pytorch
+###conda install pytorch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 -c pytorch
 
 pip install -r requirements.txt
 ```
