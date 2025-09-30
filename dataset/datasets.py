@@ -746,8 +746,10 @@ class MedicanesTrackDataset(MedicanesClsDataset):
         folder_path = row["path"]
 
         # If path is relative, compose with data_root
-        if not os.path.isabs(folder_path):
-            folder_path = os.path.join(self.data_root, folder_path)
+        # TODO lo cancellerei del tutto
+        #if not os.path.isabs(folder_path):
+        #    folder_path = os.path.join(self.data_root, folder_path)
+
 
         # Load up to clip_len frames from the folder
         frame_files = sorted(os.listdir(folder_path))

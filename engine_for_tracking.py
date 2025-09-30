@@ -1,11 +1,93 @@
 """Training utilities for cyclone center tracking."""
 from __future__ import annotations
 
-from typing import Iterable, Optional
+import os
+import re
+from functools import lru_cache
+from typing import Iterable, Optional, Sequence
 
+import numpy as np
 import torch
 
+from medicane_utils.geo_const import get_lon_lat_grid_2_pixel
+
 import utils
+
+
+IMAGE_WIDTH = 1290
+IMAGE_HEIGHT = 420
+_TILE_OFFSETS_RE = re.compile(r"_(-?\d+(?:\.\d+)?)_(-?\d+(?:\.\d+)?)$")
+EARTH_RADIUS_KM = 6371.0088
+
+
+@lru_cache(maxsize=1)
+def _get_lon_lat_grid() -> tuple[np.ndarray, np.ndarray]:
+    lon_grid, lat_grid, _, _ = get_lon_lat_grid_2_pixel(IMAGE_WIDTH, IMAGE_HEIGHT)
+    return lon_grid, lat_grid
+
+
+def _pixels_to_latlon(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    lon_grid, lat_grid = _get_lon_lat_grid()
+    x_idx = np.clip(np.rint(x).astype(int), 0, IMAGE_WIDTH - 1)
+    y_idx = np.clip(np.rint(y).astype(int), 0, IMAGE_HEIGHT - 1)
+    row_idx = IMAGE_HEIGHT - 1 - y_idx
+    lat = lat_grid[row_idx, x_idx]
+    lon = lon_grid[row_idx, x_idx]
+    return lat, lon
+
+
+def _haversine_km(lat1: np.ndarray, lon1: np.ndarray, lat2: np.ndarray, lon2: np.ndarray) -> np.ndarray:
+    lat1_rad = np.radians(lat1)
+    lon1_rad = np.radians(lon1)
+    lat2_rad = np.radians(lat2)
+    lon2_rad = np.radians(lon2)
+    dlat = lat2_rad - lat1_rad
+    dlon = lon2_rad - lon1_rad
+    a = np.sin(dlat / 2.0) ** 2 + np.cos(lat1_rad) * np.cos(lat2_rad) * np.sin(dlon / 2.0) ** 2
+    c = 2.0 * np.arcsin(np.sqrt(a))
+    return EARTH_RADIUS_KM * c
+
+
+def _parse_tile_offsets(path: str) -> tuple[float, float]:
+    base = os.path.basename(str(path).rstrip("/\\"))
+    match = _TILE_OFFSETS_RE.search(base)
+    if match is None:
+        raise ValueError(f"Unable to parse tile offsets from path: {path}")
+    return float(match.group(1)), float(match.group(2))
+
+
+def batch_geo_distance_km(
+    predictions: torch.Tensor,
+    targets: torch.Tensor,
+    paths: Sequence[str],
+) -> Optional[float]:
+    if len(paths) == 0:
+        return None
+    if predictions.numel() == 0 or targets.numel() == 0:
+        return None
+
+    pred_np = predictions.detach().cpu().numpy()
+    target_np = targets.detach().cpu().numpy()
+    if not (np.isfinite(pred_np).all() and np.isfinite(target_np).all()):
+        return None
+
+    try:
+        offsets = np.stack([_parse_tile_offsets(p) for p in paths], dtype=np.float32)
+    except ValueError as exc:
+        print(f"[WARN][tracking] {exc}")
+        return None
+
+    global_pred = pred_np + offsets
+    global_target = target_np + offsets
+
+    lat_pred, lon_pred = _pixels_to_latlon(global_pred[:, 0], global_pred[:, 1])
+    lat_true, lon_true = _pixels_to_latlon(global_target[:, 0], global_target[:, 1])
+
+    distances = _haversine_km(lat_pred, lon_pred, lat_true, lon_true)
+    finite_mask = np.isfinite(distances)
+    if not finite_mask.any():
+        return None
+    return float(distances[finite_mask].mean())
 
 
 def train_one_epoch(
@@ -63,15 +145,19 @@ def train_one_epoch(
             optimizer.zero_grad(set_to_none=True)
             continue
 
+        geo_err = batch_geo_distance_km(output, target, paths)
+
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         if max_norm > 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
         optimizer.step()
 
-        metric_logger.update(loss=loss.item())
+        metric_logger.update(loss=loss.item(), geo_km=geo_err)
         if log_writer is not None:
             log_writer.update(loss=loss.item(), head="loss")
+            if geo_err is not None:
+                log_writer.update(geo_km=geo_err, head="metrics")
             log_writer.set_step()
 
     # gather the stats from all processes
@@ -99,7 +185,8 @@ def evaluate(
         if not torch.isfinite(loss):
             print(f"[ERROR][EVAL] Non-finite loss at batch {batch_idx}: loss={loss.item() if loss.numel()==1 else loss}, paths[0]={paths[0] if isinstance(paths, (list, tuple)) and len(paths)>0 else paths}")
 
-        metric_logger.update(loss=loss.item())
+        geo_err = batch_geo_distance_km(output, target, paths)
+        metric_logger.update(loss=loss.item(), geo_km=geo_err)
 
     metric_logger.synchronize_between_processes()
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
