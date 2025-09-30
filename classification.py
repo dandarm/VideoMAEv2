@@ -106,7 +106,7 @@ def launch_finetuning_classification(terminal_args):
     test_m.create_classif_dataloader(args)
     val_m.create_classif_dataloader(args)
 
-    # compute class weights for loss balancing
+    # region compute class weights for loss balancing
     class_weights = None
     if getattr(args, 'use_class_weight', False):
         if hasattr(train_m.dataset, 'df') and 'label' in train_m.dataset.df:
@@ -123,11 +123,13 @@ def launch_finetuning_classification(terminal_args):
         class_weights[1] *= 2
 
     #print(class_weights, class_counts, len(labels))
+    # endregion 
 
 
     # -------------------------------------------
     # build model
     # -------------------------------------------
+    # region the model
     print(f"Creating model: {args.model} (nb_classes={args.nb_classes})")
     print(f"is pretrained? {args.pretrained}")
     pretrained_model = create_model(
@@ -143,7 +145,7 @@ def launch_finetuning_classification(terminal_args):
 
     pretrained_model.to(device)
     model_without_ddp = pretrained_model
-    n_parameters = sum(p.numel() for p in pretrained_model.parameters() if p.requires_grad)
+    #n_parameters = sum(p.numel() for p in pretrained_model.parameters() if p.requires_grad)
     #print("number of params:", n_parameters)
 
     if args.distributed:
@@ -152,10 +154,13 @@ def launch_finetuning_classification(terminal_args):
             find_unused_parameters=False)
         model_without_ddp = pretrained_model.module
 
+    # endregion the model
+
 
     # costruiamo l’optimizer
     optimizer = create_optimizer(args, model_without_ddp)
-    loss_scaler = NativeScaler()  # per amp
+    loss_scaler = NativeScaler()  # per amp  
+    # TODO approfondire cosa fa in dettaglio
 
     # scheduler lr e wd
     total_batch_size = args.batch_size * world_size
@@ -176,6 +181,7 @@ def launch_finetuning_classification(terminal_args):
         args.epochs, num_training_steps_per_epoch
     )
     print(f"wd_schedule_values {wd_schedule_values}")
+    
 
     # Prepariamo la loss
     mixup_active = (args.mixup > 0 or args.cutmix > 0. or args.cutmix_minmax is not None)
