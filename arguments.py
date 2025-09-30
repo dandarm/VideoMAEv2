@@ -477,15 +477,15 @@ def prepare_tracking_args(machine=None):
         'cloudy': False,
         'use_class_weight': False,
 
-        'epochs': 100,
+        'epochs': 200,
         'start_epoch_for_saving_best_ckpt': 90,
         'momentum': 0.9,
         'weight_decay': 0.05,
         'weight_decay_end': None,
         'lr': 1e-4,
         'layer_decay': 0.75,
-        'warmup_lr': 1e-8,
-        'min_lr': 5e-8,
+        'warmup_lr': 1e-6,
+        'min_lr': 5e-6,
         'warmup_epochs': 100,
         'warmup_steps': -1,
     }

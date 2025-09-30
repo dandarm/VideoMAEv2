@@ -25,14 +25,14 @@ fare video inference di Ianos
   - renbdere la loss meno stringente, o accettare un risultato più approssimativo
 
 
-## View MEDI
-CLOUDY: vedo che se la tile esclusa aveva una label positiva e quindi un riquadro verde, questo non viene più plottato, possiamo mantenere tutte le feature indipendentemente? ma allora non le devo togliere per poi riespanderle altrimenti ho proprio perso l'informazione sulla tile, anche quando conteneva un ciclone.
+## View MEDI (caso CLOUDY)
+vedo che se la tile esclusa aveva una label positiva e quindi un riquadro verde, questo non viene più plottato, possiamo mantenere tutte le feature indipendentemente? ma allora non le devo togliere per poi riespanderle altrimenti ho proprio perso l'informazione sulla tile, anche quando conteneva un ciclone.
 
 
 
-  completare il readme.md e agent.md
 
-- Video inference di tutti i medicane case studies in validation
+
+## Video inference di tutti i medicane case studies in validation
 
 
 
