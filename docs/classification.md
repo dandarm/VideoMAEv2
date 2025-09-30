@@ -1,6 +1,9 @@
 ## Scopo del modulo
 Modulo di lancio per il fine-tuning supervisionato di modelli VideoMAE/TIMM su task di classificazione cyclone/no-cyclone. Gestisce inizializzazione distribuita, orchestrazione dei DataLoader tramite `DataManager`, costruzione del modello, training con valutazione periodica e salvataggio dei checkpoint migliori. Centralizza logging e scalatura automatica degli iperparametri in funzione del world size, rendendo riutilizzabile lo script su cluster multi-GPU.
 
+## SLURM - OPENMPI traning
+Utilizzare lo script sbatch_job.sh per lanciare questo finetuning di classificazione su un cluster di nodi distribuiti
+
 ## Flusso ad alto livello
 ```text
 1. Parsare CLI e costruire Args tramite `prepare_finetuning_args`.
