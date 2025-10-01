@@ -20,8 +20,6 @@ fare video inference di Ianos
 
 
 ## Tracking
-  - plot della traccia predetta (punto rosso) e traccia ground truth (punto verde)
-  - stima della metrica MSE in km
   - renbdere la loss meno stringente, o accettare un risultato più approssimativo
 
 

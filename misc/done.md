@@ -40,5 +40,10 @@ Usare le seguenti definizioni, raccordarle a quelle usate in sklearn e già calc
     - Devo prendere un master_df caricato su tutte le immagini, non sulle righe di un manos track, perché altrimenti andrei a prendere solo gli intervalli relativi a cicloni,
       invece voglio tutto un anno, anche quando non ci sono cicloni
 
+## Tracking
+  - plot della traccia predetta (punto rosso) e traccia ground truth (punto verde)
+  - stima della metrica MSE in km
+
 
 ## Documentazione
+  Completata
