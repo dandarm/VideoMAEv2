@@ -16,6 +16,9 @@ import matplotlib.pyplot as plt
 from IPython.display import HTML
 import matplotlib.animation as animation
 
+import ipywidgets as widgets
+from typing import Optional, List, Tuple
+
 import torch
 # import torch.nn.functional as F
 # from torch.utils.data import DataLoader
@@ -378,6 +381,214 @@ def display_video_clip(frames_tensors, interval=200, save_path=None):
 
     plt.close(fig)  # Chiudiamo la figura per evitare doppia visualizzazione
     return HTML(ani.to_jshtml())
+
+
+
+# region select videoclips
+
+class VideoGallerySelector:
+    """Galleria interattiva per selezionare clip di tracking."""
+
+    def __init__(
+        self,
+        clips,
+        identifiers=None,
+        columns: int = 3,
+        interval: int = 200,
+        toggle_icon: str = 'check',
+        preview_width: Optional[int] = 160,
+        preview_height: Optional[int] = None,
+        grid_gap: str = '12px',
+        default_selected: bool = True
+    ) -> None:
+        if identifiers is None:
+            identifiers = list(range(len(clips)))
+        if len(identifiers) != len(clips):
+            raise ValueError('`identifiers` deve avere la stessa lunghezza di `clips`.')
+
+        self.clips = clips
+        self.identifiers = list(identifiers)
+        self.columns = max(1, int(columns))
+        self.interval = max(1, int(interval))
+        self.toggle_icon = toggle_icon
+        self.preview_width = preview_width if preview_width and preview_width > 0 else None
+        self.preview_height = preview_height if preview_height and preview_height > 0 else None
+        self.grid_gap = grid_gap
+        self.default_selected = bool(default_selected)
+        self._resample_filter = getattr(Image, 'Resampling', Image).LANCZOS if hasattr(Image, 'Resampling') else Image.LANCZOS
+
+        self._toggles = []
+        self._container = self._build_widget()
+
+    def _resize_frame(self, frame_img, target_size):
+        if self.preview_width is None and self.preview_height is None:
+            return frame_img, target_size
+
+        if target_size is None:
+            width, height = frame_img.size
+            if self.preview_width and self.preview_height:
+                target_size = (self.preview_width, self.preview_height)
+            elif self.preview_width:
+                scale = self.preview_width / max(1, width)
+                target_size = (
+                    self.preview_width,
+                    max(1, int(round(height * scale)))
+                )
+            else:
+                scale = self.preview_height / max(1, height)
+                target_size = (
+                    max(1, int(round(width * scale))),
+                    self.preview_height
+                )
+
+        return frame_img.resize(target_size, self._resample_filter), target_size
+
+    def _clip_to_gif_bytes(self, clip):
+        if not clip:
+            raise ValueError('Clip vuota: impossibile creare la preview animata.')
+
+        frames = []
+        target_size = None
+        for frame in clip:
+            arr = np.asarray(frame)
+            if arr.ndim == 2:  # grayscale -> RGB
+                arr = np.stack([arr] * 3, axis=-1)
+            if arr.ndim != 3 or arr.shape[-1] not in (3, 4):
+                raise ValueError('Ogni frame deve avere shape [H, W, 3/4].')
+            if arr.dtype != np.uint8:
+                arr = (np.clip(arr, 0.0, 1.0) * 255).astype('uint8')
+
+            img = Image.fromarray(arr)
+            img, target_size = self._resize_frame(img, target_size)
+            frames.append(img)
+
+        if len(frames) == 1:
+            buf = BytesIO()
+            frames[0].save(buf, format='PNG')
+            return buf.getvalue(), 'png', frames[0].size
+
+        buf = BytesIO()
+        frames[0].save(
+            buf,
+            format='GIF',
+            save_all=True,
+            append_images=frames[1:],
+            duration=self.interval,
+            loop=0,
+            disposal=2
+        )
+        return buf.getvalue(), 'gif', frames[0].size
+
+    def _build_media_widget(self, clip):
+        try:
+            data, fmt, size = self._clip_to_gif_bytes(clip)
+        except Exception as exc:
+            error_html = widgets.HTML(f'<pre style="color:#b00">Errore nel rendering clip: {exc}</pre>')
+            return error_html
+
+        layout = widgets.Layout()
+        if size:
+            layout.width = f'{size[0]}px'
+        return widgets.Image(value=data, format=fmt, layout=layout)
+
+    def _build_widget(self):
+        cards = []
+        grid_columns = min(self.columns, len(self.clips)) or 1
+        min_width = (self.preview_width or 160) + 32
+        column_template = f'repeat({grid_columns}, minmax({min_width}px, 1fr))'
+
+        for clip, ident in zip(self.clips, self.identifiers):
+            media_widget = self._build_media_widget(clip)
+
+            toggle = widgets.ToggleButton(
+                value=self.default_selected,
+                description=str(ident),
+                icon=self.toggle_icon,
+                layout=widgets.Layout(width='100%'),
+                tooltip='Attivo = clip inclusa; disattiva per escluderla'
+            )
+            toggle.observe(self._on_toggle_change, names='value')
+            self._sync_toggle_style(toggle)
+            self._toggles.append(toggle)
+
+            cards.append(
+                widgets.VBox(
+                    [media_widget, toggle],
+                    layout=widgets.Layout(
+                        border='1px solid #ccc',
+                        padding='6px',
+                        align_items='center',
+                        width='100%'
+                    )
+                )
+            )
+
+        grid = widgets.GridBox(
+            cards,
+            layout=widgets.Layout(
+                grid_template_columns=column_template,
+                grid_gap=self.grid_gap,
+                width='100%'
+            )
+        )
+
+        self._selection_label = widgets.HTML()
+        self._update_selection_label()
+
+        return widgets.VBox([
+            grid,
+            self._selection_label
+        ], layout=widgets.Layout(width='100%'))
+
+    def _sync_toggle_style(self, toggle):
+        toggle.button_style = '' if toggle.value else 'danger'
+
+    def _on_toggle_change(self, change):
+        if change.get('name') == 'value':
+            self._sync_toggle_style(change['owner'])
+            self._update_selection_label()
+
+    def _update_selection_label(self):
+        kept = self.get_selected_identifiers()
+        kept_count = len(kept)
+        excluded_count = len(self.identifiers) - kept_count
+        if excluded_count:
+            self._selection_label.value = (
+                f"<b>Da tenere:</b> {kept_count} clip | "
+                f"<span style='color:#b00'><b>Escluse:</b> {excluded_count}</span>"
+            )
+        else:
+            self._selection_label.value = (
+                f"<b>Da tenere:</b> {kept_count} clip | <i>Nessuna esclusa</i>"
+            )
+
+    @property
+    def widget(self):
+        return self._container
+
+    def display(self):
+        display(self._container)
+
+    def get_selected_indices(self):
+        """Indici delle clip ancora incluse."""
+        return [idx for idx, toggle in enumerate(self._toggles) if toggle.value]
+
+    def get_selected_identifiers(self):
+        indices = self.get_selected_indices()
+        return [self.identifiers[idx] for idx in indices]
+
+    def get_excluded_indices(self):
+        """Indici delle clip escluse esplicitamente."""
+        return [idx for idx, toggle in enumerate(self._toggles) if not toggle.value]
+
+    def get_excluded_identifiers(self):
+        indices = self.get_excluded_indices()
+        return [self.identifiers[idx] for idx in indices]
+
+# endregion
+
+
+
 
 
 
