@@ -445,7 +445,7 @@ def prepare_tracking_args(machine=None):
     user_args_tracking = {
         'model': 'vit_giant_patch14_224',
         'pretrained': True,
-        'init_ckpt': './output/checkpoint-best-lr_again2.pth',
+        'init_ckpt': './output/checkpoint_88k.pth',           #'./output/checkpoint-best-lr-again2.pth',
         'auto_resume': False,
         'load_for_test_mode': False,
         'data_path': './',
