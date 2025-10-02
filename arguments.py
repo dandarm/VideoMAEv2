@@ -496,12 +496,12 @@ def prepare_tracking_args(machine=None):
         machine_args_override = {}
         if machine == 'leonardo':
             machine_args_override['batch_size'] = 2
-            #ckpath = '$FAST/checkpoint-149.pth'
-            #exp_path = os.path.expandvars(ckpath)
-            #if "$HOME" in exp_path:
-            #    raise EnvironmentError("La variabile d'ambiente HOME non è definita.")
-            #machine_args_override['init_ckpt'] = exp_path
-            #machine_args_override['pretrained'] = True
+            ckpath = '$FAST/checkpoint-149.pth'
+            exp_path = os.path.expandvars(ckpath)
+            if "$HOME" in exp_path:
+                raise EnvironmentError("La variabile d'ambiente HOME non è definita.")
+            machine_args_override['init_ckpt'] = exp_path
+            machine_args_override['pretrained'] = True
         elif machine == 'ewc':
             machine_args_override['device'] = 'cpu'
 
