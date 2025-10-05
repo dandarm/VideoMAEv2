@@ -6,13 +6,12 @@
 
 # Overview
 
-This repository adapts **VideoMAE v2** (Video Masked Autoencoder: [VideoMAEv2](https://github.com/OpenGVLab/VideoMAEv2)) to the study of *Mediterranean tropical-like cyclones* (Medicanes). It provides scripts for both **self-supervised pretraining** and **supervised fine-tuning** on satellite imagery datasets (e.g., SEVIRI/MSG airmass RGB).
+This repository adapts **VideoMAE v2** (Video Masked Autoencoder: [VideoMAEv2](https://github.com/OpenGVLab/VideoMAEv2)) to the study of *Mediterranean tropical-like cyclones* (Medicanes). It provides scripts for both **self-supervised pretraining** and **supervised fine-tuning** on satellite (SEVIRI MSG) imagery AirmassRGB composite datasets.
 
-The pipeline is designed to:
+The repo is developed to:
 
-* Pretrain VideoMAE with a **specialization phase** using unlabeled satellite sequences.
-* Fine-tune the pretrained model for **cyclone detection** and related tasks like center tracking.
-* Support **tile-based training**, where large frames (1290×420) are split into 224×224 crops.
+* Pretrain VideoMAE for a **specialization phase** using unlabeled satellite video sequences.
+* Fine-tune the pretrained model for **cyclone detection** and **center tracking**.
 
 ---
 
@@ -34,9 +33,10 @@ Check `README_MORE` for more in depth description of each module and notebook.
 
 ## Datasets
 
-* **Unsupervised pretraining**: uses unlabeled video sequences (airmass RGB). Loss for Patch Reconstruction
-* **Supervised fine-tuning**: uses Medicanes tracks file
-* **Tile-based labeling**: integrates cyclone center coordinates into DataFrame of labels for each tile
+* **Unsupervised pretraining**: uses unlabeled video sequences (AirmassRGB), with loss for patch reconstruction
+* **Supervised fine-tuning**: uses Medicanes tracks file for 
+    * **classification training** for detection,
+    * **Regression training** for center tracking.
 
 ---
 
