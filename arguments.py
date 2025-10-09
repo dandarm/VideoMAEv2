@@ -451,8 +451,8 @@ def prepare_tracking_args(machine=None):
         'data_path': './',
         # default CSVs for tracking
         'train_path': 'train_tracking_selezionati.csv',
-        'test_path': 'test_tracking.csv',
-        'val_path': 'val_tracking.csv',
+        'test_path': 'test_tracking_selezionati.csv',
+        'val_path': 'val_tracking_selezionati.csv',
         'log_dir': './output',
         'output_dir': './output',
         'csv_folder': './',
