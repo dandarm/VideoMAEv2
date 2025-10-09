@@ -57,6 +57,11 @@ def launch_tracking(terminal_args: argparse.Namespace) -> None:
     setup_for_distributed(rank == 0)
     # endregion ------------------------ distributed setup ------------------------
 
+    #region logging
+    if args.log_dir and not os.path.exists(args.log_dir):
+        os.makedirs(args.log_dir)
+    setup_for_distributed(rank == 0)
+    # endregion logging
 
     # ------------------------------- datasets via DataManager -------------------------------
     train_m = DataManager(is_train=True, args=args, type_t='supervised', world_size=world_size, rank=rank)
@@ -151,7 +156,7 @@ def launch_tracking(terminal_args: argparse.Namespace) -> None:
         }
         if val_stats is not None:
             log_stats.update({f"val_{k}": v for k, v in val_stats.items()})
-            
+
         if args.output_dir and args.rank == 0:
             log_path = os.path.join(args.output_dir, "log.txt")
             with open(log_path, "a") as f:
