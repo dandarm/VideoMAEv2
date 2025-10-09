@@ -38,6 +38,7 @@ from glob import glob
 
 import warnings
 warnings.filterwarnings('ignore')
+utils.suppress_transformers_pytree_warning()
 
 def all_seeds():
     os.environ['PYTHONHASHSEED'] = str(0)
