@@ -124,13 +124,14 @@ def launch_tracking(terminal_args: argparse.Namespace) -> None:
         )
         print("train step")
         # Evaluate on test and optionally validation
-        val_stats = evaluate(model, criterion, test_loader, device)
-        if val_loader is not None:
-            _ = evaluate(model, criterion, val_loader, device)
+        test_stats = evaluate(model, criterion, test_loader, device)
+        val_stats = evaluate(model, criterion, val_loader, device) if val_loader is not None else None
         print("eval step")
-        val_loss = val_stats.get("loss", float("inf"))
-        if args.output_dir and val_loss < best_loss and args.rank == 0 and epoch > args.start_epoch_for_saving_best_ckpt:
-            best_loss = val_loss
+        test_loss = test_stats.get("loss", float("inf"))
+        val_loss = val_stats.get("loss", float("inf")) if val_stats is not None else float("inf")
+        monitor_loss = min(test_loss, val_loss)
+        if args.output_dir and monitor_loss < best_loss and args.rank == 0 and epoch > args.start_epoch_for_saving_best_ckpt:
+            best_loss = monitor_loss
             checkpoint_path = os.path.join(args.output_dir, "checkpoint-tracking-best.pth")
             torch.save(
                 {
@@ -146,8 +147,11 @@ def launch_tracking(terminal_args: argparse.Namespace) -> None:
         log_stats = {
             "epoch": epoch,
             **{f"train_{k}": v for k, v in train_stats.items()},
-            **{f"val_{k}": v for k, v in val_stats.items()},
+            **{f"test_{k}": v for k, v in test_stats.items()},
         }
+        if val_stats is not None:
+            log_stats.update({f"val_{k}": v for k, v in val_stats.items()})
+            
         if args.output_dir and args.rank == 0:
             log_path = os.path.join(args.output_dir, "log.txt")
             with open(log_path, "a") as f:

@@ -41,6 +41,7 @@ if __name__ == "__main__":
         help='specificare il file csv di tracks derivato da Manos')
     parser.add_argument('--tracking_manos',
         type=str,
+        #default='medicanes_new_windows.csv',
         help='file CSV Manos per creare dataset di tracking (split train/test/val)')
     
     parser.add_argument('--all_year',
