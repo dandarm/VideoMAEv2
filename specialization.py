@@ -22,6 +22,9 @@ from arguments import prepare_args, Args  # NON TOGLIERE: serve a torch.load per
 from model_analysis import get_dataloader, get_dataset_dataloader
 
 
+utils.suppress_transformers_pytree_warning()
+
+
 
 def launch_specialization_training(terminal_args):
     args = prepare_args(machine=terminal_args.on)

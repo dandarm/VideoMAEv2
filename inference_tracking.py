@@ -15,6 +15,7 @@ import pandas as pd
 import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
+import warnings
 
 import engine_for_tracking as tracking_engine
 import utils
@@ -22,6 +23,9 @@ from arguments import prepare_tracking_args
 from dataset.data_manager import DataManager
 from models.tracking_model import create_tracking_model
 from utils import setup_for_distributed
+
+warnings.filterwarnings("ignore")
+utils.suppress_transformers_pytree_warning()
 
 
 def set_seeds(seed: int) -> None:

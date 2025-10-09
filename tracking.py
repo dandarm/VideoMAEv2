@@ -21,6 +21,9 @@ import utils
 from utils import setup_for_distributed
 
 
+utils.suppress_transformers_pytree_warning()
+
+
 def launch_tracking(terminal_args: argparse.Namespace) -> None:
     """Launch the training process for the tracking task."""
     args = prepare_tracking_args(machine=terminal_args.on)
