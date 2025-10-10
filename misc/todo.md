@@ -6,7 +6,6 @@ rifare la conf matrix con font più grandi , e RECALL -> POD
 fare video inference di Ianos
 
 ## Dataset
-- scaricare tutto il 2023
 
 - verificare se nelle finestre temporali dei medicane ci sono altri cicloni contemporanei, e considerarli correttamente
 
