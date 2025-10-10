@@ -50,13 +50,13 @@ except ImportError:
 from torch import inf
 from torch.utils.data._utils.collate import default_collate
 
-_PYTREE_WARNING_PATTERN = (
-    r"torch\.utils\._pytree\._register_pytree_node is deprecated\. "
-    r"Please use torch\.utils\._pytree\.register_pytree_node instead\."
-)
+_PYTREE_WARNING_PATTERN = r".*torch\.utils\._pytree\._register_pytree_node.*"
 def suppress_transformers_pytree_warning() -> None:
     """Silence the pytree-node deprecation warning emitted by transformers."""
-    warnings.filterwarnings("ignore", message=_PYTREE_WARNING_PATTERN)
+    warnings.filterwarnings("ignore", message=_PYTREE_WARNING_PATTERN, category=UserWarning)
+
+
+suppress_transformers_pytree_warning()
 
 
 class SmoothedValue(object):

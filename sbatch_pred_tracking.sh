@@ -19,7 +19,7 @@ export MASTER_PORT=12340
 mpirun --map-by socket:PE=4 --report-bindings python inference_tracking.py \
     --on leonardo \
     --inference_model output/checkpoint-tracking-best.pth \
-    --csvfile val_tracking.csv \
+    --csvfile test_tracking_selezionati.csv \
     
     
 #srun --ntasks-per-node=4 \
