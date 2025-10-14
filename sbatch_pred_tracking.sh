@@ -4,7 +4,7 @@
 #SBATCH --partition=boost_usr_prod
 #SBATCH --gres=gpu:4
 #SBATCH --cpus-per-task=4
-#SBATCH --time=00:10:00
+#SBATCH --time=00:05:00
 #SBATCH --error=predjob.err
 #SBATCH --output=predjob.out
 
@@ -19,7 +19,7 @@ export MASTER_PORT=12340
 mpirun --map-by socket:PE=4 --report-bindings python inference_tracking.py \
     --on leonardo \
     --inference_model output/checkpoint-tracking-best.pth \
-    --csvfile test_tracking_selezionati.csv \
+    --csvfile test_tracking_extra.csv \
     
     
 #srun --ntasks-per-node=4 \
