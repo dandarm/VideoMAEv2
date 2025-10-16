@@ -768,6 +768,8 @@ def create_tile_videos_last_frame_integer_hour(grouped, tile_size=224, supervise
                 "start_time": start_time,
                 "end_time": end_time,                
                 "orig_paths": block_df["path"].tolist(),
+                # quì prendo il valore più frequente, oltre all'id ciclone potrebbero esserci altri frame con id 0: il ciclone è passato o non ancora iniziato
+                "id_cyc_unico": block_df["id_cyc_unico"].mode().values[0]                
             })
             video_id += 1
 
@@ -866,6 +868,7 @@ def create_df_video_from_master_df(df_data, idxs=None, output_dir=None, is_to_ba
 
     df_videos = []
     i = 1
+    all_ids = []
     for df in gruppi_date_list:
         if i in idxs:
             print(f"{i})  ->")
@@ -875,11 +878,15 @@ def create_df_video_from_master_df(df_data, idxs=None, output_dir=None, is_to_ba
             if df_for_period.shape[0] == 0:
                 continue
             #assert 'label' in df_for_period.columns, f"Manca la colonna label - shape: {df_for_period.shape[0]}"
+
+            id_cycs = df_for_period.id_cyc_unico.unique()
+            all_ids.extend(id_cycs)
             
             if is_to_balance:
                 df_for_period = balance_time_group(df_for_period)
-            else: # comunque tengo traccia dei positivi e negativi
-                print(f"Con cicloni: {(df_for_period.label == 1).sum()}")
+            else:
+                print("Sbilanciato, ma comunque tengo traccia dei positivi e negativi")                
+                print(f"Con cicloni: {(df_for_period.label == 1).sum()} \t ids: {id_cycs}")
                 print(f"Senza cicloni: {(df_for_period.label == 0).sum()}")                
 
             if output_dir is not None:        
