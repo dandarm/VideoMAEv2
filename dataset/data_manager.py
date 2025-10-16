@@ -11,6 +11,7 @@ from .datasets import MedicanesTrackDataset
 from medicane_utils.load_files import  load_all_images, load_all_images_in_intervals, get_intervals_in_tracks_df
 from dataset.build_dataset import calc_tile_offsets, labeled_tiles_from_metadatafiles_maxfast, make_relabeled_master_df, solve_paths, get_train_test_validation_df, calc_avg_cld_idx
 
+from dataset.build_dataset import create_and_save_tile_from_complete_df # importo anche questa contenuta in make_df_video
 
 import utils
 from utils import multiple_pretrain_samples_collate
@@ -486,17 +487,17 @@ class BuildTrackingDataset(BuildDataset):
         df.to_csv(path_csv, index=False)
         self.csv_file = path_csv
 
-    def prepare_data(self, df_tracks, input_dir: str, output_dir: str, relabeling: bool = False, is_to_balance: bool = False) -> None:
+    def prepare_data(self, df_tracks, input_dir: str, output_dir: str) -> None:
         """Prepare master_df and df_video without writing a classification CSV.
 
         Mirrors BuildDataset.get_data_ready but avoids saving the classif CSV.
         """
         self.create_master_df_short(input_dir_images=input_dir, tracks_df=df_tracks)
         # Build df_video WITHOUT saving any tiles yet
-        self.make_df_video(output_dir=None, is_to_balance=is_to_balance)
+        print("Creo video senza salvarli...")
+        self.make_df_video(output_dir=None, is_to_balance=False)
 
-        # Save only positive (label==1) video tiles
-        from dataset.build_dataset import create_and_save_tile_from_complete_df
+        print("Save only positive (label==1) video tiles...")        
         if self.df_video is not None and not self.df_video.empty:
             df_pos = self.df_video
             if 'label' in df_pos.columns:

@@ -43,13 +43,17 @@ def evaluate_clustering_vs_dims(
        'ARI', 'NMI']
     """
     if umap_kwargs is None:
-        umap_kwargs = dict(n_neighbors=15, min_dist=0.1, metric="euclidean", random_state=random_state)
+        umap_kwargs = dict(n_neighbors=15, min_dist=0.1, metric="cosine", random_state=random_state)
     if hdbscan_kwargs is None:
         hdbscan_kwargs = dict(min_cluster_size=15, metric='euclidean', cluster_selection_method='eom')
 
     # PCA preliminare (veloce e spesso benefica)
-    pca = PCA(n_components=min(pca_components, embeddings.shape[1]), random_state=random_state)
-    X_pca = pca.fit_transform(embeddings)
+    if pca_components != -1:
+        pca = PCA(n_components=min(pca_components, embeddings.shape[1]), random_state=random_state)
+        X_pca = pca.fit_transform(embeddings)
+    else:
+        X_pca = embeddings  # gestisco così il caso in cui non voglio fare PCA
+        print("No PCA before UMAP")
 
     rows = []
     for d in dims:
@@ -123,9 +127,6 @@ def evaluate_clustering_vs_dims(
 
     return pd.DataFrame(rows).sort_values('dim').reset_index(drop=True)
 
-import pandas as pd
-import numpy as np
-
 def repeat_clustering_evaluation(
     embeddings: np.ndarray,
     dims=(5,10,15,20,30,50),
@@ -170,6 +171,9 @@ def repeat_clustering_evaluation(
         all_runs.append(df)
 
     return pd.concat(all_runs, ignore_index=True)
+
+
+#region plot
 
 def plot_metrics_with_errorbars(results_multi, metrics=('silhouette','davies_bouldin','calinski_harabasz')):
     """
@@ -243,6 +247,46 @@ def plot_cluster_stats_with_errorbars(results_multi):
     plt.show()
 
 
+def plot_violin_metric(results_multi, metric: str):
+    """
+    Violin plot della distribuzione del `metric` per ciascuna dimensione UMAP.
+    Mostra mean/median/extrema per dare un’idea chiara della dispersione.
+    """
+    dims = sorted(results_multi['dim'].unique())
+    dist_per_dim = [results_multi.loc[results_multi['dim']==d, metric].dropna().values
+                    for d in dims]
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    vp = ax.violinplot(dist_per_dim,
+                       positions=np.arange(len(dims)),
+                       showmeans=True, showmedians=True, showextrema=True)
+
+    ax.set_xticks(np.arange(len(dims)))
+    ax.set_xticklabels(dims)
+    ax.set_xlabel("Dimensioni UMAP")
+    ax.set_ylabel(metric)
+    ax.set_title(f"Distribuzione '{metric}' vs dimensione (violin plot)")
+    ax.grid(True, axis='y', alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(f"metrics_clustering_{metric}.png")
+    plt.show()
+
+# esempi d’uso:
+# plot_violin_metric(results_multi, 'silhouette')
+# plot_violin_metric(results_multi, 'davies_bouldin')
+# plot_violin_metric(results_multi, 'calinski_harabasz')
+
+#endregion
+
+
+
+def l2_normalize_rows(X: np.ndarray, eps: float = 1e-8) -> np.ndarray:
+    """
+    Normalizza ogni vettore (riga) a norma L2 = 1.
+    Utile per metric='cosine' in UMAP/HDBSCAN.
+    """
+    norms = np.linalg.norm(X, axis=1, keepdims=True) + eps
+    return X / norms
 
 
 if __name__ == "__main__":
@@ -251,13 +295,17 @@ if __name__ == "__main__":
     data = np.load(emb_file)           # Carica il file .npz
     embeddings = data['embeddings']            # Estrae l'array con chiave "embeddings"
 
+    # normalizzo gli embeddings, se uso metric='cosine' in UMAP
+    X = l2_normalize_rows(embeddings)
+
     # Fai 5 ripetizioni con seed diversi
-    lista_dim = range(5, 550, 100)
+    #lista_dim = range(5, 550, 100)
+    lista_dim = [5, 7, 10, 13, 16, 20, 25, 30]
     results_multi = repeat_clustering_evaluation(
-        embeddings,
+        X,
         dims=lista_dim,
-        n_repeats=10,
-        pca_components=1000,
+        n_repeats=100,
+        pca_components=-1,
         hdbscan_kwargs=dict(min_cluster_size=15)
     )
 
@@ -265,7 +313,11 @@ if __name__ == "__main__":
     summary = results_multi.groupby('dim').agg(['mean','std'])
     print(summary[['silhouette','davies_bouldin','calinski_harabasz','n_clusters','noise_frac']])
 
-    plot_metrics_with_errorbars(results_multi)
+    #plot_metrics_with_errorbars(results_multi)
 
     plot_cluster_stats_with_errorbars(results_multi)
+
+    plot_violin_metric(results_multi, 'silhouette')
+    plot_violin_metric(results_multi, 'davies_bouldin')
+    plot_violin_metric(results_multi, 'calinski_harabasz')
 
