@@ -49,6 +49,9 @@ if __name__ == "__main__":
         type=int,
         #default=2023,
         help="specificare l'anno ")
+    
+    parser.add_argument('--no-validation', action='store_true',
+                        help='se non creare un set di validazione')
 
     args = parser.parse_args()
 
@@ -68,9 +71,9 @@ if __name__ == "__main__":
         #make_relabeled_dataset(input_dir, output_dir, cloudy=True, 
         #                       master_df_path="all_data_CL7_tracks_SHORT4TEST.csv")
     elif args.manos_tracks:
-        make_dataset_from_manos_tracks(args.manos_tracks, input_dir, output_dir)
+        make_dataset_from_manos_tracks(input_dir, output_dir, **vars(args))
     elif args.tracking_manos:
-        make_tracking_dataset_from_manos_tracks(args.tracking_manos, input_dir, output_dir)
+        make_tracking_dataset_from_manos_tracks(input_dir, output_dir, **vars(args))
     elif args.all_year:
         make_dataset_from_entire_year(args.all_year, input_dir, output_dir)
     else:

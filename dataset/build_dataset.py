@@ -1330,11 +1330,17 @@ def get_train_test_validation_df(tracks_df, percentage=0.7, validation_percentag
 
     cicloni_unici = tracks_df[id_col].unique()    
     len_p = int(percentage*cicloni_unici.shape[0])
-    len_t = int((percentage + validation_percentage) * cicloni_unici.shape[0])
     cicloni_unici_train = cicloni_unici[:len_p]
-    cicloni_unici_test = cicloni_unici[len_p:len_t]
-    cicloni_unici_validation = cicloni_unici[len_t:]
-    print(f"Cicloni nel train: {cicloni_unici_train.shape[0]}, cicloni nel test: {cicloni_unici_test.shape[0]}, cicloni nella validation: {cicloni_unici_validation.shape[0]}")
+
+    if validation_percentage > 0 :
+        len_t = int((percentage + validation_percentage) * cicloni_unici.shape[0])
+        cicloni_unici_test = cicloni_unici[len_p:len_t]
+        cicloni_unici_validation = cicloni_unici[len_t:]
+        print(f"Cicloni nel train: {cicloni_unici_train.shape[0]}, cicloni nel test: {cicloni_unici_test.shape[0]}, cicloni nella validation: {cicloni_unici_validation.shape[0]}")
+    else: # per esempio == -1 e quindi non voglio un terzo set di validation
+        cicloni_unici_test = cicloni_unici[len_p:]
+        cicloni_unici_validation = []
+        print(f"Cicloni nel train: {cicloni_unici_train.shape[0]}, cicloni nel test: {cicloni_unici_test.shape[0]}")
 
     tracks_df_train = tracks_df[tracks_df[id_col].isin(cicloni_unici_train)]    
     tracks_df_test = tracks_df[tracks_df[id_col].isin(cicloni_unici_test)]
@@ -1374,11 +1380,14 @@ def make_dataset_from_entire_year(year, input_dir, output_dir):
 
 
 
-def make_dataset_from_manos_tracks(manos_track_file, input_dir, output_dir):
+def make_dataset_from_manos_tracks(input_dir, output_dir, **kwargs):
     """
     Versione più snella di make_master_df perché non carica tutte le immagini presenti nella input_dir,
     ma soltanto quelle necessarie comprese negli intervalli definiti dal tracks_df
     """
+    manos_track_file = kwargs.get('manos_track_file')
+    no_validation = kwargs.get('no_validation', False)
+
     # vecchio file di manos "manos_CL10_pixel.csv"    
     from dataset.data_manager import BuildDataset
     args = prepare_finetuning_args()
@@ -1389,8 +1398,10 @@ def make_dataset_from_manos_tracks(manos_track_file, input_dir, output_dir):
     tracks_df = pd.read_csv(manos_track_file, parse_dates=['time', 'start_time', 'end_time'])
 
     # divido le track di Manos in train e test
-    #tracks_df_train, tracks_df_test = get_train_test_df(tracks_df, percentage=0.7)
-    tracks_df_train, tracks_df_test, tracks_df_val = get_train_test_validation_df(tracks_df, 0.7, 0.15)
+    if no_validation:
+        tracks_df_train, tracks_df_test = get_train_test_validation_df(tracks_df, 0.7, -1)
+    else:
+        tracks_df_train, tracks_df_test, tracks_df_val = get_train_test_validation_df(tracks_df, 0.7, 0.15)
 
     print("Building training set...")
     train_b = BuildDataset(type='SUPERVISED', args=args)
@@ -1405,10 +1416,11 @@ def make_dataset_from_manos_tracks(manos_track_file, input_dir, output_dir):
     return train_b, tracks_df_train
 
 
-def make_tracking_dataset_from_manos_tracks(manos_track_file, input_dir, output_dir,
-                                            train_csv_name: str = "train_tracking.csv",
-                                            test_csv_name: str = "test_tracking.csv",
-                                            val_csv_name: str = "val_tracking.csv"):
+def make_tracking_dataset_from_manos_tracks(input_dir, output_dir, **kwargs):
+    
+    train_csv_name = "train_tracking.csv"
+    test_csv_name = "test_tracking.csv"
+    val_csv_name = "val_tracking.csv"
     """Build tracking dataset CSVs (train/test/val) with pixel coordinates.
 
     - Loads only images in the intervals defined by Manos tracks (fast path).
@@ -1417,15 +1429,19 @@ def make_tracking_dataset_from_manos_tracks(manos_track_file, input_dir, output_
     """
     import pandas as pd
     from dataset.data_manager import BuildTrackingDataset
-    from arguments import prepare_finetuning_args
+    from arguments import prepare_tracking_args
+
+    manos_track_file = kwargs.get('tracking_manos')
+    no_validation = kwargs.get('no_validation', False)
 
     output_dir = solve_paths(output_dir)
     input_dir = solve_paths(input_dir)
 
-    args = prepare_finetuning_args()
+    args = prepare_tracking_args()
     tracks_df = pd.read_csv(manos_track_file, parse_dates=['time', 'start_time', 'end_time'])
 
-    tracks_df_train, tracks_df_test, tracks_df_val = get_train_test_validation_df(tracks_df, 0.7, 0.15, id_col='id_final')
+    validation_split = -1 if no_validation else 0.15
+    tracks_df_train, tracks_df_test, tracks_df_val = get_train_test_validation_df(tracks_df, 0.7, validation_split, id_col='id_final')
 
     print("Building TRAIN tracking set (tiles + CSV)...")
     train_b = BuildTrackingDataset(type='SUPERVISED', args=args)
@@ -1437,10 +1453,13 @@ def make_tracking_dataset_from_manos_tracks(manos_track_file, input_dir, output_
     test_b.prepare_data(tracks_df_test, input_dir, output_dir)
     test_b.create_tracking_csv(output_dir, test_csv_name, only_label_1=True, num_frames=args.num_frames)
 
-    print("Building VAL tracking set (tiles + CSV)...")
-    val_b = BuildTrackingDataset(type='SUPERVISED', args=args)
-    val_b.prepare_data(tracks_df_val, input_dir, output_dir)
-    val_b.create_tracking_csv(output_dir, val_csv_name, only_label_1=True, num_frames=args.num_frames)
+    if no_validation or tracks_df_val.empty:
+        val_b = None
+    else:
+        print("Building VAL tracking set (tiles + CSV)...")
+        val_b = BuildTrackingDataset(type='SUPERVISED', args=args)
+        val_b.prepare_data(tracks_df_val, input_dir, output_dir)
+        val_b.create_tracking_csv(output_dir, val_csv_name, only_label_1=True, num_frames=args.num_frames)
 
     return train_b
 
