@@ -452,7 +452,7 @@ def prepare_tracking_args(machine=None):
         # default CSVs for tracking
         'train_path': 'train_tracking_selezionati.csv',
         'test_path': 'test_tracking_selezionati.csv',
-        'val_path': 'val_tracking_selezionati.csv',
+        'val_path': '', #val_tracking_selezionati.csv',
         'log_dir': './output',
         'output_dir': './output',
         'csv_folder': './',
@@ -485,7 +485,7 @@ def prepare_tracking_args(machine=None):
         'lr': 1e-4,
         'layer_decay': 0.75,
         'warmup_lr': 1e-6,
-        'min_lr': 5e-6,
+        'min_lr': 9e-5,
         'warmup_epochs': 100,
         'warmup_steps': -1,
     }
