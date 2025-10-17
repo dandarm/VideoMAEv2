@@ -175,6 +175,19 @@ def launch_tracking(terminal_args: argparse.Namespace) -> None:
     total_time_str = str(time.strftime('%H:%M:%S', time.gmtime(total_time)))
     print(f"Training time {total_time_str}")
 
+    # ultimo salvataggio per riprendere da dove abbiamo lasciato
+    last_checkpoint_path = os.path.join(args.output_dir, "last_checkpoint-tracking.pth")
+    torch.save(
+                {
+                    "model": model_without_ddp.state_dict(),
+                    "optimizer": optimizer.state_dict(),
+                    "epoch": epoch,
+                    "args": args.__dict__,
+                },
+                checkpoint_path,
+            )
+
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser("Cyclone centre tracking")
