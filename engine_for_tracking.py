@@ -108,7 +108,7 @@ def train_one_epoch(
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
-    
+
     header = f"Epoch: [{epoch}]"
     for batch_idx, (samples, target, paths) in enumerate(metric_logger.log_every(data_loader, 20, header)):
         samples = samples.to(device, non_blocking=True)
@@ -137,12 +137,13 @@ def train_one_epoch(
             print(f"[WARN] Non-finite output at batch {batch_idx}: nan={o_nan}, inf={o_inf}, min={o_min}, max={o_max}")
 
         loss = criterion(output, target)
+        loss_value = loss.item()
 
         # Guard: skip update on non-finite loss to avoid poisoning training
         if not torch.isfinite(loss):
             t_min = float(torch.nanmin(target).detach().cpu()) if torch.isfinite(target).any() else float('nan')
             t_max = float(torch.nanmax(target).detach().cpu()) if torch.isfinite(target).any() else float('nan')
-            print(f"[ERROR] Non-finite loss at batch {batch_idx}: loss={loss.item() if loss.numel()==1 else loss}\n"
+            print(f"[ERROR] Non-finite loss at batch {batch_idx}: loss={loss_value if loss.numel()==1 else loss}\n"
                   f"        target[min,max]=({t_min:.4f},{t_max:.4f}), paths[0]={paths[0] if isinstance(paths, (list, tuple)) and len(paths)>0 else paths}")
             optimizer.zero_grad(set_to_none=True)
             continue
@@ -155,9 +156,17 @@ def train_one_epoch(
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
         optimizer.step()
 
-        metric_logger.update(loss=loss.item(), geo_km=geo_err)
+
+
+        metric_logger.update(loss=loss_value, geo_km=geo_err)
         if log_writer is not None:
-            log_writer.update(loss=loss.item(), head="loss")
+            log_writer.update(loss=loss_value, head="loss")
+            min_lr = 10.
+            max_lr = 0.
+            for group in optimizer.param_groups:
+                min_lr = min(min_lr, group["lr"])
+                max_lr = max(max_lr, group["lr"])
+            log_writer.update(lr=max_lr, head="opt")
             if geo_err is not None:
                 log_writer.update(geo_km=geo_err, head="metrics")
             log_writer.set_step()

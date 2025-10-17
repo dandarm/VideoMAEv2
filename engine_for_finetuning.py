@@ -114,7 +114,7 @@ def train_one_epoch(model: torch.nn.Module,
     model.train(True)
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
-    metric_logger.add_meter('min_lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
+    #metric_logger.add_meter('min_lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
     header = 'Epoch: [{}]'.format(epoch)
     print_freq = 20
 
@@ -230,9 +230,9 @@ def train_one_epoch(model: torch.nn.Module,
             log_writer.update(class_acc=class_acc, head="loss")
             log_writer.update(loss_scale=loss_scale_value, head="opt")
             log_writer.update(lr=max_lr, head="opt")
-            log_writer.update(min_lr=min_lr, head="opt")
-            log_writer.update(weight_decay=weight_decay_value, head="opt")
-            log_writer.update(grad_norm=grad_norm, head="opt")
+            #log_writer.update(min_lr=min_lr, head="opt")
+            #log_writer.update(weight_decay=weight_decay_value, head="opt")
+            #log_writer.update(grad_norm=grad_norm, head="opt")
 
             log_writer.set_step()
 
