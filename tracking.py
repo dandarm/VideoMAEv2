@@ -184,7 +184,7 @@ def launch_tracking(terminal_args: argparse.Namespace) -> None:
                     "epoch": epoch,
                     "args": args.__dict__,
                 },
-                checkpoint_path,
+                last_checkpoint_path,
             )
 
 
