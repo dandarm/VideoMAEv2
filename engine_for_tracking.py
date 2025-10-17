@@ -107,6 +107,8 @@ def train_one_epoch(
 
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
+    metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
+    
     header = f"Epoch: [{epoch}]"
     for batch_idx, (samples, target, paths) in enumerate(metric_logger.log_every(data_loader, 20, header)):
         samples = samples.to(device, non_blocking=True)
