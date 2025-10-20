@@ -158,15 +158,13 @@ def train_one_epoch(
 
 
 
-        metric_logger.update(loss=loss_value, geo_km=geo_err)
+        lr_values = [group["lr"] for group in optimizer.param_groups if "lr" in group]
+        max_lr = max(lr_values) if lr_values else None
+        metric_logger.update(loss=loss_value, geo_km=geo_err, lr=max_lr)
         if log_writer is not None:
             log_writer.update(loss=loss_value, head="loss")
-            min_lr = 10.
-            max_lr = 0.
-            for group in optimizer.param_groups:
-                min_lr = min(min_lr, group["lr"])
-                max_lr = max(max_lr, group["lr"])
-            log_writer.update(lr=max_lr, head="opt")
+            if lr_values:
+                log_writer.update(lr=max_lr, head="opt")
             if geo_err is not None:
                 log_writer.update(geo_km=geo_err, head="metrics")
             log_writer.set_step()

@@ -477,6 +477,7 @@ def prepare_tracking_args(machine=None):
         'cloudy': False,
         'use_class_weight': False,
 
+        'start_epoch': 0,
         'epochs': 10000,
         'start_epoch_for_saving_best_ckpt': 90,
         'momentum': 0.9,
