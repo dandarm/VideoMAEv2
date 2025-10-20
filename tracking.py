@@ -128,7 +128,16 @@ def launch_tracking(terminal_args: argparse.Namespace) -> None:
     for epoch in range(args.start_epoch, args.epochs):
         print(f"start epoch{epoch}")
         train_stats = train_one_epoch(
-            model, criterion, train_loader, optimizer, device, epoch
+            model=model,
+            criterion=criterion,
+            data_loader=train_loader,
+            optimizer=optimizer,
+            device=device,
+            epoch=epoch,
+            start_steps=epoch * num_training_steps_per_epoch,
+            lr_schedule_values=lr_schedule_values,
+            wd_schedule_values=wd_schedule_values,
+            num_training_steps_per_epoch=num_training_steps_per_epoch,
         )
         print("train step")
         # Evaluate on test and optionally validation

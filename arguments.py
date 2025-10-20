@@ -317,6 +317,8 @@ def prepare_finetuning_args(machine=None):
         'warmup_epochs': 100,
         'warmup_steps': -1,
         #dist_eval
+
+        'val_split_fraction': 0.15,
     }
 
     
@@ -489,6 +491,8 @@ def prepare_tracking_args(machine=None):
         'min_lr': 9e-5,
         'warmup_epochs': 100,
         'warmup_steps': -1,
+
+        'val_split_fraction': 0.0,
     }
 
     args_dict = {**default_args, **user_args_tracking}

@@ -525,7 +525,7 @@ def make_validation_data_builder_from_manos_tracks(manos_track_file, input_dir, 
     input_dir = solve_paths(input_dir)
 
     tracks_df = pd.read_csv(manos_track_file, parse_dates=['time', 'start_time', 'end_time'])
-    tracks_df_train, tracks_df_test, tracks_df_val = get_train_test_validation_df(tracks_df, 0.7, 0.15)
+    tracks_df_train, tracks_df_test, tracks_df_val = get_train_test_validation_df(tracks_df, 0.7, args.val_split_fraction)
     val_b = BuildDataset(type='SUPERVISED', args=args)
     val_b.get_data_ready(tracks_df_val, input_dir, output_dir, csv_file="val_manos_w", is_to_balance=False)
     #val_b.get_data_ready(tracks_df_test, input_dir, output_dir, csv_file="val_manos_w", is_to_balance=True)

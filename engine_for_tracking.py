@@ -99,6 +99,11 @@ def train_one_epoch(
     epoch: int,
     max_norm: float = 0,
     log_writer: Optional[utils.TensorboardLogger] = None,
+    *,
+    start_steps: Optional[int] = None,
+    lr_schedule_values: Optional[Sequence[float]] = None,
+    wd_schedule_values: Optional[Sequence[float]] = None,
+    num_training_steps_per_epoch: Optional[int] = None,
 ) -> dict:
     """Train for a single epoch."""
     # ensure different shuffles across workers when using DistributedSampler
@@ -110,7 +115,33 @@ def train_one_epoch(
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
 
     header = f"Epoch: [{epoch}]"
+    if num_training_steps_per_epoch is not None and start_steps is None:
+        start_steps = epoch * num_training_steps_per_epoch
     for batch_idx, (samples, target, paths) in enumerate(metric_logger.log_every(data_loader, 20, header)):
+        if num_training_steps_per_epoch is not None and batch_idx >= num_training_steps_per_epoch:
+            continue
+
+        global_step = None
+        if start_steps is not None:
+            global_step = start_steps + batch_idx
+        elif num_training_steps_per_epoch is not None:
+            global_step = epoch * num_training_steps_per_epoch + batch_idx
+
+        lr_index = None
+        if lr_schedule_values is not None and global_step is not None and len(lr_schedule_values) > 0:
+            lr_index = min(global_step, len(lr_schedule_values) - 1)
+        wd_index = None
+        if wd_schedule_values is not None and global_step is not None and len(wd_schedule_values) > 0:
+            wd_index = min(global_step, len(wd_schedule_values) - 1)
+
+        if lr_index is not None or wd_index is not None:
+            for param_group in optimizer.param_groups:
+                if lr_index is not None:
+                    lr_scale = param_group.get("lr_scale", 1.0)
+                    param_group["lr"] = lr_schedule_values[lr_index] * lr_scale
+                if wd_index is not None and param_group.get("weight_decay", 0) > 0:
+                    param_group["weight_decay"] = wd_schedule_values[wd_index]
+
         samples = samples.to(device, non_blocking=True)
         target = target.to(device, non_blocking=True)
 
