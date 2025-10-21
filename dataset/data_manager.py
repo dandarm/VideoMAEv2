@@ -519,7 +519,7 @@ def calcola_delta_time(row):
 
 from arguments import prepare_finetuning_args, Args
 def make_validation_data_builder_from_manos_tracks(manos_track_file, input_dir, output_dir):
-    args = prepare_finetuning_args()
+    args = prepare_finetuning_args()  # TODO: spostare tra gli argomenti obbligatori
 
     output_dir = solve_paths(output_dir)
     input_dir = solve_paths(input_dir)
@@ -532,7 +532,7 @@ def make_validation_data_builder_from_manos_tracks(manos_track_file, input_dir, 
     return val_b
 
 def make_validation_data_builder_from_entire_year(year, input_dir, output_dir):
-    args = prepare_finetuning_args()
+    args = prepare_finetuning_args()  # TODO: spostare tra gli argomenti obbligatori
 
     output_dir = solve_paths(output_dir)
     input_dir = solve_paths(input_dir)
@@ -544,3 +544,53 @@ def make_validation_data_builder_from_entire_year(year, input_dir, output_dir):
     bd_full.get_data_ready_full_year(tracks_df, input_dir, output_dir, year, csv_file=f"full_year_{year}")
 
     return bd_full
+
+
+# dataset/data_manager.py
+def make_tracking_data_builder_from_csv(
+    manos_track_file: str,
+    selected_csv: str,
+    input_dir: str,
+    output_dir: str,
+    split: str = "test",
+    args=None,
+):
+    """Crea un BuildTrackingDataset e mantiene solo i video elencati nel CSV selezionato."""
+
+    output_dir = solve_paths(output_dir)
+    input_dir = solve_paths(input_dir)
+
+    tracks_df = pd.read_csv(
+        manos_track_file,
+        parse_dates=["time", "start_time", "end_time"],
+        #dtype=conv,  # riusa i converter già definiti in testa al file
+    )
+
+    val_fraction = args.val_split_fraction
+    tracks_df_train, tracks_df_test, tracks_df_val = get_train_test_validation_df(
+        tracks_df, 0.7, val_fraction, id_col="id_final"
+    )
+    split_map = {"train": tracks_df_train, "test": tracks_df_test, "val": tracks_df_val}
+    if split not in split_map:
+        raise ValueError(f"split '{split}' non valido. Usa: {list(split_map)}")
+
+    builder = BuildTrackingDataset(type="SUPERVISED", args=args)
+    builder.prepare_data(split_map[split], input_dir, output_dir)
+
+    selected_df = pd.read_csv(selected_csv)
+    if "path" not in selected_df.columns:
+        raise ValueError(f"Nel file {selected_csv} manca la colonna 'path'")
+
+    selected_names = (
+        selected_df["path"]
+        .astype(str)
+        .apply(lambda p: Path(p).name if p else p)
+    )
+    keep = builder.df_video["path"].isin(set(selected_names))
+    builder.df_video = builder.df_video[keep].reset_index(drop=True)
+
+    if builder.master_df is not None:
+        valid_orig = builder.df_video["orig_paths"].explode().unique()
+        builder.master_df = builder.master_df[builder.master_df["path"].isin(valid_orig)]
+
+    return builder, split_map[split]

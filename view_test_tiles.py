@@ -3,6 +3,7 @@ import multiprocessing
 import shutil
 from time import time
 import re
+import math
 from pathlib import Path
 import matplotlib
 # import datetime
@@ -60,6 +61,10 @@ PALETTE = {
 }
 
 filling_missing_tile = 'filled_gray'
+
+# palette fallback for tracking annotations
+PALETTE.setdefault('GT', (0, 255, 0))
+PALETTE.setdefault('PRED', (255, 0, 0))
 
 
 #################################################################################
@@ -145,23 +150,53 @@ def draw_timestamp_in_bottom_right(
 
 def extract_cl_number(cl):
     """ Estrae il numero da 'CLn' come intero. """
+    if cl == 'PRED':
+        return 100  # assicurati che la traccia predetta prevalga in caso di duplicati
+    if cl == 'GT':
+        return 50
     match = re.match(r'CL(\d+)', cl)
     return int(match.group(1)) if match else -1
 
 def deduplicate_xy_source(x_list, y_list, source_list):
-    #print(x_list, y_list, source_list)
-    if pd.isna(source_list):
+    """
+    Gli input possono provenire dal CSV come liste, stringhe o NaN.
+    Questa funzione li normalizza in liste e rimuove i duplicati,
+    privilegiando la sorgente con CL più alta (o la traccia PRED).
+    """
+    def _ensure_list(val):
+        if val is None:
+            return []
+        if isinstance(val, (list, tuple)):
+            return list(val)
+        if isinstance(val, (np.ndarray, pd.Series)):
+            return list(val)
+        if isinstance(val, float) and math.isnan(val):
+            return []
+        if isinstance(val, str):
+            stripped = val.strip()
+            if not stripped:
+                return []
+            if stripped.startswith('[') and stripped.endswith(']'):
+                try:
+                    parsed = safe_literal_eval(stripped)
+                    if isinstance(parsed, (list, tuple)):
+                        return list(parsed)
+                except Exception:
+                    return [stripped]
+            return [stripped]
+        return [val]
+
+    x_vals = _ensure_list(x_list)
+    y_vals = _ensure_list(y_list)
+    src_vals = _ensure_list(source_list)
+
+    if not x_vals or not y_vals or not src_vals:
         return []
-    if not x_list or not y_list or not source_list:        
-        return []  # o None, o np.nan
-    #if x_list.isna() or y_list.isna() or source_list.isna():
-    #if np.isnan(source_list):
-    #    return []
 
     result = []
     try:
         grouped = {}
-        for x, y, src in zip(x_list, y_list, source_list):
+        for x, y, src in zip(x_vals, y_vals, src_vals):
             key = (x, y)
             if key not in grouped:
                 grouped[key] = []
@@ -189,7 +224,8 @@ def draw_tiles_and_center(
     gray_offsets=None,
     neighboring_tile=None,
     point_color=(255, 255, 255),
-    point_radius=4
+    point_radius=4,
+    show_tile_boxes=True,
 ):
     """
     Disegna, sull'immagine `pil_image`, una serie di riquadri (224×224 di default)
@@ -239,36 +275,37 @@ def draw_tiles_and_center(
                 pass
 
         #print(f"labeled_tiles_offsets {labeled_tiles_offsets}")
-        if labeled_tiles_offsets is not None:
-            if not pd.isna(labeled_tiles_offsets[i]) and labeled_tiles_offsets[i] == 1:
-                color = present_color
-                width = 4         
-                draw.rectangle(
-                [(x1, y1), (x2, y2)],
-                outline=color,
-                width=width)
-        # riquadro rosso per la predizione
-        #print(f"predicted_tiles {predicted_tiles}")
-        if predicted_tiles is not None:
-            if not pd.isna(predicted_tiles[i]) and predicted_tiles[i] == 1:
-                color = predicted_color
-                width = 4      
-                x1 += 10
-                y1 += 10
-                x2 -= 10
-                y2 -= 10
-                draw.rectangle(
+        if show_tile_boxes:
+            if labeled_tiles_offsets is not None:
+                if not pd.isna(labeled_tiles_offsets[i]) and labeled_tiles_offsets[i] == 1:
+                    color = present_color
+                    width = 4         
+                    draw.rectangle(
                     [(x1, y1), (x2, y2)],
                     outline=color,
                     width=width)
-            
-        #print(f"gray_offsets {gray_offsets}")
-        if gray_offsets is not None:
-            if gray_offsets[i]:
-                # disegna filling grigio
-                draw_ov.rectangle(
-                [(x1, y1), (x2, y2)],
-                fill=fill_color)
+            # riquadro rosso per la predizione
+            #print(f"predicted_tiles {predicted_tiles}")
+            if predicted_tiles is not None:
+                if not pd.isna(predicted_tiles[i]) and predicted_tiles[i] == 1:
+                    color = predicted_color
+                    width = 4      
+                    x1 += 10
+                    y1 += 10
+                    x2 -= 10
+                    y2 -= 10
+                    draw.rectangle(
+                        [(x1, y1), (x2, y2)],
+                        outline=color,
+                        width=width)
+                
+            #print(f"gray_offsets {gray_offsets}")
+            if gray_offsets is not None:
+                if gray_offsets[i]:
+                    # disegna filling grigio
+                    draw_ov.rectangle(
+                    [(x1, y1), (x2, y2)],
+                    fill=fill_color)
 
     #print(cyclone_centers)
     for center in cyclone_centers:
@@ -662,28 +699,76 @@ def create_mediterranean_video(list_grouped_df, interval=200, dpi=96, width=1290
         path, group_df = list_grouped_df[frame_index]
 
         # Carica la nuova immagine e aggiorna i dati dell'oggetto immagine
+        img = Image.open(path)
 
-        img = Image.open(path) 
-
-        center_px_df = group_df[['x_pix','y_pix', 'source']]        
-        # -> center_px_df è un dataframe, con tante righe quante sono le tiles, e tanti elementi per ogni tile
-        # dove source è la CL di Manos
+        center_px_df = group_df[['x_pix', 'y_pix', 'source']]
         center_px_df_parsed = center_px_df.map(safe_literal_eval)
+
+        disable_tile_boxes = False
+        if 'disable_tile_boxes' in group_df.columns:
+            try:
+                disable_tile_boxes = bool(group_df['disable_tile_boxes'].iloc[0])
+            except Exception:
+                disable_tile_boxes = False
+
+        is_tracking_view = 'track_pred_x' in group_df.columns or disable_tile_boxes
+
+        if is_tracking_view:
+            def _ensure_list_local(val):
+                if val is None:
+                    return []
+                if isinstance(val, (list, tuple)):
+                    return list(val)
+                if isinstance(val, (np.ndarray, pd.Series)):
+                    return list(val)
+                if isinstance(val, float) and math.isnan(val):
+                    return []
+                if isinstance(val, str):
+                    stripped = val.strip()
+                    if not stripped:
+                        return []
+                    if stripped.startswith('[') and stripped.endswith(']'):
+                        try:
+                            parsed = safe_literal_eval(stripped)
+                            if isinstance(parsed, (list, tuple)):
+                                return list(parsed)
+                        except Exception:
+                            return [stripped]
+                    return [stripped]
+                return [val]
+
+            center_px_df_parsed = center_px_df_parsed.copy()
+            center_px_df_parsed['source'] = center_px_df_parsed['source'].apply(
+                lambda src_list: [
+                    'PRED' if isinstance(s, str) and s == 'PRED' else 'GT'
+                    for s in _ensure_list_local(src_list)
+                    if not pd.isna(s)
+                ]
+            )
+
         xy_source_list = center_px_df_parsed.apply(
             lambda row: deduplicate_xy_source(row['x_pix'], row['y_pix'], row['source']),
-            axis=1)        
+            axis=1
+        )
 
-        #print(f"center_px_df_parsed, {center_px_df_parsed}")
-        
-        #print(f"xy_source_list {xy_source_list}", flush=True)
-               
-        
-        labeled_tiles_offsets = group_df['label'].values # dovrebbe avere tanti valori quante sono le tiles
-        # se ne ha di meno è perché stiamo guardando un sottoinsieme, es. il dataset di test
-        # quindi quelle che mancano dovremmo riempire con un velo grigio
-        #print(labeled_tiles_offsets)
+        if is_tracking_view:
+            unique_points = {}
+            for centers in xy_source_list:
+                for cx_cy_src in centers:
+                    if len(cx_cy_src) != 3:
+                        continue
+                    src = cx_cy_src[2]
+                    if src not in unique_points:
+                        unique_points[src] = cx_cy_src
+            condensed = [[] for _ in range(len(xy_source_list))]
+            selected = [unique_points[key] for key in ['GT', 'PRED'] if key in unique_points]
+            if condensed:
+                condensed[0] = selected
+            xy_source_list = condensed
 
-        if 'predictions' in group_df.columns:
+        labeled_tiles_offsets = group_df['label'].values
+
+        if 'predictions' in group_df.columns and not is_tracking_view:
             predicted_tiles_offsets = group_df['predictions'].values
         else:
             predicted_tiles_offsets = None
@@ -693,22 +778,24 @@ def create_mediterranean_video(list_grouped_df, interval=200, dpi=96, width=1290
         else:
             to_be_filled_offsets = None
 
-        neighboring_tiles = group_df['neighboring'].values if 'neighboring' in group_df.columns else None
+        neighboring_tiles = None
+        if not is_tracking_view and 'neighboring' in group_df.columns:
+            neighboring_tiles = group_df['neighboring'].values
         
-        #offsets = calc_tile_offsets(stride_x=tile_offset_x, stride_y=tile_offset_y)
-        offsets = list(group_df[['tile_offset_x','tile_offset_y']].value_counts().index.values)
-        #print(list_grouped_df)  #[['tile_offset_x','tile_offset_y']])
+        offsets = list(group_df[['tile_offset_x', 'tile_offset_y']].value_counts().index.values)
 
-        #print(f"to_be_filled_offsets {to_be_filled_offsets}")
-        out_img = draw_tiles_and_center(img, offsets,
+        out_img = draw_tiles_and_center(
+            img,
+            offsets,
             cyclone_centers=xy_source_list,
             labeled_tiles_offsets=labeled_tiles_offsets,
             predicted_tiles=predicted_tiles_offsets,
             gray_offsets=to_be_filled_offsets,
-            neighboring_tile=neighboring_tiles
+            neighboring_tile=neighboring_tiles,
+            show_tile_boxes=not is_tracking_view
         )
-        #time_str = path.split('\\')[-1]    
-        time_str = Path(path).name    
+
+        time_str = Path(path).name
         tempo = extract_dates_pattern_airmass_rgb_20200101_0000(time_str)
         stamped_img = draw_timestamp_in_bottom_right(out_img, tempo.strftime(" %H:%M %d-%m-%Y"), margin=15)
 
@@ -779,9 +866,67 @@ def compose_image(frame_idx, list_grouped_df, debug=False):
     # -> center_px_df è un dataframe, con tante righe quante sono le tiles, e tanti elementi per ogni tile
     # dove source è la CL di Manos
     center_px_df_parsed = center_px_df.map(safe_literal_eval)
+
+    disable_tile_boxes = False
+    if 'disable_tile_boxes' in group_df.columns:
+        try:
+            disable_tile_boxes = bool(group_df['disable_tile_boxes'].iloc[0])
+        except Exception:
+            disable_tile_boxes = False
+
+    is_tracking_view = 'track_pred_x' in group_df.columns or disable_tile_boxes
+
+    if is_tracking_view:
+        def _ensure_list_local(val):
+            if val is None:
+                return []
+            if isinstance(val, (list, tuple)):
+                return list(val)
+            if isinstance(val, (np.ndarray, pd.Series)):
+                return list(val)
+            if isinstance(val, float) and math.isnan(val):
+                return []
+            if isinstance(val, str):
+                stripped = val.strip()
+                if not stripped:
+                    return []
+                if stripped.startswith('[') and stripped.endswith(']'):
+                    try:
+                        parsed = safe_literal_eval(stripped)
+                        if isinstance(parsed, (list, tuple)):
+                            return list(parsed)
+                    except Exception:
+                        return [stripped]
+                return [stripped]
+            return [val]
+
+        center_px_df_parsed = center_px_df_parsed.copy()
+        center_px_df_parsed['source'] = center_px_df_parsed['source'].apply(
+            lambda src_list: [
+                'PRED' if isinstance(s, str) and s == 'PRED' else 'GT'
+                for s in _ensure_list_local(src_list)
+                if not pd.isna(s)
+            ]
+        )
+
     xy_source_list = center_px_df_parsed.apply(
         lambda row: deduplicate_xy_source(row['x_pix'], row['y_pix'], row['source']),
         axis=1)        
+
+    if is_tracking_view:
+        unique_points = {}
+        for centers in xy_source_list:
+            for cx_cy_src in centers:
+                if len(cx_cy_src) != 3:
+                    continue
+                src = cx_cy_src[2]
+                if src not in unique_points:
+                    unique_points[src] = cx_cy_src
+        condensed = [[] for _ in range(len(xy_source_list))]
+        selected = [unique_points[key] for key in ['GT', 'PRED'] if key in unique_points]
+        if condensed:
+            condensed[0] = selected
+        xy_source_list = condensed
 
     labeled_tiles_offsets = group_df['label'].values # dovrebbe avere tanti valori quante sono le tiles
     # se ne ha di meno è perché stiamo guardando un sottoinsieme, es. il dataset di test
@@ -789,7 +934,7 @@ def compose_image(frame_idx, list_grouped_df, debug=False):
     if debug:
         print(f"labeled_tiles_offsets: {labeled_tiles_offsets}")
 
-    if 'predictions' in group_df.columns:
+    if 'predictions' in group_df.columns and not is_tracking_view:
         predicted_tiles_offsets = group_df['predictions'].values
     else:
         predicted_tiles_offsets = None
@@ -800,19 +945,19 @@ def compose_image(frame_idx, list_grouped_df, debug=False):
         to_be_filled_offsets = None
     # endregion
 
-    
-    #offsets = calc_tile_offsets(stride_x=213, stride_y=196)
-    #offsets = list(group_df[['tile_offset_x','tile_offset_y']].value_counts().index.values) TODO: VERIFICARE
     offsets = [tuple(riga) for riga in group_df[['tile_offset_x','tile_offset_y']].values]
     
-    neighboring_tiles = group_df['neighboring'].values if 'neighboring' in group_df.columns else None
+    neighboring_tiles = None
+    if not is_tracking_view and 'neighboring' in group_df.columns:
+        neighboring_tiles = group_df['neighboring'].values
 
     out_img = draw_tiles_and_center(img, offsets,
         cyclone_centers=xy_source_list,
         labeled_tiles_offsets=labeled_tiles_offsets,
         predicted_tiles=predicted_tiles_offsets,
         gray_offsets=to_be_filled_offsets,
-        neighboring_tile=neighboring_tiles
+        neighboring_tile=neighboring_tiles,
+        show_tile_boxes=not is_tracking_view
     )
 
     # region add timestamp 

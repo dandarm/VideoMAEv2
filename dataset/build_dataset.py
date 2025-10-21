@@ -1440,7 +1440,8 @@ def make_tracking_dataset_from_manos_tracks(input_dir, output_dir, **kwargs):
     args = prepare_tracking_args()
     tracks_df = pd.read_csv(manos_track_file, parse_dates=['time', 'start_time', 'end_time'])
 
-    validation_split = -1 if no_validation else 0.15
+    #validation_split = -1 if no_validation else 0.15
+    validation_split = args.val_split_fraction
     tracks_df_train, tracks_df_test, tracks_df_val = get_train_test_validation_df(tracks_df, 0.7, validation_split, id_col='id_final')
 
     print("Building TRAIN tracking set (tiles + CSV)...")

@@ -111,7 +111,7 @@ def axis_color(ax, colore_asse):
     ax.axis["right"].line.set_color(colore_asse)
 
 
-def plot_training_curves(tuple_vars, plot_file_name=None, log=True):
+def plot_training_curves(tuple_vars, plot_file_name=None):  #TODO: per l'asse non LOG tocca rifare da capo log=True):
 
     #(train_epochs, train_losses, test_epochs, test_losses, val_epochs, val_losses, val_accs, lr_epochs) = tuple_vars
     #(train_epochs, train_losses, test_epochs, test_losses, val_epochs, val_losses, val_accs, lr_epochs, val_fprs, val_fnrs, val2_losses, val2_accs, val2_fprs, val2_fnrs) = tuple_vars
@@ -134,7 +134,7 @@ def plot_training_curves(tuple_vars, plot_file_name=None, log=True):
         ax1.plot(test_epochs, test_losses, label='Test Loss') #color='r', marker='s', 
     ax1.plot(val_epochs, val_losses, marker='.', label='Validation Loss') #color='r', marker='s', 
     if val2_losses is not None and len(val2_losses) > 0:
-        ax1.plot(val_epochs, val2_losses, marker='.', label='Validation2 Loss', color='peachpuff') # marker='s',
+       ax1.plot(val_epochs, val2_losses, marker='.', label='Validation2 Loss', color='peachpuff') # marker='s',
     
 
     tick_length = 20
@@ -146,9 +146,9 @@ def plot_training_curves(tuple_vars, plot_file_name=None, log=True):
     ax1.set_ylabel('Loss')
     ax1.grid(True)
     ax1.legend(loc='upper left')
-    if log:
-        ax1.set_yscale('log')
-        ax1.set_xscale('log')
+    #if log:
+    ax1.set_yscale('log')
+    ax1.set_xscale('log')
 
     if len(val_accs)>0:
         # Asse destro per l'accuracy
@@ -168,7 +168,12 @@ def plot_training_curves(tuple_vars, plot_file_name=None, log=True):
 
 
     if len(lr_epochs) > 0:
-        ax3 = ax1.twinx()
+        try:
+            ax3 = ax1.twinx()
+        except:
+            ax3 = ax1.get_aux_axes(ax1.transData)
+            # TODO: è inutile, rifare da capo nel caso di assi non logaritmici
+        
         new_fixed_axis = ax3.get_grid_helper().new_fixed_axis
         ax3.axis["right"] = new_fixed_axis(loc="right", axes=ax3, offset=(100, 0))
         ax3.axis["right"].toggle(all=True)
@@ -179,9 +184,9 @@ def plot_training_curves(tuple_vars, plot_file_name=None, log=True):
         #ax3.spines['right'].set_position(('outward', 60))
         set_ticklines(ax3, 190, tick_width)
 
-        if log:
-            ax3.set_yscale('log')
-            ax3.set_xscale('log')
+        #if log:
+        ax3.set_yscale('log')
+        ax3.set_xscale('log')
 
         axis_color(ax3, colore_asse)
 
