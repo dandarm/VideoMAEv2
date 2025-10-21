@@ -452,8 +452,8 @@ def prepare_tracking_args(machine=None):
         'load_for_test_mode': False,
         'data_path': './',
         # default CSVs for tracking
-        'train_path': 'train_tracking_selezionati.csv',
-        'test_path': 'test_tracking_selezionati.csv',
+        'train_path': 'train_tracking.csv',
+        'test_path': 'test_tracking.csv',
         'val_path': '', #val_tracking_selezionati.csv',
         'log_dir': './output',
         'output_dir': './output',
@@ -480,7 +480,7 @@ def prepare_tracking_args(machine=None):
         'use_class_weight': False,
 
         'start_epoch': 0,
-        'epochs': 10000,
+        'epochs': 1000,
         'start_epoch_for_saving_best_ckpt': 90,
         'momentum': 0.9,
         'weight_decay': 0.05,

@@ -24,17 +24,18 @@ from utils import setup_for_distributed
 utils.suppress_transformers_pytree_warning()
 
 
+
 def launch_tracking(terminal_args: argparse.Namespace) -> None:
     """Launch the training process for the tracking task."""
     args = prepare_tracking_args(machine=terminal_args.on)
 
-    seed = args.seed
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-    cudnn.benchmark = True
+    # seed = args.seed
+    # torch.manual_seed(seed)
+    # if torch.cuda.is_available():
+    #     torch.cuda.manual_seed(seed)
+    # np.random.seed(seed)
+    # random.seed(seed)
+    # cudnn.benchmark = True
 
     # region --------------------------- distributed setup ---------------------------
     rank, local_rank, world_size, _, _ = utils.get_resources()
