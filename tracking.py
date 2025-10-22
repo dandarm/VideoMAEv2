@@ -24,6 +24,14 @@ from utils import setup_for_distributed
 utils.suppress_transformers_pytree_warning()
 
 
+def _format_log_value(key: str, value):
+    """Keep learning-rate precision while rounding other floats for logs."""
+    if not isinstance(value, float):
+        return value
+    if "lr" in key.lower():
+        return float(f"{value:.8g}")
+    return round(value, 4)
+
 
 def launch_tracking(terminal_args: argparse.Namespace) -> None:
     """Launch the training process for the tracking task."""
@@ -175,7 +183,7 @@ def launch_tracking(terminal_args: argparse.Namespace) -> None:
             with open(log_path, "a") as f:
                 f.write(
                     json.dumps(
-                        {k: (round(v, 4) if isinstance(v, float) else v) for k, v in log_stats.items()}
+                        {k: _format_log_value(k, v) for k, v in log_stats.items()}
                     )
                     + "\n"
                 )

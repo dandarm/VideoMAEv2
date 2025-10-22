@@ -28,6 +28,15 @@ warnings.filterwarnings("ignore")
 utils.suppress_transformers_pytree_warning()
 
 
+def _format_log_value(key: str, value):
+    """Format numeric stats preserving LR precision."""
+    if not isinstance(value, float):
+        return value
+    if "lr" in key.lower():
+        return float(f"{value:.8g}")
+    return round(value, 4)
+
+
 def set_seeds(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
@@ -223,7 +232,7 @@ def launch_inference_tracking(terminal_args: argparse.Namespace) -> None:
             print(f"Warning: could not save predictions CSV: {exc}")
 
         log_stats = {f"test_{k}": v for k, v in stats.items()}
-        log_stats = {k: (round(v, 4) if isinstance(v, float) else v) for k, v in log_stats.items()}
+        log_stats = {k: _format_log_value(k, v) for k, v in log_stats.items()}
         metrics_path = os.path.join(args.output_dir, "inference_tracking_metrics.txt")
         try:
             with open(metrics_path, "a") as handle:

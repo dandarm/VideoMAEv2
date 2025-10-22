@@ -40,6 +40,16 @@ import warnings
 warnings.filterwarnings('ignore')
 utils.suppress_transformers_pytree_warning()
 
+
+def _format_log_value(key: str, value):
+    """Format numeric stats preserving LR precision."""
+    if not isinstance(value, float):
+        return value
+    if "lr" in key.lower():
+        return float(f"{value:.8g}")
+    return round(value, 4)
+
+
 def all_seeds():
     os.environ['PYTHONHASHSEED'] = str(0)
     os.environ['CUBLAS_WORKSPACE_CONFIG'] = ":4096:8"
@@ -294,7 +304,7 @@ def launch_inference_classification(terminal_args):
     # logging su file (always)
     log_stats = {**{f'val2_{k}': v for k, v in val_stats.items()}}
     # round floats to 4 decimals for compact logs
-    log_stats = {k: (round(v, 4) if isinstance(v, float) else v) for k, v in log_stats.items()}
+    log_stats = {k: _format_log_value(k, v) for k, v in log_stats.items()}
     if args.output_dir and rank == 0:
         metrics_path = os.path.join(args.output_dir, "inference_metrics.txt")
         try:
