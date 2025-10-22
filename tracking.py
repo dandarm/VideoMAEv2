@@ -118,17 +118,22 @@ def launch_tracking(terminal_args: argparse.Namespace) -> None:
 
     total_batch_size = args.batch_size * world_size
     num_training_steps_per_epoch = train_m.dataset_len// total_batch_size
-    lr_schedule_values = utils.cosine_scheduler(
-        args.lr, args.min_lr, args.epochs, num_training_steps_per_epoch,
-        warmup_epochs=args.warmup_epochs, start_warmup_value=args.warmup_lr, warmup_steps=args.warmup_steps)
-    print(f"lr_schedule_values {lr_schedule_values}")
     if args.weight_decay_end is None:
         args.weight_decay_end = args.weight_decay
-    wd_schedule_values = utils.cosine_scheduler(
-        args.weight_decay, args.weight_decay_end,
-        args.epochs, num_training_steps_per_epoch
-    )
-    print(f"wd_schedule_values {wd_schedule_values}")
+    lr_schedule_values = None
+    wd_schedule_values = None
+    if getattr(args, "disable_scheduler", False):
+        print("[INFO] Learning-rate scheduler disabled: optimizer will use fixed lr.")
+    else:
+        lr_schedule_values = utils.cosine_scheduler(
+            args.lr, args.min_lr, args.epochs, num_training_steps_per_epoch,
+            warmup_epochs=args.warmup_epochs, start_warmup_value=args.warmup_lr, warmup_steps=args.warmup_steps)
+        print(f"lr_schedule_values {lr_schedule_values}")
+        wd_schedule_values = utils.cosine_scheduler(
+            args.weight_decay, args.weight_decay_end,
+            args.epochs, num_training_steps_per_epoch
+        )
+        print(f"wd_schedule_values {wd_schedule_values}")
 
 
 
