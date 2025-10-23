@@ -26,8 +26,8 @@ def load_cyclones_track_noheader(path_tracks):
     """
     Carica righe del file TRACKS_CL7 (senza header). Ogni riga ha 8 campi:
       id, LON, LAT, year, month, day, hour, pressure
-    Restituisce una lista di dict:
-        { 'id_cyc': str, 'LON': float, 'LAT': float, 'time': datetime }
+    Restituisce un DataFrame con colonne:
+        id_cyc, lat, lon, time, pressure
     """
     rows = []
     with open(path_tracks, 'r') as f:
@@ -43,10 +43,14 @@ def load_cyclones_track_noheader(path_tracks):
             month= int(parts[4])
             day  = int(parts[5])
             hour = int(parts[6])
-            # pressure = parts[7]  # ignorato
+            pressure_str = parts[7].replace(',', '.')
 
             lat = float(lat_str)
             lon = float(lon_str)
+            try:
+                pressure = float(pressure_str)
+            except ValueError:
+                pressure = float('nan')
 
             time_stamp = pd.Timestamp(year=year, month=month, day=day, hour=hour)
 
@@ -55,8 +59,12 @@ def load_cyclones_track_noheader(path_tracks):
                 'lat':    lat,
                 'lon':    lon,
                 'time':   time_stamp,
+                'pressure': pressure,
             })
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    if not df.empty:
+        df['pressure'] = pd.to_numeric(df['pressure'], errors='coerce')
+    return df
 
 
 

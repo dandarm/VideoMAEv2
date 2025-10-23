@@ -397,6 +397,7 @@ def add_cloud_idx_to_master_df_file(master_df_csv_path, out_csv_path=None, col_n
         "label": 'int8',
         "x_pix": 'object',
         "y_pix": 'object',
+        "pressure": 'object',
         "source": 'string',
         'id_cyc_unico': 'int32'
     }, parse_dates=['datetime', 'start_time', 'end_time'])
@@ -432,6 +433,7 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_f
             source = []
             xp, yp = [], []
             id_cyc_unico = 0
+            pressures = []
 
             for row in df_candidates.itertuples(index=False):  
                 # devo considerare il caso in cui ho più cicloni *** anche nella stessa tile! ***
@@ -443,6 +445,7 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_f
                     xp.append(x_pix)
                     yp.append(y_pix)
                     source.append(s_)
+                    pressures.append(getattr(row, 'pressure', float('nan')))
                     id_cyc_unico = row.id_cyc_unico  # al momento assumo che sia lo stesso ciclone
 
 
@@ -459,6 +462,7 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_f
                         "x_pix":xp,
                         "y_pix":yp,
                         "source": source,
+                        "pressure": pressures,
                         "id_cyc_unico": id_cyc_unico
                     })
         jj += 1
@@ -476,6 +480,7 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_f
         "y_pix": 'object', # non più Int16
         "name": 'string',
         "source": 'string',
+        "pressure": 'object',
         "id_cyc_unico":  'int32'
     })
     return res
@@ -541,6 +546,7 @@ def labeled_tiles_from_metadatafiles_maxfast(sorted_metadata_files, df_tracks, o
         'x_pix': list,
         'y_pix': list,
         'source': list,
+        'pressure': list,
         'id_cyc_unico': 'first',
         'start_time': 'first',
         'end_time': 'first'
@@ -557,7 +563,7 @@ def labeled_tiles_from_metadatafiles_maxfast(sorted_metadata_files, df_tracks, o
 
     # 9) Fillna e creazione colonne x_pix, y_pix, source per i tile vuoti
     res['label'] = res['label'].fillna(0)#.astype('category')
-    for col in ['x_pix', 'y_pix', 'source']:
+    for col in ['x_pix', 'y_pix', 'source', 'pressure']:
         res[col] = res[col].apply(lambda x: x if isinstance(x, list) else [])
     res['id_cyc_unico'] = res['id_cyc_unico'].fillna(0).astype('int32')
     res['start_time'] = res['start_time'].fillna(pd.NaT)
@@ -577,6 +583,7 @@ def labeled_tiles_from_metadatafiles_maxfast(sorted_metadata_files, df_tracks, o
         'x_pix': 'object',
         'y_pix': 'object',
         'source': 'string',
+        'pressure': 'object',
         'id_cyc_unico': 'int32'
     })
 

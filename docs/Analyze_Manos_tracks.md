@@ -13,6 +13,7 @@ Questo notebook è dedicato all’analisi esplorativa delle tracce dei cicloni f
 ## Assemblaggio del tracks dataframe
 - Viene creato un DataFrame cumulativo che include tutte le righe dei diversi CL, annotando l’origine (`source`) e garantendo un indice unico.
 - Vengono manipolati (e generati ex novo) gli identificatori numerici univoci (`id_cyc_unico`, `id_final`, `idorig`), utilizzando la funzione `decodifica_id_intero` per avere codifiche coerenti e distinguere i cicloni provenienti da ERA5.
+- Dalla versione corrente la colonna di pressione (`pressure`) dei file `TRACKS_CL*.dat` è preservata lungo l’intera catena di DataFrame, così da poterla usare in analisi successive o durante la costruzione dei dataset.
 - Si procede a un taglio spaziale sulle coordinate specificate in `(latcorners, loncorners)` con la funzione `select_MEDI_area`, e varie selezioni temporali a fini statistici
 - Sono calcolate le statistiche di durata per ogni ciclone (con istogrammi). 
 - Vengogo riconteggiati i cicloni unici per le varie selezioni effettuate

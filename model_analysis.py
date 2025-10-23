@@ -1154,7 +1154,10 @@ def plot_confusion_and_results(
 
     # Setup figura con due pannelli
     fig, (ax_cm, ax_txt) = plt.subplots(
-        1, 2, figsize=(10, 4.5), gridspec_kw={"width_ratios": [1.15, 1.0]}
+        1,
+        2,
+        figsize=(12, 5),
+        gridspec_kw={"width_ratios": [1.15, 1.0]},
     )
 
     data_for_color = cm_norm if normalize else counts
@@ -1162,11 +1165,12 @@ def plot_confusion_and_results(
                       vmin=0.0, vmax=(1.0 if normalize else data_for_color.max() or 1.0))
 
     # Assi e ticks
-    ax_cm.set_title(title)
-    ax_cm.set_ylabel("True label")
-    ax_cm.set_xlabel("Predicted label")
+    ax_cm.set_title(title, fontsize=16, pad=16)
+    ax_cm.set_ylabel("True label", fontsize=14)
+    ax_cm.set_xlabel("Predicted label", fontsize=14)
     ax_cm.set_xticks([0, 1], labels=labels)
     ax_cm.set_yticks([0, 1], labels=labels)
+    ax_cm.tick_params(axis="both", labelsize=12)
 
     # Annotazioni: conteggio + percentuale per cella
     for i in range(2):
@@ -1174,10 +1178,12 @@ def plot_confusion_and_results(
             count = int(counts[i, j])
             pct = cm_norm[i, j]
             text = f"{count}\n({pct:,.1%})"
-            ax_cm.text(j, i, text, ha="center", va="center", color="black", fontsize=10)
+            text_color = "white" if i == j else "black"
+            ax_cm.text(j, i, text, ha="center", va="center", color=text_color, fontsize=12, fontweight="bold")
 
     # Barra colore
     cbar = fig.colorbar(im, ax=ax_cm, fraction=0.046, pad=0.04)
+    cbar.ax.tick_params(labelsize=12)
     #cbar.ax.set_ylabel("Row-normalized" if normalize else "Count", rotation=90, va="center")
 
     # Pannello destro: lista metrica -> valore
@@ -1222,8 +1228,25 @@ def plot_confusion_and_results(
     y = 0.95
     dy = 0.085
     for (name, val) in lines:
-        ax_txt.text(x_key, y, name, transform=ax_txt.transAxes, ha="left", va="top", fontsize=11)
-        ax_txt.text(x_val, y, val, transform=ax_txt.transAxes, ha="right", va="top", fontsize=11)
+        ax_txt.text(
+            x_key,
+            y,
+            name,
+            transform=ax_txt.transAxes,
+            ha="left",
+            va="top",
+            fontsize=15,
+        )
+        ax_txt.text(
+            x_val,
+            y,
+            val,
+            transform=ax_txt.transAxes,
+            ha="right",
+            va="top",
+            fontsize=15,
+            fontweight="bold",
+        )
         y -= dy
 
     plt.tight_layout()

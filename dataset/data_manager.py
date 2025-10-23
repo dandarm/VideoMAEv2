@@ -209,6 +209,7 @@ diz_types = {
         "lon": 'object',
         "x_pix": 'object',
         "y_pix": 'object',
+        "pressure": 'object',
         "name": 'string',
         "source": 'string',
         'id_cyc_unico': 'int32'
@@ -292,6 +293,7 @@ class BuildDataset():
             "label": 'int8',
             "x_pix": 'object',
             "y_pix": 'object',
+            "pressure": 'object',
             "source": 'string',
             'id_cyc_unico': 'int32'
         }, parse_dates=['datetime', 'start_time', 'end_time'])
