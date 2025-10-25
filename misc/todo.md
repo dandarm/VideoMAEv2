@@ -1,11 +1,10 @@
 # Todo List per il progetto VideoMAEv2 su dataset satellitari
 
-# PRESENTAZIONE
-rifare la conf matrix con font più grandi , e RECALL -> POD   
 
-fare video inference di Ianos
 
 ## Dataset
+
+- validation set con finestre originali per vedere se inizia a prevedere proprio quando inizia la rotazione
 
 - verificare se nelle finestre temporali dei medicane ci sono altri cicloni contemporanei, e considerarli correttamente
 
@@ -18,8 +17,7 @@ fare video inference di Ianos
 - training senza clear sky
 
 
-## Tracking
-  - renbdere la loss meno stringente, o accettare un risultato più approssimativo
+
 
 
 ## View MEDI (caso CLOUDY)

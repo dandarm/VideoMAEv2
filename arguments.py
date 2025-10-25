@@ -494,7 +494,7 @@ def prepare_tracking_args(machine=None):
         'warmup_steps': -1,
 
         'val_split_fraction': 0.0,
-        'disable_scheduler': False,
+        'disable_scheduler': True,
     }
 
     args_dict = {**default_args, **user_args_tracking}
