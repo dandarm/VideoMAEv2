@@ -4,6 +4,7 @@ import json
 import os
 import time
 import random
+from typing import Optional, Tuple
 
 import numpy as np
 import torch
@@ -17,6 +18,7 @@ from dataset.datasets import MedicanesTrackDataset
 from dataset.data_manager import DataManager
 from engine_for_tracking import train_one_epoch, evaluate
 from models.tracking_model import create_tracking_model
+from models.modeling_finetune import load_checkpoint as load_finetune_checkpoint
 import utils
 from utils import setup_for_distributed
 
@@ -31,6 +33,74 @@ def _format_log_value(key: str, value):
     if "lr" in key.lower():
         return float(f"{value:.8g}")
     return round(value, 4)
+
+
+def _resume_from_checkpoint(
+    model: torch.nn.Module,
+    optimizer: Optional[torch.optim.Optimizer],
+    checkpoint_path: str,
+    rank: int = 0,
+) -> Tuple[Optional[int], Optional[float]]:
+    """Restore model (and optimizer) state from a checkpoint if possible."""
+    if rank == 0:
+        print(f"[INFO] Loading checkpoint for resume: {checkpoint_path}")
+
+    if not os.path.isfile(checkpoint_path):
+        raise FileNotFoundError(checkpoint_path)
+
+    checkpoint = torch.load(checkpoint_path, map_location="cpu")
+
+    state_dict = None
+    if isinstance(checkpoint, dict):
+        for key in ("model", "state_dict", "module"):
+            value = checkpoint.get(key)
+            if isinstance(value, dict):
+                state_dict = value
+                if rank == 0:
+                    print(f"[INFO] Using state dict stored under key '{key}'")
+                break
+
+    if state_dict is None:
+        load_finetune_checkpoint(model, checkpoint_path, load_for_test_mode=True)
+        if rank == 0:
+            print("[WARN] Checkpoint did not contain explicit model weights; loaded via finetune helper.")
+        resume_epoch = checkpoint["epoch"] if isinstance(checkpoint, dict) and "epoch" in checkpoint else None
+        best_loss = checkpoint["best_loss"] if isinstance(checkpoint, dict) and "best_loss" in checkpoint else None
+        return resume_epoch, best_loss
+
+    cleaned_state_dict = {}
+    for key, value in state_dict.items():
+        cleaned_key = key.replace("backbone.", "").replace("module.", "").replace("_orig_mod.", "")
+        cleaned_state_dict[cleaned_key] = value
+
+    model_state = model.state_dict()
+    head_keys_to_drop = []
+    for candidate in ("head.weight", "head.bias"):
+        if candidate in cleaned_state_dict and candidate in model_state:
+            if cleaned_state_dict[candidate].shape != model_state[candidate].shape:
+                head_keys_to_drop.append(candidate)
+    if head_keys_to_drop and rank == 0:
+        print(f"[INFO] Dropping incompatible head parameters from checkpoint: {head_keys_to_drop}")
+    for key in head_keys_to_drop:
+        cleaned_state_dict.pop(key, None)
+
+    load_result = model.load_state_dict(cleaned_state_dict, strict=False)
+    if rank == 0:
+        missing = sorted(load_result.missing_keys)
+        unexpected = sorted(load_result.unexpected_keys)
+        if missing:
+            print(f"[WARN] Missing keys when loading checkpoint: {missing}")
+        if unexpected:
+            print(f"[WARN] Unexpected keys in checkpoint: {unexpected}")
+
+    if optimizer is not None and isinstance(checkpoint, dict) and "optimizer" in checkpoint:
+        optimizer.load_state_dict(checkpoint["optimizer"])
+    elif optimizer is not None and rank == 0:
+        print("[WARN] Optimizer state not found in checkpoint; continuing with fresh optimizer parameters.")
+
+    resume_epoch = checkpoint["epoch"] if isinstance(checkpoint, dict) and "epoch" in checkpoint else None
+    best_loss = checkpoint["best_loss"] if isinstance(checkpoint, dict) and "best_loss" in checkpoint else None
+    return resume_epoch, best_loss
 
 
 def launch_tracking(terminal_args: argparse.Namespace) -> None:
@@ -116,6 +186,37 @@ def launch_tracking(terminal_args: argparse.Namespace) -> None:
     criterion = nn.MSELoss()
     optimizer = create_optimizer(args, model_without_ddp)
 
+    best_loss = float("inf")
+    if getattr(args, "auto_resume", False):
+        resume_path = getattr(args, "resume_checkpoint", "") or getattr(args, "resume", "")
+        if resume_path:
+            try:
+                resume_epoch, resume_best = _resume_from_checkpoint(
+                    model=model_without_ddp,
+                    optimizer=optimizer,
+                    checkpoint_path=resume_path,
+                    rank=args.rank,
+                )
+                if resume_epoch is not None:
+                    args.start_epoch = max(args.start_epoch, resume_epoch + 1)
+                    if args.rank == 0:
+                        print(f"[INFO] Training will resume from epoch {args.start_epoch}")
+                if resume_best is not None:
+                    best_loss = resume_best
+                    if args.rank == 0:
+                        print(f"[INFO] Best validation loss restored from checkpoint: {best_loss:.4f}")
+            except FileNotFoundError:
+                if args.rank == 0:
+                    print(f"[WARN] Resume checkpoint not found: {resume_path}")
+            except Exception as exc:
+                if args.rank == 0:
+                    print(f"[WARN] Failed to resume from checkpoint '{resume_path}': {exc}")
+        elif args.rank == 0:
+            print("[INFO] auto_resume is enabled but 'resume_checkpoint' path is empty. Skipping resume.")
+
+    if args.rank == 0 and args.epochs <= args.start_epoch:
+        print(f"[WARN] Training config has epochs={args.epochs} and start_epoch={args.start_epoch}; loop will exit immediately.")
+
     total_batch_size = args.batch_size * world_size
     num_training_steps_per_epoch = train_m.dataset_len// total_batch_size
     if args.weight_decay_end is None:
@@ -137,8 +238,8 @@ def launch_tracking(terminal_args: argparse.Namespace) -> None:
 
 
 
-    best_loss = float("inf")
     start_time = time.time()
+    last_epoch_ran = args.start_epoch - 1
     for epoch in range(args.start_epoch, args.epochs):
         print(f"start epoch{epoch}")
         train_stats = train_one_epoch(
@@ -154,6 +255,7 @@ def launch_tracking(terminal_args: argparse.Namespace) -> None:
             num_training_steps_per_epoch=num_training_steps_per_epoch,
         )
         print("train step")
+        last_epoch_ran = epoch
         # Evaluate on test and optionally validation
         test_stats = evaluate(model, criterion, test_loader, device)
         val_stats = evaluate(model, criterion, val_loader, device) if val_loader is not None else None
@@ -164,11 +266,13 @@ def launch_tracking(terminal_args: argparse.Namespace) -> None:
         if args.output_dir and monitor_loss < best_loss and args.rank == 0 and epoch > args.start_epoch_for_saving_best_ckpt:
             best_loss = monitor_loss
             checkpoint_path = os.path.join(args.output_dir, "checkpoint-tracking-best.pth")
+            model_state = model_without_ddp.state_dict()
             torch.save(
                 {
-                    "model": model_without_ddp.state_dict(),
+                    "state_dict": model_state,
                     "optimizer": optimizer.state_dict(),
                     "epoch": epoch,
+                    "best_loss": best_loss,
                     "args": args.__dict__,
                 },
                 checkpoint_path,
@@ -199,16 +303,20 @@ def launch_tracking(terminal_args: argparse.Namespace) -> None:
     print(f"Training time {total_time_str}")
 
     # ultimo salvataggio per riprendere da dove abbiamo lasciato
-    last_checkpoint_path = os.path.join(args.output_dir, "last_checkpoint-tracking.pth")
-    torch.save(
-                {
-                    "model": model_without_ddp.state_dict(),
-                    "optimizer": optimizer.state_dict(),
-                    "epoch": epoch,
-                    "args": args.__dict__,
-                },
-                last_checkpoint_path,
-            )
+    if args.output_dir and args.rank == 0:
+        last_checkpoint_path = os.path.join(args.output_dir, "last_checkpoint-tracking.pth")
+        model_state = model_without_ddp.state_dict()
+        torch.save(
+            {
+                "state_dict": model_state,
+                "optimizer": optimizer.state_dict(),
+                "epoch": last_epoch_ran,
+                "best_loss": best_loss,
+                "args": args.__dict__,
+            },
+            last_checkpoint_path,
+        )
+        print(f"[INFO] Last checkpoint saved at {last_checkpoint_path} (epoch={last_epoch_ran})")
 
 
 

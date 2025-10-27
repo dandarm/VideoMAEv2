@@ -147,7 +147,12 @@ def load_checkpoint(model: torch.nn.Module, checkpoint_path: str, device: torch.
         raise ValueError("checkpoint path must be provided for inference")
     map_location = device if device.type == "cpu" else torch.device("cpu")
     checkpoint = torch.load(checkpoint_path, map_location=map_location)
-    state_dict = checkpoint.get("model", checkpoint)
+    state_dict = checkpoint.get("model") or checkpoint.get("state_dict")
+    if state_dict is None:
+        raise KeyError(
+            f"Checkpoint at {checkpoint_path} does not contain 'model' or 'state_dict' keys; "
+            f"available keys: {list(checkpoint.keys()) if isinstance(checkpoint, dict) else 'N/A'}"
+        )
     msg = model.load_state_dict(state_dict, strict=False)
     print(f"[INFO] Loaded checkpoint from {checkpoint_path}: {msg}")
 

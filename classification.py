@@ -224,7 +224,7 @@ def launch_finetuning_classification(terminal_args):
         )
         print("[INFO] Mixup is activated")
 
-    if args.auto_resume:
+    if args.auto_resume: # TODO: fare un nuovo anche per classification o usare quello cper tracking già creato
         utils.auto_load_model(
                 args=args,
                 model=pretrained_model,

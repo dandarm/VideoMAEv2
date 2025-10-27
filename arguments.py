@@ -95,6 +95,7 @@ def prepare_args(machine=None):
         'auto_resume': True,
         'save_ckpt': True,
         'start_epoch': 0,
+        'resume_checkpoint': '',
         'eval': False,
         'validation': False,
         'dist_eval': False,
@@ -449,7 +450,8 @@ def prepare_tracking_args(machine=None):
         'model': 'vit_giant_patch14_224',
         'pretrained': True,
         'init_ckpt': './output/checkpoint_88k.pth',           #'./output/checkpoint-best-lr-again2.pth',
-        'auto_resume': False,
+        'auto_resume': True,
+        'resume_checkpoint': './output/last_checkpoint-tracking.pth',
         'load_for_test_mode': False,
         'data_path': './',
         # default CSVs for tracking
@@ -480,8 +482,8 @@ def prepare_tracking_args(machine=None):
         'cloudy': False,
         'use_class_weight': False,
 
-        'start_epoch': 0,
-        'epochs': 1000,
+        'start_epoch': 1000,
+        'epochs': 2000,
         'start_epoch_for_saving_best_ckpt': 90,
         'momentum': 0.9,
         'weight_decay': 0.05,
