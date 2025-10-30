@@ -1110,8 +1110,7 @@ def evaluate_binary_classifier(
 
 
 def plot_confusion_and_results(
-    results: Union[pd.Series, Mapping[str, float]],
-    labels: Sequence[str] = ("Negative", "Positive"),
+    results: Union[pd.Series, Mapping[str, float]],    
     title: str = "Confusion matrix and metrics",
     savepath: Optional[str] = None,
     cmap: str = "Blues",
@@ -1139,6 +1138,8 @@ def plot_confusion_and_results(
         sia il conteggio che la percentuale.
     """
 
+    labels=("Negative","Positive")
+
     # Supporta sia Series che dict
     tn = int(results.get("true_negatives", results.get("tn", 0)))
     fp = int(results.get("false_positives", results.get("fp", 0)))
@@ -1156,7 +1157,7 @@ def plot_confusion_and_results(
     fig, (ax_cm, ax_txt) = plt.subplots(
         1,
         2,
-        figsize=(12, 5),
+        figsize=(8, 5),
         gridspec_kw={"width_ratios": [1.15, 1.0]},
     )
 
@@ -1205,7 +1206,8 @@ def plot_confusion_and_results(
 
     # Raccoglie metri che esistono in results
     lines = []
-    for k in preferred_keys:
+    names = ["B. Acc.", "POD", "FAR", "CSI", "HSS"]
+    for i, k in enumerate(preferred_keys):
         if k in results:
             v = results[k]
             # Formattazione: percentuali per metriche in [0,1], 3 decimali altrimenti
@@ -1213,7 +1215,8 @@ def plot_confusion_and_results(
                 fmt = f"{v:.3f}"
             else:
                 fmt = f"{v:.3f}"
-            nice = k.replace("_", " ").title()
+            #nice = k.replace("_", " ").title()
+            nice = names[i]
             lines.append((nice, fmt))
 
     # Aggiunge i conteggi confusionali alla fine
@@ -1224,9 +1227,9 @@ def plot_confusion_and_results(
     #lines.append(("True Positives", f"{tp:d}"))
 
     # Disegno testo in due colonne allineate
-    x_key, x_val = 0.05, 0.62
+    x_key, x_val = 0.05, 0.68
     y = 0.95
-    dy = 0.085
+    dy = 0.1
     for (name, val) in lines:
         ax_txt.text(
             x_key,
@@ -1249,7 +1252,7 @@ def plot_confusion_and_results(
         )
         y -= dy
 
-    plt.tight_layout()
+    #plt.tight_layout()
     if savepath is not None:
         plt.savefig(savepath, dpi=300, bbox_inches="tight")
     plt.show()
