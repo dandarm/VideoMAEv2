@@ -283,8 +283,7 @@ def launch_finetuning_classification(terminal_args):
         if (epoch + 1) % args.testing_epochs == 0:
             val_stats = validation_one_epoch(test_m.data_loader, pretrained_model, device, criterion)
             print(f"[EPOCH {epoch + 1}] val bal_acc: {val_stats['bal_acc']:.2f}%  - best bal_acc: {max_bal_acc:.2f}%")
-            if val_m is not None:
-                val2_stats = validation_one_epoch(val_m.data_loader, pretrained_model, device, criterion)
+            val2_stats = validation_one_epoch(val_m.data_loader, pretrained_model, device, criterion) if val_m is not None else None
 
             if val_stats["bal_acc"] > max_bal_acc and epoch > args.start_epoch_for_saving_best_ckpt:
                 max_bal_acc = val_stats["bal_acc"]
