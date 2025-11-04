@@ -279,9 +279,9 @@ def prepare_finetuning_args(machine=None):
         'load_for_test_mode': False,
         'data_path': './',
         'csv_folder': './',
-        'train_path': 'train_manos_w_1238.csv',   #'.csv',   #'train_manos_836.csv',   #  train_manos_unbalanced_6468
-        'test_path': 'test_manos_w_354.csv',  # 'test_manos_372.csv',
-        'val_path': 'val_manos_w_2400.csv', 
+        'train_path': 'train_neighboring_6468.csv',   #'.csv',   #'train_manos_836.csv',   #  train_manos_unbalanced_6468
+        'test_path': 'test_neighboring_2040.csv',  # 'test_manos_372.csv',
+        'val_path': 'val_neighboring_2400.csv', 
         'log_dir': './output',
         'output_dir': './output',
         'data_set': 'medicanes',

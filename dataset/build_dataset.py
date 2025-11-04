@@ -1482,7 +1482,7 @@ def make_neighboring_multiclass_dataset(input_dir, output_dir, **kwargs):
             split_specs.append(('val', tracks_df_val))
 
     saved_paths = {}
-    for split_name, split_df in [('val', tracks_df_val)]: #split_specs:
+    for split_name, split_df in split_specs:
         if split_df is None or split_df.empty:
             print(f"[WARN] Split '{split_name}' vuoto: salto la generazione del CSV.")
             continue
