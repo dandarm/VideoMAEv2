@@ -60,7 +60,16 @@ def all_seeds():
     
 def launch_finetuning_classification(terminal_args):
     
+    variant = getattr(terminal_args, "variant", "binary") or "binary"
     args = prepare_finetuning_args(machine=terminal_args.on)
+
+    if variant.lower() == "neighboring":
+        args.nb_classes = 3
+        setattr(args, "dataset_variant", "neighboring")
+    else:
+        setattr(args, "dataset_variant", "binary")
+
+    print(f"[INFO] Dataset variant: {args.dataset_variant} (nb_classes={args.nb_classes})")
 
 
     seed = args.seed
@@ -111,11 +120,14 @@ def launch_finetuning_classification(terminal_args):
     # -------------------------------------------
     train_m = DataManager(is_train=True, args=args, type_t='supervised', world_size=world_size, rank=rank)
     test_m = DataManager(is_train=False, args=args, type_t='supervised', world_size=world_size, rank=rank)
-    val_m = DataManager(is_train=False, args=args, type_t='supervised', world_size=world_size, rank=rank, specify_data_path=args.val_path)
+    val_m = None
+    if getattr(args, 'val_path', None):
+        val_m = DataManager(is_train=False, args=args, type_t='supervised', world_size=world_size, rank=rank, specify_data_path=args.val_path)
 
     train_m.create_classif_dataloader(args)
     test_m.create_classif_dataloader(args)
-    val_m.create_classif_dataloader(args)
+    if val_m is not None:
+        val_m.create_classif_dataloader(args) 
 
     # region compute class weights for loss balancing
     class_weights = None
@@ -181,17 +193,23 @@ def launch_finetuning_classification(terminal_args):
     args.warmup_lr = args.warmup_lr * total_batch_size / 256
     print(f"[INFO] LR scaled: {args.lr}, warmup_lr: {args.warmup_lr}, min_lr: {args.min_lr}")
 
-    lr_schedule_values = utils.cosine_scheduler(
-        args.lr, args.min_lr, args.epochs, num_training_steps_per_epoch,
-        warmup_epochs=args.warmup_epochs, start_warmup_value=args.warmup_lr, warmup_steps=args.warmup_steps)
-    print(f"lr_schedule_values {lr_schedule_values}")
     if args.weight_decay_end is None:
         args.weight_decay_end = args.weight_decay
-    wd_schedule_values = utils.cosine_scheduler(
-        args.weight_decay, args.weight_decay_end,
-        args.epochs, num_training_steps_per_epoch
-    )
-    print(f"wd_schedule_values {wd_schedule_values}")
+    lr_schedule_values = None
+    wd_schedule_values = None
+    if getattr(args, "disable_scheduler", False):
+        print("[INFO] Learning-rate scheduler disabled: optimizer will use fixed lr.")
+    else:
+        lr_schedule_values = utils.cosine_scheduler(
+            args.lr, args.min_lr, args.epochs, num_training_steps_per_epoch,
+            warmup_epochs=args.warmup_epochs, start_warmup_value=args.warmup_lr, warmup_steps=args.warmup_steps)
+        print(f"lr_schedule_values {lr_schedule_values}")
+    
+        wd_schedule_values = utils.cosine_scheduler(
+            args.weight_decay, args.weight_decay_end,
+            args.epochs, num_training_steps_per_epoch
+        )
+        print(f"wd_schedule_values {wd_schedule_values}")
     
 
     # Prepariamo la loss
@@ -265,8 +283,8 @@ def launch_finetuning_classification(terminal_args):
         if (epoch + 1) % args.testing_epochs == 0:
             val_stats = validation_one_epoch(test_m.data_loader, pretrained_model, device, criterion)
             print(f"[EPOCH {epoch + 1}] val bal_acc: {val_stats['bal_acc']:.2f}%  - best bal_acc: {max_bal_acc:.2f}%")
-
-            val2_stats = validation_one_epoch(val_m.data_loader, pretrained_model, device, criterion)
+            if val_m is not None:
+                val2_stats = validation_one_epoch(val_m.data_loader, pretrained_model, device, criterion)
 
             if val_stats["bal_acc"] > max_bal_acc and epoch > args.start_epoch_for_saving_best_ckpt:
                 max_bal_acc = val_stats["bal_acc"]
@@ -289,8 +307,9 @@ def launch_finetuning_classification(terminal_args):
         log_stats = {'epoch': epoch,
             **{f'train_{k}': v for k, v in train_stats.items()},
             **{f'val_{k}': v for k, v in val_stats.items()},
-            **{f'val2_{k}': v for k, v in val2_stats.items()},
         }
+        if val2_stats is not None:
+            log_stats.update({f"val2_{k}": v for k, v in val2_stats.items()})
         # round floats to 4 decimals for compact logs
         log_stats = {k: _format_log_value(k, v) for k, v in log_stats.items()}
         if args.output_dir and rank == 0:
@@ -319,6 +338,11 @@ if __name__ == '__main__':
         #metavar='NAME',
         help='[ewc, leonardo]'
     ),
+    parser.add_argument('--variant',
+        type=str,
+        default='binary',
+        choices=['binary', 'neighboring'],
+        help="Scegli quale dataset di classificazione usare: 'binary' (default) o 'neighboring' a 3 classi.")
     args =  parser.parse_args()
 
 

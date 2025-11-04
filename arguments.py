@@ -306,7 +306,7 @@ def prepare_finetuning_args(machine=None):
         'cloudy': False,
         'use_class_weight': False,
 
-        'epochs': 500,
+        'epochs': 1,
         'start_epoch_for_saving_best_ckpt': 90,  # dopo 50 epoche inizia a salvare il best checkpoint
         'momentum': 0.9,
         'weight_decay': 0.05,
@@ -320,6 +320,7 @@ def prepare_finetuning_args(machine=None):
         #dist_eval
 
         'val_split_fraction': 0.15,
+        'disable_scheduler': True,
     }
 
     
@@ -333,19 +334,20 @@ def prepare_finetuning_args(machine=None):
         if machine == 'leonardo':
             machine_args_override['batch_size'] = 2
 
-            # ckpath = '$FAST/checkpoint-149.pth'
-            # exp_path = os.path.expandvars(ckpath)
-            # if "$HOME" in exp_path:
-            #     raise EnvironmentError("La variabile d'ambiente HOME non è definita.")
-            # machine_args_override['init_ckpt'] = exp_path
-            # machine_args_override['pretrained'] = True
+            ckpath = '$FAST/checkpoint-149.pth'
+            exp_path = os.path.expandvars(ckpath)
+            if "$HOME" in exp_path:
+                raise EnvironmentError("La variabile d'ambiente HOME non è definita.")
+            machine_args_override['init_ckpt'] = exp_path
+            machine_args_override['pretrained'] = True
             # machine_args_override['csv_folder'] = "./"
         elif machine == 'ewc':
             machine_args_override['device'] = 'cpu'
+            machine_args_override['epochs'] = 1
             #machine_args_override['csv_folder'] = "./"
-            machine_args_override['train_path'] = 'val_quick_test.csv'
-            machine_args_override['test_path'] = 'val_quick_test.csv'
-            machine_args_override['val_path'] = 'val_quick_test.csv'
+            machine_args_override['train_path'] = 'val_neighboring_quick_test.csv'
+            machine_args_override['test_path'] = 'val_quickest_test.csv'
+            machine_args_override['val_path'] = ''
 
         args_dict = {**args_dict, **machine_args_override}
 

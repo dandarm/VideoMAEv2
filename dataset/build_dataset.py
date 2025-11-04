@@ -480,7 +480,7 @@ def labeled_tiles_from_metadatafiles(sorted_metadata_files, df_tracks, offsets_f
         "y_pix": 'object', # non più Int16
         "name": 'string',
         "source": 'string',
-        "pressure": 'object',
+        #"pressure": 'object',
         "id_cyc_unico":  'int32'
     })
     return res
@@ -546,7 +546,7 @@ def labeled_tiles_from_metadatafiles_maxfast(sorted_metadata_files, df_tracks, o
         'x_pix': list,
         'y_pix': list,
         'source': list,
-        'pressure': list,
+        #'pressure': list,
         'id_cyc_unico': 'first',
         'start_time': 'first',
         'end_time': 'first'
@@ -563,7 +563,7 @@ def labeled_tiles_from_metadatafiles_maxfast(sorted_metadata_files, df_tracks, o
 
     # 9) Fillna e creazione colonne x_pix, y_pix, source per i tile vuoti
     res['label'] = res['label'].fillna(0)#.astype('category')
-    for col in ['x_pix', 'y_pix', 'source', 'pressure']:
+    for col in ['x_pix', 'y_pix', 'source']:#, 'pressure']:
         res[col] = res[col].apply(lambda x: x if isinstance(x, list) else [])
     res['id_cyc_unico'] = res['id_cyc_unico'].fillna(0).astype('int32')
     res['start_time'] = res['start_time'].fillna(pd.NaT)
@@ -583,7 +583,7 @@ def labeled_tiles_from_metadatafiles_maxfast(sorted_metadata_files, df_tracks, o
         'x_pix': 'object',
         'y_pix': 'object',
         'source': 'string',
-        'pressure': 'object',
+        #'pressure': 'object',
         'id_cyc_unico': 'int32'
     })
 
@@ -1314,6 +1314,63 @@ def mark_neighboring_tiles(df_video, stride_x=213, stride_y=196, include_diagona
     return out
 
 
+def assign_neighboring_as_third_class(
+    df: pd.DataFrame,
+    label_col: str = "label",
+    neighbor_col: str = "neighboring",
+    new_label_col: str = "label",
+    keep_binary_copy: bool = True,
+) -> pd.DataFrame:
+    """
+    Converte la colonna ``label`` da binaria (0/1) a ternaria (0/1/2) usando
+    ``neighboring`` per identificare la nuova classe 2.
+
+    Parametri
+    ---------
+    df : pd.DataFrame
+        DataFrame con almeno le colonne ``label`` e ``neighboring``.
+    label_col : str, default "label"
+        Nome della colonna con la label binaria originale.
+    neighbor_col : str, default "neighboring"
+        Nome della colonna booleana che identifica le tile adiacenti a
+        quelle positive.
+    new_label_col : str, default "label"
+        Colonna su cui salvare le label 0/1/2. Può coincidere con ``label``
+        oppure essere un nuovo nome (es. ``label_3class``).
+    keep_binary_copy : bool, default True
+        Se True, conserva una copia della label binaria originale in una
+        colonna ``label_binary`` (oppure ``label`` se ``new_label_col`` è
+        diverso).
+    """
+    if df is None or df.empty:
+        return df
+
+    required = {label_col, neighbor_col}
+    missing = required - set(df.columns)
+    if missing:
+        raise KeyError(
+            f"assign_neighboring_as_third_class: colonne mancanti: {missing}"
+        )
+
+    out = df.copy()
+    original_labels = out[label_col].astype(int).values
+    neighbor_mask = out[neighbor_col].astype(bool).values
+
+    if keep_binary_copy:
+        binary_col = "label_binary" if new_label_col == label_col else label_col
+        out[binary_col] = original_labels
+
+    target_col = new_label_col
+    out[target_col] = original_labels
+    # Assegna classe 2 alle tile negative ma adiacenti
+    mask_neighboring_neg = (original_labels == 0) & neighbor_mask
+    out.loc[mask_neighboring_neg, target_col] = 2
+
+    out[target_col] = out[target_col].astype(int)
+    out[neighbor_col] = neighbor_mask.astype(bool)
+    return out
+
+
 def get_train_test_df(tracks_df, percentage=0.7, id_col='id_cyc_unico', verbose=True):
     cicloni_unici_train, cicloni_unici_test = train_test_cyclones_num_split(tracks_df, train_p=percentage, id_col=id_col)
     tracks_df_train = tracks_df[tracks_df[id_col].isin(cicloni_unici_train)]
@@ -1387,12 +1444,95 @@ def make_dataset_from_entire_year(year, input_dir, output_dir):
 
 
 
+def make_neighboring_multiclass_dataset(input_dir, output_dir, **kwargs):
+    """
+    Costruisce train/test/(val) CSV con label ternaria: 0 = negativa,
+    1 = positiva, 2 = negativa adiacente (neighboring == True).
+
+    Parametri principali (letti da kwargs, tipicamente argparse):
+    - manos_tracks (str, opzionale): path al CSV delle tracce di Manos. Se assente
+      viene usato il default `medicane_data_input/medicanes_new_windows.csv`.
+    - no_validation (bool opzionale): per saltare la split di validazione
+    - cloudy (bool opzionale): per filtrare le tile poco nuvolose (come nelle altre pipeline)
+    """
+    manos_track_file = kwargs.get('manos_tracks') or kwargs.get('manos_track_file')
+    if not manos_track_file:
+        manos_track_file = "medicane_data_input/medicanes_new_windows.csv"
+
+    no_validation = kwargs.get('no_validation', False)
+    csv_prefix = kwargs.get('neighboring_prefix', 'neighboring')
+
+    from dataset.data_manager import BuildDataset
+    args = prepare_finetuning_args()
+    if 'cloudy' in kwargs and kwargs['cloudy']:
+        setattr(args, 'cloudy', True)
+
+    output_dir = solve_paths(output_dir)
+    input_dir = solve_paths(input_dir)
+
+    tracks_df = pd.read_csv(manos_track_file, parse_dates=['time', 'start_time', 'end_time'])
+
+    if no_validation:
+        tracks_df_train, tracks_df_test = get_train_test_validation_df(tracks_df, 0.7, -1)
+        split_specs = [('train', tracks_df_train), ('test', tracks_df_test)]
+    else:
+        tracks_df_train, tracks_df_test, tracks_df_val = get_train_test_validation_df(tracks_df, 0.7, 0.15)
+        split_specs = [('train', tracks_df_train), ('test', tracks_df_test)]
+        if tracks_df_val is not None and not tracks_df_val.empty:
+            split_specs.append(('val', tracks_df_val))
+
+    saved_paths = {}
+    for split_name, split_df in split_specs:
+        if split_df is None or split_df.empty:
+            print(f"[WARN] Split '{split_name}' vuoto: salto la generazione del CSV.")
+            continue
+
+        builder = BuildDataset(type='SUPERVISED', args=args)
+        builder.create_master_df_short(input_dir_images=input_dir, tracks_df=split_df)
+        builder.make_df_video(output_dir=output_dir, is_to_balance=False)
+
+        if getattr(args, 'cloudy', False):
+            filtered = filter_out_clear_sky(output_dir, builder)
+            builder.df_video = filtered.copy()
+
+        if builder.df_video is None or builder.df_video.empty:
+            print(f"[WARN] Nessun dato disponibile per lo split '{split_name}' dopo il preprocessing.")
+            continue
+
+        builder.df_video = mark_neighboring_tiles(
+            builder.df_video,
+            stride_x=213,
+            stride_y=196,
+            include_diagonals=True,
+            only_negatives=True,
+        )
+        builder.df_video = assign_neighboring_as_third_class(builder.df_video)
+
+        df_csv = create_final_df_csv(builder.df_video, output_dir)
+        num_rows = df_csv.shape[0]
+        csv_with_count = f"{split_name}_{csv_prefix}_{num_rows}.csv"
+
+        df_csv.to_csv(csv_with_count, index=False)
+        saved_paths[split_name] = csv_with_count
+
+        class_counts = builder.df_video['label'].value_counts().sort_index().to_dict()
+        print(
+            f"[INFO] Salvato CSV {split_name}: {csv_with_count} ({num_rows} righe) con distribuzione classi {class_counts}"
+        )
+
+    if not saved_paths:
+        print("[WARN] Nessun CSV è stato salvato per la pipeline a 3 classi.")
+    return saved_paths
+
+
 def make_dataset_from_manos_tracks(input_dir, output_dir, **kwargs):
     """
     Versione più snella di make_master_df perché non carica tutte le immagini presenti nella input_dir,
     ma soltanto quelle necessarie comprese negli intervalli definiti dal tracks_df
     """
-    manos_track_file = kwargs.get('manos_track_file')
+    manos_track_file = kwargs.get('manos_track_file') or kwargs.get('manos_tracks')
+    if not manos_track_file:
+        manos_track_file = "medicane_data_input/medicanes_new_windows.csv"
     no_validation = kwargs.get('no_validation', False)
 
     # vecchio file di manos "manos_CL10_pixel.csv"    

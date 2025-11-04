@@ -22,7 +22,6 @@ from timm.data import Mixup
 from timm.utils import ModelEma, accuracy
 
 import utils
-from model_analysis import evaluate_binary_classifier_torch
 
 
 def _unwrap_model(model: torch.nn.Module) -> torch.nn.Module:
@@ -196,7 +195,8 @@ def train_one_epoch(model: torch.nn.Module,
                 optimizer.zero_grad()
                 if model_ema is not None:
                     model_ema.update(model)
-            loss_scale_value = loss_scaler.state_dict()["scale"]
+            scaler_state = loss_scaler.state_dict()
+            loss_scale_value = scaler_state.get("scale", scaler_state.get("_scale", 1.0))
 
         if device.type == 'cuda':
             torch.cuda.synchronize()
@@ -340,11 +340,14 @@ def _validation_common(
     # switch to evaluation mode
     model.eval()
 
-    # accumulators for global metrics over the whole validation set
-    tp_total = 0
-    tn_total = 0
-    fp_total = 0
-    fn_total = 0
+    def _safe_div(num, den):
+        num = float(num)
+        den = float(den)
+        return num / den if den != 0.0 else 0.0
+
+    confusion_total: Optional[torch.Tensor] = None
+    num_classes: Optional[int] = None
+    positive_idx = 1
 
     for batch in metric_logger.log_every(data_loader, 10, header):
         images = batch[0]
@@ -366,24 +369,48 @@ def _validation_common(
             loss = criterion(output, targets_ondevice)
 
         preds = output.argmax(dim=1)
-        batch_metrics = evaluate_binary_classifier_torch(targets_ondevice, preds, show_report=False)
-        accuracy = batch_metrics["accuracy"]
-        balanced_accuracy = batch_metrics["balanced_accuracy"]
-        recall = batch_metrics["recall"]
-        far = batch_metrics["far"]
+        if num_classes is None:
+            num_classes = output.shape[1]
+            positive_idx = 1 if num_classes > 1 else 0
+            confusion_total = torch.zeros(
+                (num_classes, num_classes),
+                device=device,
+                dtype=torch.long,
+            )
+
+        targets_long = targets_ondevice.long()
+        preds_long = preds.long()
+        flat_indices = num_classes * targets_long + preds_long
+        batch_conf = torch.bincount(
+            flat_indices,
+            minlength=num_classes * num_classes,
+        ).reshape(num_classes, num_classes)
+        confusion_total += batch_conf
 
         batch_size = images.shape[0]
+        accuracy = (preds_long == targets_long).float().mean().item()
+
+        per_class_totals = batch_conf.sum(dim=1)
+        diag = batch_conf.diag()
+        recall_per_class = torch.zeros_like(per_class_totals, dtype=torch.float32)
+        valid_mask = per_class_totals > 0
+        if valid_mask.any():
+            recall_per_class[valid_mask] = (
+                diag[valid_mask].float() / per_class_totals[valid_mask].float()
+            )
+        balanced_accuracy = recall_per_class.mean().item() if num_classes > 0 else 0.0
+
+        tp = batch_conf[positive_idx, positive_idx].item()
+        fn = batch_conf[positive_idx, :].sum().item() - tp
+        fp = batch_conf[:, positive_idx].sum().item() - tp
+        recall = _safe_div(tp, tp + fn)
+        far = _safe_div(fp, tp + fp)
+
         metric_logger.update(loss=loss.item())
         metric_logger.meters['acc'].update(accuracy, n=batch_size)
         metric_logger.meters['bal_acc'].update(balanced_accuracy, n=batch_size)
         metric_logger.meters['pod'].update(recall, n=batch_size)
         metric_logger.meters['far'].update(far, n=batch_size)
-
-        # accumulate counts for global metrics
-        tp_total += int(((targets_ondevice == 1) & (preds == 1)).sum().item())
-        tn_total += int(((targets_ondevice == 0) & (preds == 0)).sum().item())
-        fp_total += int(((targets_ondevice == 0) & (preds == 1)).sum().item())
-        fn_total += int(((targets_ondevice == 1) & (preds == 0)).sum().item())
 
         if on_batch is not None:
             on_batch(
@@ -397,19 +424,34 @@ def _validation_common(
                 images=images,
                 model=model)
 
-    # Reduce global counts across processes if distributed
-    totals = torch.tensor([tp_total, tn_total, fp_total, fn_total], device=device, dtype=torch.long)
-    if dist.is_available() and dist.is_initialized():
-        dist.all_reduce(totals, op=dist.ReduceOp.SUM)
-    tp_total, tn_total, fp_total, fn_total = [int(x.item()) for x in totals]
+    if confusion_total is None:
+        num_classes = 1
+        positive_idx = 0
+        confusion_total = torch.zeros((1, 1), device=device, dtype=torch.long)
 
-    # compute global metrics from reduced counts
-    total = tp_total + tn_total + fp_total + fn_total
-    acc_global = (tp_total + tn_total) / total if total > 0 else 0.0
-    recall_global = tp_total / (tp_total + fn_total) if (tp_total + fn_total) > 0 else 0.0
-    specificity_global = tn_total / (tn_total + fp_total) if (tn_total + fp_total) > 0 else 0.0
-    bal_acc_global = (recall_global + specificity_global) / 2
-    far_global = fp_total / (fp_total + tp_total) if (fp_total + tp_total) > 0 else 0.0
+    if dist.is_available() and dist.is_initialized():
+        dist.all_reduce(confusion_total, op=dist.ReduceOp.SUM)
+
+    confusion_cpu = confusion_total.cpu()
+    total_samples = confusion_cpu.sum().item()
+    diag_sum = confusion_cpu.diag().sum().item()
+    acc_global = _safe_div(diag_sum, total_samples)
+
+    per_class_totals = confusion_cpu.sum(dim=1)
+    diag = confusion_cpu.diag()
+    recall_per_class = torch.zeros_like(per_class_totals, dtype=torch.float64)
+    mask = per_class_totals > 0
+    if mask.any():
+        recall_per_class[mask] = diag[mask].double() / per_class_totals[mask].double()
+    bal_acc_global = recall_per_class.mean().item() if recall_per_class.numel() > 0 else 0.0
+
+    pos_idx = min(positive_idx, confusion_cpu.shape[0] - 1)
+    tp_total = confusion_cpu[pos_idx, pos_idx].item()
+    fn_total = confusion_cpu[pos_idx, :].sum().item() - tp_total
+    fp_total = confusion_cpu[:, pos_idx].sum().item() - tp_total
+    tn_total = total_samples - tp_total - fn_total - fp_total
+    recall_global = _safe_div(tp_total, tp_total + fn_total)
+    far_global = _safe_div(fp_total, tp_total + fp_total)
 
     # gather the stats from all processes (logging meters)
     metric_logger.synchronize_between_processes()

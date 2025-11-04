@@ -8,6 +8,7 @@ from dataset.build_dataset import (
     make_dataset_from_manos_tracks,
     make_dataset_from_entire_year,
     make_tracking_dataset_from_manos_tracks,
+    make_neighboring_multiclass_dataset,
 )
 
 
@@ -34,15 +35,23 @@ if __name__ == "__main__":
         action='store_true',
         help='se escludere il cielo sereno')
     
+    # TODO: verificare come mai abbiamo due opzioni simili: manos_tracks e tracking_manos, sembrano fare la stessa cosa andando contro la richiesta di togliere neighboring manos
     parser.add_argument('--manos_tracks',
-        #action='store_true',
         type=str,
-        #default='medicanes_new_windows.csv',
         help='specificare il file csv di tracks derivato da Manos')
     parser.add_argument('--tracking_manos',
         type=str,
         #default='medicanes_new_windows.csv',
         help='file CSV Manos per creare dataset di tracking (split train/test/val)')
+    parser.add_argument('--neighboring',
+        action='store_true',
+        help="crea il dataset di classificazione a 3 classi (0,1,2 con neighboring)")
+    parser.add_argument(
+        '--neighboring-prefix',
+        type=str,
+        default='neighboring',
+        help="prefisso per i CSV generati dalla pipeline a 3 classi (default: 'neighboring')"
+    )
     
     parser.add_argument('--all_year',
         #action='store_true',
@@ -64,8 +73,10 @@ if __name__ == "__main__":
 
     if args.master_df:
         make_master_df(input_dir, output_dir)
-    elif args.relabeled_df:        
+    elif args.relabeled_df:
         make_relabeled_dataset(input_dir, output_dir)
+    elif args.neighboring:
+        make_neighboring_multiclass_dataset(input_dir, output_dir, **vars(args))
     elif args.cloudy:
         make_relabeled_dataset(input_dir, output_dir, cloudy=True)
         #make_relabeled_dataset(input_dir, output_dir, cloudy=True, 

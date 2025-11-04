@@ -68,7 +68,14 @@ def all_seeds():
     
 def launch_inference_classification(terminal_args):
     
+    variant = getattr(terminal_args, "variant", "binary") or "binary"
     args = prepare_finetuning_args(machine=terminal_args.on)
+
+    if variant.lower() == "neighboring":
+        args.nb_classes = 3
+        setattr(args, "dataset_variant", "neighboring")
+    else:
+        setattr(args, "dataset_variant", "binary")
 
     if terminal_args.csvfile is not None:
         args.val_path = terminal_args.csvfile
@@ -77,6 +84,8 @@ def launch_inference_classification(terminal_args):
     args.init_ckpt = model_for_inference
 
     args.load_for_test_mode = True
+
+    print(f"[INFO] Inference dataset variant: {args.dataset_variant} (nb_classes={args.nb_classes})")
 
 
     seed = args.seed
@@ -327,6 +336,12 @@ if __name__ == '__main__':
         type=str,
         default='leonardo',
         help='[ewc, leonardo]'
+    )
+    parser.add_argument('--variant',
+        type=str,
+        default='binary',
+        choices=['binary', 'neighboring'],
+        help="Scegli quale dataset di classificazione usare: 'binary' o 'neighboring' (3 classi)."
     )
     parser.add_argument('--csvfile', type=str, default='val_manos_w_2400.csv')
     
