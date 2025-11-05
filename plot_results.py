@@ -201,9 +201,9 @@ def plot_training_curves(tuple_vars, plot_file_name=None):  #TODO: per l'asse no
 
     if  len(val_pod) > 0 and len(val_far) > 0:
         if len(val2_pod) > 0 and len(val2_far) > 0:
-            plot_podfar(val_bal_acc, val_pod, val_far, val_epochs, val2_bal_acc, val2_pod, val2_far, plot_file_name=plot_file_name, log=log)
+            plot_podfar(val_bal_acc, val_pod, val_far, val_epochs, val2_bal_acc, val2_pod, val2_far, plot_file_name=plot_file_name)
         else:
-            plot_podfar(val_accs, val_pod, val_far, val_epochs, plot_file_name=plot_file_name, log=log)
+            plot_podfar(val_accs, val_pod, val_far, val_epochs, plot_file_name=plot_file_name)
         
 
 

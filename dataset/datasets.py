@@ -646,41 +646,103 @@ class MedicanesClsDataset(Dataset):
             ])
         else:
             self.transform = transform
+        self._dataset_name = self.__class__.__name__
+        self._warned_messages = set()
+        self._prepare_dataframe()
 
     def __len__(self):
         return len(self.df)
 
-    def __getitem__(self, idx):
-        #print(f"INDICE: {idx}")
-        row = self.df.iloc[idx]
-        folder_path = row['path']
-        label = int(row['label'])
-        # Se il path non è assoluto, lo compone con data_root
-        if not os.path.isabs(folder_path):
-            folder_path = os.path.join(self.data_root, folder_path)
-        # Carica i file della cartella ordinandoli in modo crescente
-        frame_files = sorted(os.listdir(folder_path))
+    def _warn_once(self, key, message):
+        if key not in self._warned_messages:
+            print(message)
+            self._warned_messages.add(key)
+
+    def _prepare_dataframe(self):
+        """Resolve paths upfront and drop entries that are not readable."""
+        if "path" not in self.df.columns:
+            raise ValueError(f"[{self._dataset_name}] CSV must contain a 'path' column.")
+
+        resolved_paths = []
+        valid_indices = []
+        for idx, raw_path in enumerate(self.df["path"].tolist()):
+            if not isinstance(raw_path, str):
+                self._warn_once(
+                    key=f"invalid_path_type|{idx}",
+                    message=f"[WARN][{self._dataset_name}] Row {idx} has a non-string path ({raw_path}). Skipping.",
+                )
+                continue
+
+            folder_path = raw_path
+            if not os.path.isabs(folder_path):
+                folder_path = os.path.join(self.data_root, folder_path)
+
+            try:
+                frame_files = os.listdir(folder_path)
+            except (PermissionError, FileNotFoundError, OSError) as exc:
+                self._warn_once(
+                    key=f"unreadable|{folder_path}",
+                    message=f"[WARN][{self._dataset_name}] Unable to access '{folder_path}': {exc}. Dropping from dataset.",
+                )
+                continue
+
+            if not frame_files:
+                self._warn_once(
+                    key=f"empty_dir|{folder_path}",
+                    message=f"[WARN][{self._dataset_name}] No frames found in '{folder_path}'. Dropping from dataset.",
+                )
+                continue
+
+            resolved_paths.append(folder_path)
+            valid_indices.append(idx)
+
+        if not resolved_paths:
+            raise RuntimeError(f"[{self._dataset_name}] No readable samples found in {self.path}.")
+
+        self.df = self.df.iloc[valid_indices].reset_index(drop=True)
+        self.df["resolved_path"] = resolved_paths
+
+    def _load_clip(self, row):
+        folder_path = row["resolved_path"]
+        try:
+            frame_files = sorted(os.listdir(folder_path))
+        except (PermissionError, FileNotFoundError, OSError) as exc:
+            raise RuntimeError(
+                f"[{self._dataset_name}] Lost access to '{folder_path}' while loading sample: {exc}"
+            ) from exc
+
+        if not frame_files:
+            raise RuntimeError(
+                f"[{self._dataset_name}] Folder '{folder_path}' became empty while loading sample."
+            )
+
         frames = []
-        # Assumiamo che la cartella contenga almeno clip_len frame
-        for file in frame_files[:self.clip_len]:
+        for file in frame_files[: self.clip_len]:
             file_path = os.path.join(folder_path, file)
-            
             try:
                 img = Image.open(file_path).convert("RGB")
                 img = self.transform(img)
                 frames.append(img)
-            except:
+            except Exception:
                 print(f"Problema nel caricamento di {file_path}")
-        
-        # metto a posto nel caso in cui manchi qualche immagine, per non bloccare il training
-        l = len(frames)
-        if l != self.clip_len and l > 0:
-            frames = frames + [frames[-1]] * (self.clip_len - l)
-                        
-        # Converte la lista di frame in un tensore di forma [clip_len, C, H, W]
-        video = torch.stack(frames, dim=0)
-        video = video.permute(1, 0, 2, 3)  # [C, T, H, W]
 
+        if not frames:
+            self._warn_once(
+                key=f"no_valid_frames|{folder_path}",
+                message=f"[WARN][{self._dataset_name}] Unable to load frames from '{folder_path}'. Skipping sample.",
+            )
+            return None
+
+        if len(frames) != self.clip_len and len(frames) > 0:
+            frames = frames + [frames[-1]] * (self.clip_len - len(frames))
+
+        video = torch.stack(frames, dim=0).permute(1, 0, 2, 3)
+        return video, folder_path
+
+    def __getitem__(self, idx):
+        row = self.df.iloc[idx]
+        video, folder_path = self._load_clip(row)
+        label = int(row["label"])
         return video, label, folder_path
 
 
@@ -743,34 +805,7 @@ class MedicanesTrackDataset(MedicanesClsDataset):
         a regression target with pixel coordinates.
         """
         row = self.df.iloc[idx]
-        folder_path = row["path"]
-
-        # If path is relative, compose with data_root
-        # TODO lo cancellerei del tutto
-        #if not os.path.isabs(folder_path):
-        #    folder_path = os.path.join(self.data_root, folder_path)
-
-
-        # Load up to clip_len frames from the folder
-        frame_files = sorted(os.listdir(folder_path))
-        frames = []
-        for file in frame_files[: self.clip_len]:
-            file_path = os.path.join(folder_path, file)
-            try:
-                img = Image.open(file_path).convert("RGB")
-                img = self.transform(img)
-                frames.append(img)
-            except Exception:
-                print(f"Problema nel caricamento di {file_path}")
-
-        # Pad by repeating last frame if needed, to ensure clip_len
-        if len(frames) != self.clip_len and len(frames) > 0:
-            frames = frames + [frames[-1]] * (self.clip_len - len(frames))
-
-        # [T, C, H, W] -> [C, T, H, W]
-        video = torch.stack(frames, dim=0).permute(1, 0, 2, 3)
-
-        # Build target coords as float tensor
+        video, folder_path = self._load_clip(row)
         coords = torch.tensor([row[self.x_col], row[self.y_col]], dtype=torch.float32)
         return video, coords, folder_path
 
