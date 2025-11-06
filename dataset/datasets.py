@@ -1,6 +1,7 @@
 # pylint: disable=line-too-long,too-many-lines,missing-docstring
 import os
 import warnings
+import multiprocessing as mp
 
 from typing import Optional, Union  
 import numpy as np
@@ -648,7 +649,14 @@ class MedicanesClsDataset(Dataset):
             self.transform = transform
         self._dataset_name = self.__class__.__name__
         self._warned_messages = set()
-        self._prepare_dataframe()
+        self._placeholder_clip_cache = None
+        self._resolved_paths = []
+
+        ctx = mp.get_context()
+        self._skip_total = ctx.Value('i', 0)
+        self._skip_epoch = ctx.Value('i', 0)
+
+        self._refresh_resolved_paths()
 
     def __len__(self):
         return len(self.df)
@@ -658,63 +666,67 @@ class MedicanesClsDataset(Dataset):
             print(message)
             self._warned_messages.add(key)
 
-    def _prepare_dataframe(self):
-        """Resolve paths upfront and drop entries that are not readable."""
+    # region Skip bookkeeping -------------------------------------------------
+    def _reset_epoch_skip_counter(self):
+        with self._skip_epoch.get_lock():
+            self._skip_epoch.value = 0
+
+    def reset_epoch_skip_count(self):
+        self._reset_epoch_skip_counter()
+
+    def get_epoch_skip_count(self) -> int:
+        return self._skip_epoch.value
+
+    def get_total_skip_count(self) -> int:
+        return self._skip_total.value
+
+    def _register_skip(self, idx: int, folder_path: Optional[str], error: str):
+        folder_path = folder_path or "<undefined>"
+        print(f"[WARN][{self._dataset_name}] Skipping idx {idx} ({folder_path}): {error}")
+        with self._skip_total.get_lock():
+            self._skip_total.value += 1
+        with self._skip_epoch.get_lock():
+            self._skip_epoch.value += 1
+    # endregion ----------------------------------------------------------------
+
+    # region Path resolution ---------------------------------------------------
+    def _resolve_single_path(self, raw_path: Optional[str]) -> Optional[str]:
+        if not isinstance(raw_path, str) or raw_path.strip() == "":
+            return None
+        folder_path = raw_path
+        if not os.path.isabs(folder_path):
+            folder_path = os.path.join(self.data_root, folder_path)
+        return folder_path
+
+    def _refresh_resolved_paths(self):
         if "path" not in self.df.columns:
             raise ValueError(f"[{self._dataset_name}] CSV must contain a 'path' column.")
+        self._resolved_paths = [self._resolve_single_path(p) for p in self.df["path"].tolist()]
+    # endregion ----------------------------------------------------------------
 
-        resolved_paths = []
-        valid_indices = []
-        for idx, raw_path in enumerate(self.df["path"].tolist()):
-            if not isinstance(raw_path, str):
-                self._warn_once(
-                    key=f"invalid_path_type|{idx}",
-                    message=f"[WARN][{self._dataset_name}] Row {idx} has a non-string path ({raw_path}). Skipping.",
-                )
-                continue
+    # region Clip helpers ------------------------------------------------------
+    def _placeholder_clip(self):
+        if self._placeholder_clip_cache is None:
+            dummy_img = Image.new("RGB", (224, 224))
+            if self.transform is not None:
+                frame_tensor = self.transform(dummy_img)
+            else:
+                frame_tensor = transforms.ToTensor()(dummy_img)
+            frames = [frame_tensor.clone() for _ in range(self.clip_len)]
+            video = torch.stack(frames, dim=0).permute(1, 0, 2, 3)
+            self._placeholder_clip_cache = video
+        return self._placeholder_clip_cache.clone()
 
-            folder_path = raw_path
-            if not os.path.isabs(folder_path):
-                folder_path = os.path.join(self.data_root, folder_path)
-
-            try:
-                frame_files = os.listdir(folder_path)
-            except (PermissionError, FileNotFoundError, OSError) as exc:
-                self._warn_once(
-                    key=f"unreadable|{folder_path}",
-                    message=f"[WARN][{self._dataset_name}] Unable to access '{folder_path}': {exc}. Dropping from dataset.",
-                )
-                continue
-
-            if not frame_files:
-                self._warn_once(
-                    key=f"empty_dir|{folder_path}",
-                    message=f"[WARN][{self._dataset_name}] No frames found in '{folder_path}'. Dropping from dataset.",
-                )
-                continue
-
-            resolved_paths.append(folder_path)
-            valid_indices.append(idx)
-
-        if not resolved_paths:
-            raise RuntimeError(f"[{self._dataset_name}] No readable samples found in {self.path}.")
-
-        self.df = self.df.iloc[valid_indices].reset_index(drop=True)
-        self.df["resolved_path"] = resolved_paths
-
-    def _load_clip(self, row):
-        folder_path = row["resolved_path"]
+    def _try_load_clip(self, folder_path: Optional[str]):
+        if folder_path is None:
+            return False, "path is missing or not a string", None
         try:
             frame_files = sorted(os.listdir(folder_path))
-        except (PermissionError, FileNotFoundError, OSError) as exc:
-            raise RuntimeError(
-                f"[{self._dataset_name}] Lost access to '{folder_path}' while loading sample: {exc}"
-            ) from exc
+        except Exception as exc:
+            return False, f"os.listdir failed: {exc}", None
 
         if not frame_files:
-            raise RuntimeError(
-                f"[{self._dataset_name}] Folder '{folder_path}' became empty while loading sample."
-            )
+            return False, "directory contains no frames", None
 
         frames = []
         for file in frame_files[: self.clip_len]:
@@ -723,27 +735,52 @@ class MedicanesClsDataset(Dataset):
                 img = Image.open(file_path).convert("RGB")
                 img = self.transform(img)
                 frames.append(img)
-            except Exception:
-                print(f"Problema nel caricamento di {file_path}")
+            except Exception as exc:
+                print(f"[WARN][{self._dataset_name}] Problema nel caricamento di {file_path}: {exc}")
 
         if not frames:
-            self._warn_once(
-                key=f"no_valid_frames|{folder_path}",
-                message=f"[WARN][{self._dataset_name}] Unable to load frames from '{folder_path}'. Skipping sample.",
-            )
-            return None
+            return False, "no frames could be loaded from disk", None
 
-        if len(frames) != self.clip_len and len(frames) > 0:
+        if len(frames) != self.clip_len:
             frames = frames + [frames[-1]] * (self.clip_len - len(frames))
 
         video = torch.stack(frames, dim=0).permute(1, 0, 2, 3)
-        return video, folder_path
+        return True, None, video
+    # endregion ----------------------------------------------------------------
+
+    def _get_row_and_clip(self, idx):
+        dataset_size = len(self.df)
+        if dataset_size == 0:
+            raise RuntimeError(f"[{self._dataset_name}] Dataset vuoto: {self.path}")
+
+        attempts = 0
+        current_idx = idx % dataset_size
+
+        while attempts < dataset_size:
+            row = self.df.iloc[current_idx]
+            folder_path = self._resolved_paths[current_idx]
+            ok, error_msg, video = self._try_load_clip(folder_path)
+            if ok:
+                return row, video, folder_path
+
+            self._register_skip(current_idx, folder_path, error_msg)
+            attempts += 1
+            current_idx = (current_idx + 1) % dataset_size
+
+        self._warn_once(
+            key="all_samples_failed",
+            message=(
+                f"[WARN][{self._dataset_name}] Unable to load any real sample. "
+                "Returning placeholder clip to keep training alive."
+            ),
+        )
+        row = self.df.iloc[idx % dataset_size]
+        return row, self._placeholder_clip(), self._resolved_paths[idx % dataset_size]
 
     def __getitem__(self, idx):
-        row = self.df.iloc[idx]
-        video, folder_path = self._load_clip(row)
-        label = int(row["label"])
-        return video, label, folder_path
+        row, video, folder_path = self._get_row_and_clip(idx)
+        label_val = row["label"] if "label" in row else 0
+        return video, int(label_val), folder_path
 
 
 class MedicanesTrackDataset(MedicanesClsDataset):
@@ -797,15 +834,11 @@ class MedicanesTrackDataset(MedicanesClsDataset):
             print(
                 f"[INFO][TrackingDataset] Dropped {dropped} rows with missing/non-finite coordinates from {anno_path} (kept {len(self.df)}/{before})."
             )
+        self._refresh_resolved_paths()
 
     def __getitem__(self, idx: int):
-        """Return video tensor, coords tensor (x,y), and folder path.
-
-        Overrides parent to avoid requiring a 'label' column, since this is
-        a regression target with pixel coordinates.
-        """
-        row = self.df.iloc[idx]
-        video, folder_path = self._load_clip(row)
+        """Return video tensor, coords tensor (x,y), and folder path."""
+        row, video, folder_path = self._get_row_and_clip(idx)
         coords = torch.tensor([row[self.x_col], row[self.y_col]], dtype=torch.float32)
         return video, coords, folder_path
 

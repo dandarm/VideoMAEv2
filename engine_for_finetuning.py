@@ -109,6 +109,9 @@ def train_one_epoch(model: torch.nn.Module,
     
     # importante per lo shuffle
     data_loader.sampler.set_epoch(epoch) 
+    dataset_ref = getattr(data_loader, "dataset", None)
+    if dataset_ref is not None and hasattr(dataset_ref, "reset_epoch_skip_count"):
+        dataset_ref.reset_epoch_skip_count()
 
     model.train(True)
     metric_logger = utils.MetricLogger(delimiter="  ")
@@ -237,6 +240,34 @@ def train_one_epoch(model: torch.nn.Module,
             log_writer.set_step()
 
     # gather the stats from all processes
+    if dataset_ref is not None and hasattr(dataset_ref, "get_epoch_skip_count"):
+        skipped_epoch_local = dataset_ref.get_epoch_skip_count()
+        skipped_total_local = dataset_ref.get_total_skip_count()
+        device_for_reduce = device if isinstance(device, torch.device) else torch.device("cpu")
+        if device_for_reduce.type == "cuda":
+            skip_epoch_tensor = torch.tensor([skipped_epoch_local], dtype=torch.long, device=device_for_reduce)
+            skip_total_tensor = torch.tensor([skipped_total_local], dtype=torch.long, device=device_for_reduce)
+        else:
+            skip_epoch_tensor = torch.tensor([skipped_epoch_local], dtype=torch.long)
+            skip_total_tensor = torch.tensor([skipped_total_local], dtype=torch.long)
+
+        if dist.is_available() and dist.is_initialized():
+            dist.all_reduce(skip_epoch_tensor, op=dist.ReduceOp.SUM)
+            dist.all_reduce(skip_total_tensor, op=dist.ReduceOp.SUM)
+            global_rank = dist.get_rank()
+        else:
+            global_rank = 0
+
+        if global_rank == 0:
+            print(
+                f"[INFO][{dataset_ref.__class__.__name__}] Epoch {epoch}: "
+                f"skipped {skip_epoch_tensor.item()} samples "
+                f"(cumulative skipped: {skip_total_tensor.item()})."
+            )
+
+        if hasattr(dataset_ref, "reset_epoch_skip_count"):
+            dataset_ref.reset_epoch_skip_count()
+
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
