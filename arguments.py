@@ -320,7 +320,7 @@ def prepare_finetuning_args(machine=None):
         #dist_eval
 
         'val_split_fraction': 0.15,
-        'disable_scheduler': True,
+        'disable_scheduler': False,
     }
 
     
