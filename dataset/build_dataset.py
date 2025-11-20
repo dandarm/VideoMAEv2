@@ -18,7 +18,7 @@ from PIL import Image
 
 from medicane_utils.load_files import load_cyclones_track_noheader, get_files_from_folder, extract_dates_pattern_airmass_rgb_20200101_0000
 from medicane_utils.geo_const import latcorners, loncorners, x_center, y_center, default_basem_obj
-from medicane_utils.geo_const import get_lon_lat_grid_2_pixel, trova_indici_vicini
+from medicane_utils.geo_const import get_lon_lat_grid_2_pixel, trova_indici_vicini, get_cyclone_center_pixel_vector
 
 
 from medicane_utils.load_files import load_all_images, get_all_cyclones
@@ -112,10 +112,13 @@ def save_single_tile(img_path, new_path, offset_x, offset_y, tile_size):
 ###################         #Logica per determinare se (lat, lon) cade dentro un tile 224×224
 ##########################################################
 
-#region 
+# region old functions
 
-def compute_pixel_scale(big_image_w=1290, big_image_h=420):
+def _old_compute_pixel_scale(big_image_w=1290, big_image_h=420):
     """
+    --------------------------------------------------
+    ---------------------------------------DEPRECATA in favore di get_cyclone_center_pixel_vector
+    -----------------------------------------------------
     Proietta i 4 corner in coordinate geostazionarie,
     trova Xmin,Xmax, Ymin,Ymax => calcola px_scale_x,y.
     Ritorna (x_min, y_min, px_scale_x, px_scale_y).
@@ -133,7 +136,7 @@ def compute_pixel_scale(big_image_w=1290, big_image_h=420):
 
     return Xmin, Ymin, px_scale_x, px_scale_y
 
-def coord2px(lat, lon, px_per_m_x, px_per_m_y, Xmin, Ymin):
+def _old_coord2px(lat, lon, px_per_m_x, px_per_m_y, Xmin, Ymin):
     # 1) Ottieni la proiezione "Xgeo, Ygeo" in metri (circa) 
     x_geo, y_geo = default_basem_obj(lon, lat)
     # 2) Sottrai offset
@@ -150,9 +153,9 @@ def coord2px(lat, lon, px_per_m_x, px_per_m_y, Xmin, Ymin):
 
 # il codice di sopra è vecchio (e sbagliato)
 # ->
-lon_grid, lat_grid, x, y = get_lon_lat_grid_2_pixel(image_w=1290, image_h=420)
+#lon_grid, lat_grid, x, y = get_lon_lat_grid_2_pixel(image_w=1290, image_h=420)
 
-def get_cyclone_center_pixel(lat, lon, image_h=420):
+def _old_get_cyclone_center_pixel(lat, lon, image_h=420):
     #Xmin, Ymin, px_scale_x, px_scale_y = compute_pixel_scale()
     #x_pix, y_pix = coord2px(lat, lon, px_scale_x, px_scale_y, Xmin, Ymin) 
 
@@ -161,7 +164,7 @@ def get_cyclone_center_pixel(lat, lon, image_h=420):
 
     return px, py
 
-def inside_tile(lat, lon, tile_x, tile_y,
+def _old_inside_tile(lat, lon, tile_x, tile_y,
                 tile_width=224, tile_height=224):
     """
     Verifica se la lat/lon (gradi) cade dentro i confini di un tile 224×224 
@@ -175,7 +178,7 @@ def inside_tile(lat, lon, tile_x, tile_y,
     #Xmin, Ymin, px_scale_x, px_scale_y = compute_pixel_scale()
     #x_pix, y_pix = coord2px(lat, lon, px_scale_x, px_scale_y, Xmin, Ymin)    
 
-    x_pix, y_pix = get_cyclone_center_pixel(lat, lon)
+    x_pix, y_pix = get_cyclone_center_pixel_vector([lat], [lon])
     
     # Check se (x_pix, y_pix) cade nel tile 
     if (tile_x <= x_pix < tile_x + tile_width) and \
@@ -184,21 +187,8 @@ def inside_tile(lat, lon, tile_x, tile_y,
     else:
         return False
 
-def inside_tile_faster(x_pix, y_pix, tile_x, tile_y,
-                tile_width=224, tile_height=224):
-    # Check se (x_pix, y_pix) cade nel tile 
-    if (tile_x <= x_pix < tile_x + tile_width) and \
-       (tile_y <= y_pix < tile_y + tile_height):
-        return True
-    else:
-        return False
 
-
-
-#endregion
-
-# region old
-def get_tile_labels(lat, lon):
+def _old_get_tile_labels(lat, lon):
 
     default_offsets_for_frame = calc_tile_offsets()
     labeled_tiles_offsets = [None] * len(default_offsets_for_frame)  # segue lo stesso ordine degli offsets_for_frame
@@ -214,6 +204,16 @@ def get_tile_labels(lat, lon):
     return labeled_tiles_offsets
 # endregion
 
+
+def inside_tile_faster(x_pix, y_pix, tile_x, tile_y,
+                tile_width=224, tile_height=224):
+    # Check se (x_pix, y_pix) cade nel tile 
+    if (tile_x <= x_pix < tile_x + tile_width) and \
+       (tile_y <= y_pix < tile_y + tile_height):
+        return True
+    else:
+        return False
+    
 
 def create_df_unlabeled_tiles_from_metadatafiles(sorted_metadata_files, offsets_for_frame):
     
@@ -1008,7 +1008,7 @@ def split_into_tiles_subfolders_and_track_dates(
     return subfolder_info
 
 
-def label_subfolders_with_cyclones_df(
+def _old_label_subfolders_with_cyclones_df(
     subfolder_info,
     df_tracks,
     basemap_obj,

@@ -1,6 +1,8 @@
 import numpy as np
 from mpl_toolkits.basemap import Basemap
 
+from scipy.spatial import cKDTree
+
 latcorners = [30, 48]
 loncorners = [-7, 46]
 lat_min, lat_max = latcorners
@@ -44,6 +46,32 @@ def get_lon_lat_grid_2_pixel(image_w, image_h):
     lon_grid, lat_grid, x, y = default_basem_obj.makegrid(image_w, image_h, returnxy=True)
     return lon_grid, lat_grid, x, y
 
+
+# Funzione vettoriale
+def get_cyclone_center_pixel_vector(lat_array, lon_array, image_w=1290, image_h=420):
+
+    lon_grid, lat_grid, x, y = get_lon_lat_grid_2_pixel(image_w, image_h)
+
+    # Appiattisci la griglia in array 1D di punti (lon, lat)
+    grid_points = np.column_stack((lon_grid.ravel(), lat_grid.ravel()))
+
+    # Costruisci un KDTree per ricerca veloce
+    tree = cKDTree(grid_points)
+
+    # Prepara array dei punti da cercare
+    query_points = np.column_stack((lon_array, lat_array))
+    
+    # Trova indice dei punti più vicini nella griglia
+    dist, ind = tree.query(query_points)
+
+    # Converti indici lineari in indici 2D
+    i, j = np.unravel_index(ind, lon_grid.shape)
+
+    # Ricorda: j → x, i → y (inverto y per altezza immagine)
+    x_pix = j
+    y_pix = image_h - i
+
+    return x_pix, y_pix
 
 
 def trova_indici_vicini(lon, lat, lon1, lat1):
