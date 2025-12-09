@@ -64,6 +64,44 @@ I job `sbatch_*.sh` mostrano come preparare l'ambiente Slurm, settare `MASTER_AD
 - `sbatch_tracking.sh`: tracking distribuito con la stessa configurazione e variabili master esplicite.【F:sbatch_tracking.sh†L2-L25】
 - `sbatch_pred.sh`, `sbatch_pred_val2.sh`, `sbatch_pred_tracking.sh`: job di inference distribuita (classificazione o tracking) con le stesse direttive `#SBATCH` e lancio `mpirun` su tutte le GPU/nodi.【F:sbatch_pred.sh†L2-L29】【F:sbatch_pred_val2.sh†L2-L30】【F:sbatch_pred_tracking.sh†L2-L30】
 
+### Script `sh` di lancio multi-GPU/multi-nodo (esempio riutilizzabile)
+Per allinearsi agli script del repository, sotto è riportato **il contenuto integrale di `sbatch_job.sh`**, che lancia `classification.py` con `mpirun` su 4 nodi × 4 GPU su Slurm. Puoi riusarlo come modello per altri job modificando direttive `#SBATCH`, moduli, entry point Python e argomenti.
+
+```bash
+#!/bin/bash
+#SBATCH --nodes=4
+#SBATCH --ntasks-per-node=4
+#SBATCH --partition=boost_usr_prod
+#SBATCH --gres=gpu:4
+#SBATCH --cpus-per-task=4
+#SBATCH --time=17:58:00
+#SBATCH --error=myJob.err
+#SBATCH --output=myJob_medicanes.out
+
+module load profile/deeplrn
+module load cineca-ai/4.3.0
+source $HOME/videomae/bin/activate
+
+export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
+export MASTER_PORT=12340
+
+
+mpirun --map-by socket:PE=4 --report-bindings python classification.py --on leonardo
+
+#srun --ntasks-per-node=4 \
+#python -m torch.distributed.run \
+#    --nproc_per_node 4 \
+#    --nnodes 4 \
+#    specialization.py
+# module load openmpi
+```
+
+Note operative:
+- `mpirun` popola le variabili `OMPI_COMM_WORLD_*` lette da `utils.get_resources()` per determinare `rank`, `local_rank`, `world_size` e per inizializzare `torch.distributed` con backend `nccl`.
+- `MASTER_ADDR` e `MASTER_PORT` sono impostati nel contesto Slurm per permettere l'inizializzazione del process group tra nodi diversi; assicurati che la porta sia libera.
+- Le direttive `#SBATCH` controllano il numero di nodi, task/GPU per nodo e risorse CPU. Se cambi il numero di GPU per nodo, aggiorna `--ntasks-per-node` e l'opzione `--map-by` coerentemente.
+- Per adattare lo script a un altro entry point (`specialization.py`, `tracking.py`, ecc.) basta sostituire il comando `python classification.py ...` preservando il prefisso `mpirun` (oppure decommentare il blocco `torch.distributed.run` se preferisci `torchrun`).
+
 ## Esempio di pretraining multi-nodo già documentato
 `docs/PRETRAIN.md` include uno script di esempio che usa `torch.distributed.launch` impostando `MASTER_PORT`, `N_NODES`, `GPUS_PER_NODE`, `node_rank` e `master_addr`, utile come modello per altri job `srun`/Slurm. Il comando passa `--nnodes`, `--node_rank` e `--master_addr` a `torch.distributed.launch` prima di chiamare `run_mae_pretraining.py`.【F:docs/PRETRAIN.md†L82-L130】
 
