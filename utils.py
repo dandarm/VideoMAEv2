@@ -315,112 +315,112 @@ def save_on_master(*args, **kwargs):
         torch.save(*args, **kwargs)
 
 
-def init_distributed_mode(args):
-    if args.dist_on_itp:
-        args.rank = int(os.environ['OMPI_COMM_WORLD_RANK'])
-        args.world_size = int(os.environ['OMPI_COMM_WORLD_SIZE'])
-        args.gpu = int(os.environ['OMPI_COMM_WORLD_LOCAL_RANK'])
-        args.dist_url = "tcp://%s:%s" % (os.environ['MASTER_ADDR'],
-                                         os.environ['MASTER_PORT'])
-        os.environ['LOCAL_RANK'] = str(args.gpu)
-        os.environ['RANK'] = str(args.rank)
-        os.environ['WORLD_SIZE'] = str(args.world_size)
-        # ["RANK", "WORLD_SIZE", "MASTER_ADDR", "MASTER_PORT", "LOCAL_RANK"]
-    elif 'SLURM_PROCID' in os.environ:
-        args.rank = int(os.environ['SLURM_PROCID'])
-        args.gpu = int(os.environ['SLURM_LOCALID'])
-        args.world_size = int(os.environ['SLURM_NTASKS'])
-        os.environ['RANK'] = str(args.rank)
-        os.environ['LOCAL_RANK'] = str(args.gpu)
-        os.environ['WORLD_SIZE'] = str(args.world_size)
+# def init_distributed_mode(args):
+#     if args.dist_on_itp:
+#         args.rank = int(os.environ['OMPI_COMM_WORLD_RANK'])
+#         args.world_size = int(os.environ['OMPI_COMM_WORLD_SIZE'])
+#         args.gpu = int(os.environ['OMPI_COMM_WORLD_LOCAL_RANK'])
+#         args.dist_url = "tcp://%s:%s" % (os.environ['MASTER_ADDR'],
+#                                          os.environ['MASTER_PORT'])
+#         os.environ['LOCAL_RANK'] = str(args.gpu)
+#         os.environ['RANK'] = str(args.rank)
+#         os.environ['WORLD_SIZE'] = str(args.world_size)
+#         # ["RANK", "WORLD_SIZE", "MASTER_ADDR", "MASTER_PORT", "LOCAL_RANK"]
+#     elif 'SLURM_PROCID' in os.environ:
+#         args.rank = int(os.environ['SLURM_PROCID'])
+#         args.gpu = int(os.environ['SLURM_LOCALID'])
+#         args.world_size = int(os.environ['SLURM_NTASKS'])
+#         os.environ['RANK'] = str(args.rank)
+#         os.environ['LOCAL_RANK'] = str(args.gpu)
+#         os.environ['WORLD_SIZE'] = str(args.world_size)
 
-        node_list = os.environ['SLURM_NODELIST']
-        addr = subprocess.getoutput(
-            f'scontrol show hostname {node_list} | head -n1')
-        if 'MASTER_ADDR' not in os.environ:
-            os.environ['MASTER_ADDR'] = addr
-    elif 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
-        args.rank = int(os.environ["RANK"])
-        args.world_size = int(os.environ['WORLD_SIZE'])
-        args.gpu = int(os.environ['LOCAL_RANK'])
-    else:
-        print('Not using distributed mode')
-        args.distributed = False
-        return
+#         node_list = os.environ['SLURM_NODELIST']
+#         addr = subprocess.getoutput(
+#             f'scontrol show hostname {node_list} | head -n1')
+#         if 'MASTER_ADDR' not in os.environ:
+#             os.environ['MASTER_ADDR'] = addr
+#     elif 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
+#         args.rank = int(os.environ["RANK"])
+#         args.world_size = int(os.environ['WORLD_SIZE'])
+#         args.gpu = int(os.environ['LOCAL_RANK'])
+#     else:
+#         print('Not using distributed mode')
+#         args.distributed = False
+#         return
 
-    args.distributed = True
+#     args.distributed = True
 
-    torch.cuda.set_device(args.gpu)
-    args.dist_backend = 'nccl'
-    print('| distributed init (rank {}): {}, gpu {}'.format(
-            args.rank, args.dist_url, args.gpu),
-        flush=True)
-    torch.distributed.init_process_group(
-        backend=args.dist_backend,
-        init_method=args.dist_url,
-        world_size=args.world_size,
-        rank=args.rank)
-    rank = dist.get_rank()
-    print(f"[{time.strftime('%H:%M:%S')}] [rank {rank}] after init_process_group, before barrier!")
-    torch.cuda.empty_cache()
-    torch.distributed.barrier()
-    print(f"[{time.strftime('%H:%M:%S')}] [rank {rank}] after barrier!")
+#     torch.cuda.set_device(args.gpu)
+#     args.dist_backend = 'nccl'
+#     print('| distributed init (rank {}): {}, gpu {}'.format(
+#             args.rank, args.dist_url, args.gpu),
+#         flush=True)
+#     torch.distributed.init_process_group(
+#         backend=args.dist_backend,
+#         init_method=args.dist_url,
+#         world_size=args.world_size,
+#         rank=args.rank)
+#     rank = dist.get_rank()
+#     print(f"[{time.strftime('%H:%M:%S')}] [rank {rank}] after init_process_group, before barrier!")
+#     torch.cuda.empty_cache()
+#     torch.distributed.barrier()
+#     print(f"[{time.strftime('%H:%M:%S')}] [rank {rank}] after barrier!")
 
-    assert torch.distributed.is_initialized()
-    setup_for_distributed(args.rank == 0)
+#     assert torch.distributed.is_initialized()
+#     setup_for_distributed(args.rank == 0)
 
 
-def init_dist(args):
-    node_list = os.environ['SLURM_NODELIST']
-    rank = os.environ['RANK']
-    SLURM_PROCID = int(os.environ['SLURM_PROCID'])
-    LOCAL_RANK = int(os.environ["LOCAL_RANK"])
-    SLURM_LOCALID = int(os.environ["SLURM_LOCALID"])
-    SLURM_NTASKS = int(os.environ['SLURM_NTASKS'])    
-    world_size = SLURM_NTASKS
-    master_addr = os.environ['MASTER_ADDR']
-    master_port = os.environ['MASTER_PORT']
+# def init_dist(args):
+#     node_list = os.environ['SLURM_NODELIST']
+#     rank = os.environ['RANK']
+#     SLURM_PROCID = int(os.environ['SLURM_PROCID'])
+#     LOCAL_RANK = int(os.environ["LOCAL_RANK"])
+#     SLURM_LOCALID = int(os.environ["SLURM_LOCALID"])
+#     SLURM_NTASKS = int(os.environ['SLURM_NTASKS'])    
+#     world_size = SLURM_NTASKS
+#     master_addr = os.environ['MASTER_ADDR']
+#     master_port = os.environ['MASTER_PORT']
     
-    # localid o procid dicono l’indice del processo sul nodo, da 0 a NTASKS−1.
-    # SLURM_NTASKS è uguale a --ntasks
-    print(f"SLURM_PROCID: {SLURM_PROCID} - SLURM_LOCALID: {SLURM_LOCALID} - LOCAL_RANK: {LOCAL_RANK} - RANK: {rank} - SLURM_NTASKS: {SLURM_NTASKS} - world_size: {world_size}")
-    print(f"MASTER_ADDR: {master_addr} - MASTER_PORT: {master_port}")
+#     # localid o procid dicono l’indice del processo sul nodo, da 0 a NTASKS−1.
+#     # SLURM_NTASKS è uguale a --ntasks
+#     print(f"SLURM_PROCID: {SLURM_PROCID} - SLURM_LOCALID: {SLURM_LOCALID} - LOCAL_RANK: {LOCAL_RANK} - RANK: {rank} - SLURM_NTASKS: {SLURM_NTASKS} - world_size: {world_size}")
+#     print(f"MASTER_ADDR: {master_addr} - MASTER_PORT: {master_port}")
 
-    #comando = f'scontrol show hostname {node_list} | head -n1'
-    #print(comando)
-    #addr = subprocess.getoutput(comando)
-    #print(f"address: {addr}")
-    #if 'MASTER_ADDR' not in os.environ:
-    #    os.environ['MASTER_ADDR'] = addr
-    # aggiunta - altrimenti generava errore
-    
-
-    torch.cuda.set_device(LOCAL_RANK)
-
-    print(f"before init_process_group")
-    torch.distributed.init_process_group(
-        backend=args.dist_backend,
-        init_method=args.dist_url)
-        #world_size=world_size,
-        #rank=rank)
-    print(f"after init_process_group")
-
-    rank       = dist.get_rank()
-    world_size = dist.get_world_size()
-    print(f"world size: {world_size}")
-    print(f"[rank {rank}] running on GPU (LOCAL_RANK) {LOCAL_RANK} - (SLURM_LOCALID:{SLURM_LOCALID}) - SLURM_PROCID:{SLURM_PROCID}")
-
+#     #comando = f'scontrol show hostname {node_list} | head -n1'
+#     #print(comando)
+#     #addr = subprocess.getoutput(comando)
+#     #print(f"address: {addr}")
+#     #if 'MASTER_ADDR' not in os.environ:
+#     #    os.environ['MASTER_ADDR'] = addr
+#     # aggiunta - altrimenti generava errore
     
 
-    torch.cuda.empty_cache()
-    print("prima di barrier")
-    torch.distributed.barrier()
-    print("dopo di barrier")
+#     torch.cuda.set_device(LOCAL_RANK)
 
-    args.distributed = True
-    args.gpu = LOCAL_RANK
-    args.world_size = world_size
-    args.rank = rank
+#     print(f"before init_process_group")
+#     torch.distributed.init_process_group(
+#         backend=args.dist_backend,
+#         init_method=args.dist_url)
+#         #world_size=world_size,
+#         #rank=rank)
+#     print(f"after init_process_group")
+
+#     rank       = dist.get_rank()
+#     world_size = dist.get_world_size()
+#     print(f"world size: {world_size}")
+#     print(f"[rank {rank}] running on GPU (LOCAL_RANK) {LOCAL_RANK} - (SLURM_LOCALID:{SLURM_LOCALID}) - SLURM_PROCID:{SLURM_PROCID}")
+
+    
+
+#     torch.cuda.empty_cache()
+#     print("prima di barrier")
+#     torch.distributed.barrier()
+#     print("dopo di barrier")
+
+#     args.distributed = True
+#     args.gpu = LOCAL_RANK
+#     args.world_size = world_size
+#     args.rank = rank
 
 
 
