@@ -20,7 +20,6 @@ mpirun --map-by socket:PE=4 --report-bindings python inference_classification.py
     --on leonardo \
     --inference_model $FAST/checkpoint-best-lr-again2.pth \
     --csvfile val_manos_w_2400.csv \
-    --get_embeddings
     
 #srun --ntasks-per-node=4 \
 #python -m torch.distributed.run \
