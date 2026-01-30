@@ -1,0 +1,155 @@
+[lrdn0249.leonardo.local:433772] MCW rank 0 bound to socket 0[core 0[hwt 0]], socket 0[core 1[hwt 0]], socket 0[core 2[hwt 0]], socket 0[core 3[hwt 0]]: [B/B/B/B/./././././././././././.]
+[lrdn0249.leonardo.local:433772] MCW rank 1 bound to socket 0[core 4[hwt 0]], socket 0[core 5[hwt 0]], socket 0[core 6[hwt 0]], socket 0[core 7[hwt 0]]: [././././B/B/B/B/./././././././.]
+[lrdn0249.leonardo.local:433772] MCW rank 2 bound to socket 0[core 8[hwt 0]], socket 0[core 9[hwt 0]], socket 0[core 10[hwt 0]], socket 0[core 11[hwt 0]]: [././././././././B/B/B/B/./././.]
+[lrdn0249.leonardo.local:433772] MCW rank 3 bound to socket 0[core 12[hwt 0]], socket 0[core 13[hwt 0]], socket 0[core 14[hwt 0]], socket 0[core 15[hwt 0]]: [././././././././././././B/B/B/B]
+[lrdn0755.leonardo.local:4154385] MCW rank 8 bound to socket 0[core 0[hwt 0]], socket 0[core 1[hwt 0]], socket 0[core 2[hwt 0]], socket 0[core 3[hwt 0]]: [B/B/B/B/./././././././././././.]
+[lrdn0755.leonardo.local:4154385] MCW rank 9 bound to socket 0[core 4[hwt 0]], socket 0[core 5[hwt 0]], socket 0[core 6[hwt 0]], socket 0[core 7[hwt 0]]: [././././B/B/B/B/./././././././.]
+[lrdn0755.leonardo.local:4154385] MCW rank 10 bound to socket 0[core 8[hwt 0]], socket 0[core 9[hwt 0]], socket 0[core 10[hwt 0]], socket 0[core 11[hwt 0]]: [././././././././B/B/B/B/./././.]
+[lrdn0755.leonardo.local:4154385] MCW rank 11 bound to socket 0[core 12[hwt 0]], socket 0[core 13[hwt 0]], socket 0[core 14[hwt 0]], socket 0[core 15[hwt 0]]: [././././././././././././B/B/B/B]
+[lrdn0617.leonardo.local:2583476] MCW rank 4 bound to socket 0[core 0[hwt 0]], socket 0[core 1[hwt 0]], socket 0[core 2[hwt 0]], socket 0[core 3[hwt 0]]: [B/B/B/B/./././././././././././.]
+[lrdn0617.leonardo.local:2583476] MCW rank 5 bound to socket 0[core 4[hwt 0]], socket 0[core 5[hwt 0]], socket 0[core 6[hwt 0]], socket 0[core 7[hwt 0]]: [././././B/B/B/B/./././././././.]
+[lrdn0617.leonardo.local:2583476] MCW rank 6 bound to socket 0[core 8[hwt 0]], socket 0[core 9[hwt 0]], socket 0[core 10[hwt 0]], socket 0[core 11[hwt 0]]: [././././././././B/B/B/B/./././.]
+[lrdn0617.leonardo.local:2583476] MCW rank 7 bound to socket 0[core 12[hwt 0]], socket 0[core 13[hwt 0]], socket 0[core 14[hwt 0]], socket 0[core 15[hwt 0]]: [././././././././././././B/B/B/B]
+[lrdn0768.leonardo.local:3568230] MCW rank 12 bound to socket 0[core 0[hwt 0]], socket 0[core 1[hwt 0]], socket 0[core 2[hwt 0]], socket 0[core 3[hwt 0]]: [B/B/B/B/./././././././././././.]
+[lrdn0768.leonardo.local:3568230] MCW rank 13 bound to socket 0[core 4[hwt 0]], socket 0[core 5[hwt 0]], socket 0[core 6[hwt 0]], socket 0[core 7[hwt 0]]: [././././B/B/B/B/./././././././.]
+[lrdn0768.leonardo.local:3568230] MCW rank 14 bound to socket 0[core 8[hwt 0]], socket 0[core 9[hwt 0]], socket 0[core 10[hwt 0]], socket 0[core 11[hwt 0]]: [././././././././B/B/B/B/./././.]
+[lrdn0768.leonardo.local:3568230] MCW rank 15 bound to socket 0[core 12[hwt 0]], socket 0[core 13[hwt 0]], socket 0[core 14[hwt 0]], socket 0[core 15[hwt 0]]: [././././././././././././B/B/B/B]
+/leonardo/prod/opt/libraries/cineca-ai/4.3.0/none/cineca-ai-env/lib/python3.11/site-packages/transformers/utils/generic.py:462: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+/leonardo/prod/opt/libraries/cineca-ai/4.3.0/none/cineca-ai-env/lib/python3.11/site-packages/transformers/utils/generic.py:462: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+/leonardo/prod/opt/libraries/cineca-ai/4.3.0/none/cineca-ai-env/lib/python3.11/site-packages/transformers/utils/generic.py:462: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+/leonardo/prod/opt/libraries/cineca-ai/4.3.0/none/cineca-ai-env/lib/python3.11/site-packages/transformers/utils/generic.py:462: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+/leonardo/prod/opt/libraries/cineca-ai/4.3.0/none/cineca-ai-env/lib/python3.11/site-packages/transformers/utils/generic.py:462: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+/leonardo/prod/opt/libraries/cineca-ai/4.3.0/none/cineca-ai-env/lib/python3.11/site-packages/transformers/utils/generic.py:462: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+/leonardo/prod/opt/libraries/cineca-ai/4.3.0/none/cineca-ai-env/lib/python3.11/site-packages/transformers/utils/generic.py:462: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+/leonardo/prod/opt/libraries/cineca-ai/4.3.0/none/cineca-ai-env/lib/python3.11/site-packages/transformers/utils/generic.py:462: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+/leonardo/prod/opt/libraries/cineca-ai/4.3.0/none/cineca-ai-env/lib/python3.11/site-packages/transformers/utils/generic.py:462: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+/leonardo/prod/opt/libraries/cineca-ai/4.3.0/none/cineca-ai-env/lib/python3.11/site-packages/transformers/utils/generic.py:462: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+/leonardo/prod/opt/libraries/cineca-ai/4.3.0/none/cineca-ai-env/lib/python3.11/site-packages/transformers/utils/generic.py:462: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+/leonardo/prod/opt/libraries/cineca-ai/4.3.0/none/cineca-ai-env/lib/python3.11/site-packages/transformers/utils/generic.py:462: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+/leonardo/prod/opt/libraries/cineca-ai/4.3.0/none/cineca-ai-env/lib/python3.11/site-packages/transformers/utils/generic.py:462: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+/leonardo/prod/opt/libraries/cineca-ai/4.3.0/none/cineca-ai-env/lib/python3.11/site-packages/transformers/utils/generic.py:462: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+/leonardo/prod/opt/libraries/cineca-ai/4.3.0/none/cineca-ai-env/lib/python3.11/site-packages/transformers/utils/generic.py:462: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+/leonardo/prod/opt/libraries/cineca-ai/4.3.0/none/cineca-ai-env/lib/python3.11/site-packages/transformers/utils/generic.py:462: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+Traceback (most recent call last):
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/inference_classification.py", line 31, in <module>
+Traceback (most recent call last):
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/inference_classification.py", line 31, in <module>
+Traceback (most recent call last):
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/inference_classification.py", line 31, in <module>
+Traceback (most recent call last):
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/inference_classification.py", line 31, in <module>
+    from dataset.data_manager import DataManager
+    from dataset.data_manager import DataManager
+    from dataset.data_manager import DataManager
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/dataset/data_manager.py", line 13, in <module>
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/dataset/data_manager.py", line 13, in <module>
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/dataset/data_manager.py", line 13, in <module>
+    from dataset.data_manager import DataManager
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/dataset/data_manager.py", line 13, in <module>
+    from medicane_utils.load_files import  load_all_images, load_all_images_in_intervals, get_intervals_in_tracks_df
+ModuleNotFoundError: No module named 'medicane_utils.load_files'
+    from medicane_utils.load_files import  load_all_images, load_all_images_in_intervals, get_intervals_in_tracks_df
+    from medicane_utils.load_files import  load_all_images, load_all_images_in_intervals, get_intervals_in_tracks_df
+ModuleNotFoundError: No module named 'medicane_utils.load_files'
+ModuleNotFoundError: No module named 'medicane_utils.load_files'
+    from medicane_utils.load_files import  load_all_images, load_all_images_in_intervals, get_intervals_in_tracks_df
+ModuleNotFoundError: No module named 'medicane_utils.load_files'
+Traceback (most recent call last):
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/inference_classification.py", line 31, in <module>
+Traceback (most recent call last):
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/inference_classification.py", line 31, in <module>
+Traceback (most recent call last):
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/inference_classification.py", line 31, in <module>
+Traceback (most recent call last):
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/inference_classification.py", line 31, in <module>
+    from dataset.data_manager import DataManager
+    from dataset.data_manager import DataManager
+    from dataset.data_manager import DataManager
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/dataset/data_manager.py", line 13, in <module>
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/dataset/data_manager.py", line 13, in <module>
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/dataset/data_manager.py", line 13, in <module>
+    from dataset.data_manager import DataManager
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/dataset/data_manager.py", line 13, in <module>
+    from medicane_utils.load_files import  load_all_images, load_all_images_in_intervals, get_intervals_in_tracks_df
+    from medicane_utils.load_files import  load_all_images, load_all_images_in_intervals, get_intervals_in_tracks_df
+    from medicane_utils.load_files import  load_all_images, load_all_images_in_intervals, get_intervals_in_tracks_df
+ModuleNotFoundError: No module named 'medicane_utils.load_files'
+ModuleNotFoundError: No module named 'medicane_utils.load_files'
+ModuleNotFoundError: No module named 'medicane_utils.load_files'
+    from medicane_utils.load_files import  load_all_images, load_all_images_in_intervals, get_intervals_in_tracks_df
+ModuleNotFoundError: No module named 'medicane_utils.load_files'
+Traceback (most recent call last):
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/inference_classification.py", line 31, in <module>
+Traceback (most recent call last):
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/inference_classification.py", line 31, in <module>
+Traceback (most recent call last):
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/inference_classification.py", line 31, in <module>
+Traceback (most recent call last):
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/inference_classification.py", line 31, in <module>
+    from dataset.data_manager import DataManager
+    from dataset.data_manager import DataManager
+    from dataset.data_manager import DataManager
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/dataset/data_manager.py", line 13, in <module>
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/dataset/data_manager.py", line 13, in <module>
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/dataset/data_manager.py", line 13, in <module>
+    from dataset.data_manager import DataManager
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/dataset/data_manager.py", line 13, in <module>
+    from medicane_utils.load_files import  load_all_images, load_all_images_in_intervals, get_intervals_in_tracks_df
+    from medicane_utils.load_files import  load_all_images, load_all_images_in_intervals, get_intervals_in_tracks_df
+    from medicane_utils.load_files import  load_all_images, load_all_images_in_intervals, get_intervals_in_tracks_df
+ModuleNotFoundError: No module named 'medicane_utils.load_files'
+ModuleNotFoundError: No module named 'medicane_utils.load_files'
+ModuleNotFoundError: No module named 'medicane_utils.load_files'
+    from medicane_utils.load_files import  load_all_images, load_all_images_in_intervals, get_intervals_in_tracks_df
+ModuleNotFoundError: No module named 'medicane_utils.load_files'
+Traceback (most recent call last):
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/inference_classification.py", line 31, in <module>
+Traceback (most recent call last):
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/inference_classification.py", line 31, in <module>
+Traceback (most recent call last):
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/inference_classification.py", line 31, in <module>
+Traceback (most recent call last):
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/inference_classification.py", line 31, in <module>
+    from dataset.data_manager import DataManager
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/dataset/data_manager.py", line 13, in <module>
+    from dataset.data_manager import DataManager
+    from dataset.data_manager import DataManager
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/dataset/data_manager.py", line 13, in <module>
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/dataset/data_manager.py", line 13, in <module>
+    from dataset.data_manager import DataManager
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/dataset/data_manager.py", line 13, in <module>
+    from medicane_utils.load_files import  load_all_images, load_all_images_in_intervals, get_intervals_in_tracks_df
+    from medicane_utils.load_files import  load_all_images, load_all_images_in_intervals, get_intervals_in_tracks_df
+    from medicane_utils.load_files import  load_all_images, load_all_images_in_intervals, get_intervals_in_tracks_df
+ModuleNotFoundError: No module named 'medicane_utils.load_files'
+ModuleNotFoundError: No module named 'medicane_utils.load_files'
+ModuleNotFoundError: No module named 'medicane_utils.load_files'
+    from medicane_utils.load_files import  load_all_images, load_all_images_in_intervals, get_intervals_in_tracks_df
+ModuleNotFoundError: No module named 'medicane_utils.load_files'
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun detected that one or more processes exited with non-zero status, thus causing
+the job to be terminated. The first process to do so was:
+
+  Process name: [[4370,1],11]
+  Exit code:    1
+--------------------------------------------------------------------------
