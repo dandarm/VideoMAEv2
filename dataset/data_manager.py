@@ -9,7 +9,10 @@ from .pretrain_datasets import (  # noqa: F401
 from .datasets import MedicanesClsDataset  # RawFrameClsDataset, VideoClsDataset,
 from .datasets import MedicanesTrackDataset
 import sys
-sys.path.append("../")
+from pathlib import Path as _Path
+_REPO_ROOT = _Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 from medicane_utils.load_files import  load_all_images, load_all_images_in_intervals, get_intervals_in_tracks_df
 from dataset.build_dataset import calc_tile_offsets, labeled_tiles_from_metadatafiles_maxfast, make_relabeled_master_df, solve_paths, get_train_test_validation_df, calc_avg_cld_idx
 
