@@ -9,3 +9,27 @@ Loading cineca-ai/4.3.0
     libffi/3.4.4-6r7brdq libxcrypt/4.4.35-ss2rzin sqlite/3.43.2
     util-linux-uuid/2.38.1-jkdi7kv python/3.11.6--gcc--8.5.0 cmake/3.27.7
     openjdk/11.0.20.1_1
+[INFO] Inference dataset variant: binary (nb_classes=2)
+[INFO] Inference dataset variant: binary (nb_classes=2)
+[INFO] Inference dataset variant: binary (nb_classes=2)
+[INFO] Inference dataset variant: binary (nb_classes=2)
+[INFO] Inference dataset variant: binary (nb_classes=2)
+[INFO] Inference dataset variant: binary (nb_classes=2)
+[INFO] Inference dataset variant: binary (nb_classes=2)
+[INFO] Inference dataset variant: binary (nb_classes=2)
+launch with mpirun
+[INFO] Inference dataset variant: binary (nb_classes=2)
+[INFO] Inference dataset variant: binary (nb_classes=2)
+[INFO] Inference dataset variant: binary (nb_classes=2)
+[INFO] Inference dataset variant: binary (nb_classes=2)
+[INFO] Inference dataset variant: binary (nb_classes=2)
+[INFO] Inference dataset variant: binary (nb_classes=2)
+[INFO] Inference dataset variant: binary (nb_classes=2)
+[INFO] Inference dataset variant: binary (nb_classes=2)
+Getting dataset...
+DATASET length: 2400
+Creo il DistributedSampler con world_size 16 e rank 0
+Sampler_train = <torch.utils.data.distributed.DistributedSampler object at 0x14c28faab010>
+Batch_size local: 2
+Creating model: vit_giant_patch14_224 (nb_classes=2)
+is pretrained? True
