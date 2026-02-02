@@ -1,0 +1,3 @@
+{"val2_loss": 0.4693, "val2_acc": 0.8067, "val2_bal_acc": 0.7821, "val2_pod": 0.7541, "val2_far": 0.8022}
+{"val2_loss": 0.4366, "val2_acc": 0.8283, "val2_bal_acc": 0.8928, "val2_pod": 0.9701, "val2_far": 0.6755}
+{"val2_loss": 0.4366, "val2_acc": 0.8283, "val2_bal_acc": 0.8928, "val2_pod": 0.9701, "val2_far": 0.6755}
