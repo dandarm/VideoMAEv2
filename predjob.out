@@ -33,3 +33,20 @@ Sampler_train = <torch.utils.data.distributed.DistributedSampler object at 0x14c
 Batch_size local: 2
 Creating model: vit_giant_patch14_224 (nb_classes=2)
 is pretrained? True
+Caricamento del checkpoint da: /leonardo_scratch/fast/IscrC_SAME-D/checkpoint-best-lr-again2.pth
+Caricato state_dict con chiave: model
+Checkpoint caricato con successo!
+Val:  [ 0/75]  eta: 0:03:44  loss: 0.1553 (0.1553)  acc: 1.0000 (1.0000)  bal_acc: 0.5000 (0.5000)  pod: 0.0000 (0.0000)  far: 0.0000 (0.0000)  time: 2.9901 (2.9901 -- 2.9901)  data: 1.3761 (1.3761 -- 1.3761)  max mem: 11076
+Val:  [10/75]  eta: 0:00:28  loss: 0.1587 (0.3877)  acc: 1.0000 (0.8636)  bal_acc: 0.5000 (0.4545)  pod: 0.0000 (0.0909)  far: 0.0000 (0.2273)  time: 0.4423 (0.1866 -- 2.9901)  data: 0.1252 (0.0001 -- 1.3761)  max mem: 11076
+Val:  [20/75]  eta: 0:00:17  loss: 0.1670 (0.5623)  acc: 1.0000 (0.7619)  bal_acc: 0.5000 (0.3929)  pod: 0.0000 (0.1429)  far: 0.0000 (0.3095)  time: 0.1871 (0.1866 -- 0.1909)  data: 0.0001 (0.0001 -- 0.0002)  max mem: 11076
+Val:  [30/75]  eta: 0:00:12  loss: 0.1802 (0.5365)  acc: 1.0000 (0.7742)  bal_acc: 0.5000 (0.3952)  pod: 0.0000 (0.0968)  far: 0.0000 (0.3387)  time: 0.1867 (0.1866 -- 0.1868)  data: 0.0001 (0.0001 -- 0.0002)  max mem: 11076
+Val:  [40/75]  eta: 0:00:08  loss: 0.1597 (0.4856)  acc: 1.0000 (0.8049)  bal_acc: 0.5000 (0.4085)  pod: 0.0000 (0.0732)  far: 0.0000 (0.3049)  time: 0.1867 (0.1866 -- 0.1868)  data: 0.0001 (0.0001 -- 0.0002)  max mem: 11076
+Val:  [50/75]  eta: 0:00:06  loss: 0.1577 (0.4214)  acc: 1.0000 (0.8431)  bal_acc: 0.5000 (0.4265)  pod: 0.0000 (0.0588)  far: 0.0000 (0.2451)  time: 0.1867 (0.1866 -- 0.1868)  data: 0.0001 (0.0001 -- 0.0001)  max mem: 11076
+Val:  [60/75]  eta: 0:00:03  loss: 0.1597 (0.4239)  acc: 1.0000 (0.8443)  bal_acc: 0.5000 (0.4303)  pod: 0.0000 (0.1148)  far: 0.0000 (0.2459)  time: 0.1867 (0.1863 -- 0.1868)  data: 0.0001 (0.0001 -- 0.0001)  max mem: 11076
+Val:  [70/75]  eta: 0:00:01  loss: 0.1641 (0.4504)  acc: 1.0000 (0.8310)  bal_acc: 0.5000 (0.4225)  pod: 0.0000 (0.0986)  far: 0.0000 (0.2676)  time: 0.1862 (0.1855 -- 0.1868)  data: 0.0001 (0.0001 -- 0.0001)  max mem: 11076
+Val:  [74/75]  eta: 0:00:00  loss: 0.1611 (0.4350)  acc: 1.0000 (0.8400)  bal_acc: 0.5000 (0.4267)  pod: 0.0000 (0.0933)  far: 0.0000 (0.2533)  time: 0.1860 (0.1855 -- 0.1868)  data: 0.0001 (0.0001 -- 0.0001)  max mem: 11076
+Val: Total time: 0:00:16 (0.2242 s / it)
+* Balanced Acc@1 0.893  loss 0.437
+val bal_acc: 0.89% 
+Saved predictions to ./output/inference_predictions.csv
+Inference time: 0:00:16
