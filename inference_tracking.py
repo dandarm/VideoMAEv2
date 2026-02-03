@@ -8,7 +8,7 @@ import json
 import os
 import random
 import time
-from typing import Dict, List
+from typing import Dict, List, Union
 
 import numpy as np
 import pandas as pd
@@ -53,7 +53,7 @@ def _ensure_path_list(paths) -> List[str]:
     return [str(paths)]
 
 
-def _compute_sample_record(path: str, pred_xy: torch.Tensor, target_xy: torch.Tensor) -> Dict[str, float | str | None]:
+def _compute_sample_record(path: str, pred_xy: torch.Tensor, target_xy: torch.Tensor) -> Dict[str, Union[float, str, None]]:
     pred_np = pred_xy.detach().cpu().numpy().astype(float)
     target_np = target_xy.detach().cpu().numpy().astype(float)
     err_vec = pred_np - target_np
@@ -114,10 +114,10 @@ def _compute_sample_record(path: str, pred_xy: torch.Tensor, target_xy: torch.Te
 
 
 @torch.no_grad()
-def inference_epoch(model, data_loader, device) -> tuple[Dict[str, float], List[Dict[str, float | str | None]]]:
+def inference_epoch(model, data_loader, device) -> tuple[Dict[str, float], List[Dict[str, Union[float, str, None]]]]:
     criterion = torch.nn.MSELoss()
     metric_logger = utils.MetricLogger(delimiter="  ")
-    results: List[Dict[str, float | str | None]] = []
+    results: List[Dict[str, Union[float, str, None]]] = []
 
     for samples, target, paths in metric_logger.log_every(data_loader, 20, header="Infer:"):
         samples = samples.to(device, non_blocking=True)
@@ -219,7 +219,7 @@ def launch_inference_tracking(terminal_args: argparse.Namespace) -> None:
 
     gathered_results = local_results
     if dist.is_available() and dist.is_initialized():
-        gathered: List[List[Dict[str, float | str | None]]] = [None] * dist.get_world_size()
+        gathered: List[List[Dict[str, Union[float, str, None]]]] = [None] * dist.get_world_size()
         dist.all_gather_object(gathered, local_results)
         if utils.is_main_process():
             gathered_results = [item for sublist in gathered for item in sublist]

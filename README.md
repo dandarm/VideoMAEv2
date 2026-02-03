@@ -61,6 +61,9 @@ python classification.py [OPTIONS...]
 python tracking.py [OPTIONS...]
 ```
 
+### Inference From Folder
+See [`docs/inference_from_folder.md`](docs/inference_from_folder.md).
+
 ---
 
 
@@ -91,6 +94,5 @@ python medicane_utils/download_airmassRGB.py --start "2020-09-01 00:00" --end "2
 > Nanjing University, Shanghai AI Lab, CAS<br>
 
 ---
-
 
 

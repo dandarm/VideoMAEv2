@@ -1,6 +1,6 @@
 import ast
 import os
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 
 TARGETS = ["specialization.py", "classification.py", "tracking.py"]
@@ -94,7 +94,7 @@ def collect_calls(func: ast.FunctionDef) -> List[str]:
     return calls
 
 
-def get_function(name: str) -> ast.FunctionDef | None:
+def get_function(name: str) -> Optional[ast.FunctionDef]:
     if "." in name:
         module, func = name.rsplit(".", 1)
         return FUNC_MAP.get(f"{module}.{func}")
@@ -216,5 +216,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
 
