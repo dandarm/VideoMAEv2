@@ -299,10 +299,10 @@ def main() -> None:
         )
         df_predictions = pd.read_csv(preds_csv)
     else:
-    if not torch.cuda.is_available():
-        raise RuntimeError("CUDA non disponibile: serve GPU per questo script.")
+        if not torch.cuda.is_available():
+            raise RuntimeError("CUDA non disponibile: serve GPU per questo script.")
 
-    args, model = _build_model(args_cli, device)
+        args, model = _build_model(args_cli, device)
         if distributed:
             model = torch.nn.parallel.DistributedDataParallel(
                 model, device_ids=[local_rank], output_device=local_rank, find_unused_parameters=False
