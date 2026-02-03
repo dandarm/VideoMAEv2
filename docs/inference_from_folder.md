@@ -23,8 +23,6 @@ Questo documento descrive lo script `predict_from_folder.py`, che esegue l’inf
 - `--model_path`: checkpoint del modello
 - `--split_by_subfolder`: se presente, tratta ogni subfolder come sequenza separata
 - `--manos_file`: CSV Manos per etichette (opzionale)
-- `--dataset_csv`: CSV di input per l’inferenza (output dello script)
-- `--preds_csv`: CSV delle predizioni
 - `--make_video`: genera il video Mediterraneo
 - `--ffmpeg_path`: (opzionale) path da aggiungere a `PATH` per trovare `ffmpeg`
 - `--on`: preset macchina per `arguments.py` (es. `leonardo`)

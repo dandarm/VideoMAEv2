@@ -18,7 +18,6 @@ from dataset.data_manager import BuildDataset, DataManager
 from dataset.build_dataset import create_final_df_csv, calc_tile_offsets
 from engine_for_finetuning import validation_one_epoch_collect
 from model_analysis import create_df_predictions, video_pred_2_img_pred
-from view_test_tiles import expand_group, make_animation_parallel_ffmpeg
 
 
 def _ensure_trailing_slash(path_str: str) -> str:
@@ -214,6 +213,7 @@ def _run_inference(args, model, device, world_size, rank, args_cli):
 
 def _make_video(args_cli, builders, df_predictions):
     _ensure_ffmpeg_in_path(args_cli.ffmpeg_path)
+    from view_test_tiles import expand_group, make_animation_parallel_ffmpeg
 
     df_video_all = _concat_or_single([b.df_video for b in builders])
     master_df_all = _concat_or_single([b.master_df for b in builders])
