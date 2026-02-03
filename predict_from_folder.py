@@ -150,6 +150,10 @@ def parse_args() -> argparse.Namespace:
 
 
 def _setup_distributed():
+    if not torch.cuda.is_available():
+        setup_for_distributed(True)
+        return 0, 0, 1, False
+
     rank, local_rank, world_size, local_size, num_workers = utils.get_resources()
     if world_size > 1:
         dist.init_process_group("nccl", rank=rank, world_size=world_size)
@@ -283,7 +287,7 @@ def main() -> None:
     args_cli = parse_args()
 
     rank, local_rank, world_size, distributed = _setup_distributed()
-    device = torch.device(f"cuda:{local_rank}")
+    device = torch.device(f"cuda:{local_rank}") if torch.cuda.is_available() else torch.device("cpu")
 
     tracks_df, has_labels = _load_tracks(args_cli.manos_file)
     builders, _, dataset_csv = _prepare_dataset_csv(args_cli, tracks_df)
