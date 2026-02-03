@@ -16,8 +16,8 @@ export PYTHONWARNINGS=ignore
 
 srun python predict_from_folder.py \
     --on leonardo \
-    --input_dir ../fromgcloud/2023 \
-    --output_dir ../airmassRGB/supervised \
+    --input_dir $FAST/Medicanes_Data/from_gcloud/2023 \
+    --output_dir $FAST/airmass \
     --model_path $FAST/checkpoint-best-lr-again2.pth \
     --manos_file medicane_data_input/medicanes_new_windows.csv
 

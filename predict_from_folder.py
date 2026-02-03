@@ -61,6 +61,11 @@ def _build_dataset_from_images(
     start_dt = data.master_df["datetime"].min()
     end_dt = data.master_df["datetime"].max()
     print(f"[{input_dir_images}] Intervallo immagini: {start_dt} -> {end_dt}")
+    if data.master_df.empty or pd.isna(start_dt) or pd.isna(end_dt):
+        raise RuntimeError(
+            f"Nessuna immagine trovata in '{input_dir_images}'. "
+            "Controlla path e formato dei file (atteso: airmass_rgb_YYYYMMDD_HHMM.png)."
+        )
 
     # Debug: statistiche sulle immagini coperte dagli intervalli Manos
     if not tracks_df.empty and "time" in tracks_df.columns:
@@ -98,6 +103,11 @@ def _build_dataset_from_images(
 
     data.make_df_video(output_dir=output_dir_images, is_to_balance=False)
     print(f"Totale video tile creati: {len(data.df_video)}")
+    if data.df_video is None or data.df_video.empty:
+        raise RuntimeError(
+            "df_video è vuoto: non posso creare il CSV. "
+            "Verifica che l'intervallo contiguo abbia almeno 16 frame per tile."
+        )
 
     df_csv = create_final_df_csv(data.df_video, output_dir_images)
     return data, df_csv
