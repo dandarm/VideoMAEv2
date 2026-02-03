@@ -161,7 +161,15 @@ def _setup_distributed():
     else:
         distributed = False
     torch.cuda.set_device(local_rank)
-    setup_for_distributed(rank == 0)
+    setup_for_distributed(rank == 0, silence_non_master=True)
+    if rank == 0:
+        env_keys = [
+            "RANK", "LOCAL_RANK", "WORLD_SIZE", "LOCAL_WORLD_SIZE",
+            "OMPI_COMM_WORLD_RANK", "OMPI_COMM_WORLD_LOCAL_RANK", "OMPI_COMM_WORLD_SIZE",
+            "SLURM_PROCID", "SLURM_LOCALID", "SLURM_NPROCS", "SLURM_NTASKS_PER_NODE",
+        ]
+        env_dump = {k: os.environ.get(k) for k in env_keys if os.environ.get(k) is not None}
+        print(f"[env] distributed vars: {env_dump}")
     return rank, local_rank, world_size, distributed
 
 

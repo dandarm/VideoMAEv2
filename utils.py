@@ -13,6 +13,7 @@ import io
 import json
 import math
 import os
+import sys
 import random
 import subprocess
 import time
@@ -271,7 +272,7 @@ def _load_checkpoint_for_ema(model_ema, checkpoint):
     model_ema._load_checkpoint(mem_file)
 
 
-def setup_for_distributed(is_master):
+def setup_for_distributed(is_master, silence_non_master=False):
     """
     This function disables printing when not in master process
     """
@@ -284,6 +285,15 @@ def setup_for_distributed(is_master):
             builtin_print(*args, **kwargs)
 
     __builtin__.print = print
+
+    if silence_non_master and not is_master:
+        try:
+            devnull = open(os.devnull, "w")
+            __builtin__.print = print  # keep print hook
+            sys.stdout = devnull
+            sys.stderr = devnull
+        except Exception:
+            pass
 
 
 def is_dist_avail_and_initialized():
@@ -439,12 +449,12 @@ def get_resources():
         if rank == 0:
             print("launch with torchrun")
 
-    elif os.environ.get("OMPI_COMMAND"):
+    elif os.environ.get("OMPI_COMM_WORLD_RANK"):
         # launched with mpirun
         rank = int(os.environ["OMPI_COMM_WORLD_RANK"])
-        local_rank = int(os.environ["OMPI_COMM_WORLD_LOCAL_RANK"])
-        world_size = int(os.environ["OMPI_COMM_WORLD_SIZE"])
-        local_size = int(os.environ["OMPI_COMM_WORLD_LOCAL_SIZE"])
+        local_rank = int(os.environ.get("OMPI_COMM_WORLD_LOCAL_RANK", 0))
+        world_size = int(os.environ.get("OMPI_COMM_WORLD_SIZE", 1))
+        local_size = int(os.environ.get("OMPI_COMM_WORLD_LOCAL_SIZE", 1))
         if rank == 0:
             print("launch with mpirun")
 
