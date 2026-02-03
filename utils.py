@@ -452,11 +452,20 @@ def get_resources():
     elif os.environ.get("OMPI_COMM_WORLD_RANK"):
         # launched with mpirun
         rank = int(os.environ["OMPI_COMM_WORLD_RANK"])
-        local_rank = int(os.environ.get("OMPI_COMM_WORLD_LOCAL_RANK", 0))
+        local_rank = int(os.environ.get("OMPI_COMM_WORLD_LOCAL_RANK", os.environ.get("MPI_LOCALRANKID", 0)))
         world_size = int(os.environ.get("OMPI_COMM_WORLD_SIZE", 1))
-        local_size = int(os.environ.get("OMPI_COMM_WORLD_LOCAL_SIZE", 1))
+        local_size = int(os.environ.get("OMPI_COMM_WORLD_LOCAL_SIZE", os.environ.get("MPI_LOCALNRANKS", 1)))
         if rank == 0:
             print("launch with mpirun")
+
+    elif os.environ.get("PMI_RANK") or os.environ.get("PMIX_RANK"):
+        # PMI/PMIx launchers
+        rank = int(os.environ.get("PMI_RANK", os.environ.get("PMIX_RANK", 0)))
+        local_rank = int(os.environ.get("PMI_LOCAL_RANK", os.environ.get("PMIX_LOCAL_RANK", 0)))
+        world_size = int(os.environ.get("PMI_SIZE", os.environ.get("PMIX_SIZE", 1)))
+        local_size = int(os.environ.get("PMI_LOCAL_SIZE", os.environ.get("PMIX_LOCAL_SIZE", 1)))
+        if rank == 0:
+            print("launch with pmi/pmix")
 
     elif os.environ.get("SLURM_PROCID"):
         # launched with srun (SLURM)
