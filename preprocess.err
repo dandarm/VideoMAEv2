@@ -1,0 +1,24 @@
+Traceback (most recent call last):
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/predict_from_folder.py", line 348, in <module>
+    main()
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/predict_from_folder.py", line 301, in main
+    builders, _, dataset_csv = _prepare_dataset_csv(args_cli, tracks_df)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/predict_from_folder.py", line 201, in _prepare_dataset_csv
+    data, df_csv = _build_dataset_from_images(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/predict_from_folder.py", line 102, in _build_dataset_from_images
+    df_csv = create_final_df_csv(data.df_video, output_dir_images)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo/home/userexternal/ddarmien/VideoMAEv2/dataset/build_dataset.py", line 923, in create_final_df_csv
+    df_dataset_csv = df_in[['path', 'label']].copy()
+                     ~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/leonardo/prod/opt/libraries/cineca-ai/4.3.0/none/cineca-ai-env/lib/python3.11/site-packages/pandas/core/frame.py", line 4096, in __getitem__
+    indexer = self.columns._get_indexer_strict(key, "columns")[1]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo/prod/opt/libraries/cineca-ai/4.3.0/none/cineca-ai-env/lib/python3.11/site-packages/pandas/core/indexes/base.py", line 6200, in _get_indexer_strict
+    self._raise_if_missing(keyarr, indexer, axis_name)
+  File "/leonardo/prod/opt/libraries/cineca-ai/4.3.0/none/cineca-ai-env/lib/python3.11/site-packages/pandas/core/indexes/base.py", line 6249, in _raise_if_missing
+    raise KeyError(f"None of [{key}] are in the [{axis_name}]")
+KeyError: "None of [Index(['path', 'label'], dtype='object')] are in the [columns]"
+srun: error: lrdn3421: task 0: Exited with exit code 1
