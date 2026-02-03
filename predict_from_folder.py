@@ -16,6 +16,7 @@ from utils import setup_for_distributed
 from arguments import prepare_finetuning_args
 from dataset.data_manager import BuildDataset, DataManager
 from dataset.build_dataset import create_final_df_csv, calc_tile_offsets
+from medicane_utils.load_files import get_intervals_in_tracks_df
 from engine_for_finetuning import validation_one_epoch_collect
 from model_analysis import create_df_predictions, video_pred_2_img_pred
 
@@ -61,7 +62,42 @@ def _build_dataset_from_images(
     end_dt = data.master_df["datetime"].max()
     print(f"[{input_dir_images}] Intervallo immagini: {start_dt} -> {end_dt}")
 
+    # Debug: statistiche sulle immagini coperte dagli intervalli Manos
+    if not tracks_df.empty and "time" in tracks_df.columns:
+        try:
+            intervals = get_intervals_in_tracks_df(tracks_df)
+            if not intervals.empty:
+                # Limita agli intervalli che intersecano l'intervallo delle immagini
+                intervals = intervals[
+                    (intervals["max"] >= start_dt) & (intervals["min"] <= end_dt)
+                ].reset_index(drop=True)
+                print("Intervalli Manos (clippati all'intervallo immagini):")
+                total_tiles = len(data.master_df)
+                total_images = data.master_df["path"].nunique()
+                covered_tiles = 0
+                covered_images = 0
+                for i, row in intervals.iterrows():
+                    start_i = max(row["min"], start_dt)
+                    end_i = min(row["max"], end_dt)
+                    mask = (data.master_df["datetime"] >= start_i) & (data.master_df["datetime"] <= end_i)
+                    count_tiles = int(mask.sum())
+                    count_images = int(data.master_df.loc[mask, "path"].nunique())
+                    covered_tiles += count_tiles
+                    covered_images += count_images
+                    print(f"  {i+1}) {start_i} -> {end_i} | immagini: {count_images} | tile: {count_tiles}")
+                print(
+                    f"Totale immagini folder: {total_images} | "
+                    f"coperte da Manos (clippato): {covered_images}"
+                )
+                print(
+                    f"Totale tile (righe master_df): {total_tiles} | "
+                    f"coperte da Manos (clippato): {covered_tiles}"
+                )
+        except Exception as exc:
+            print(f"Warning: impossibile calcolare stats Manos: {exc}")
+
     data.make_df_video(output_dir=output_dir_images, is_to_balance=False)
+    print(f"Totale video tile creati: {len(data.df_video)}")
 
     df_csv = create_final_df_csv(data.df_video, output_dir_images)
     return data, df_csv
