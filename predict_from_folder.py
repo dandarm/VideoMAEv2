@@ -51,9 +51,14 @@ def _build_dataset_from_images(
     output_dir_images: str,
     manos_file: Optional[str],
     tracks_df: pd.DataFrame,
-) -> tuple[BuildDataset, pd.DataFrame]:
-    output_dir_images = _ensure_trailing_slash(output_dir_images)
-    os.makedirs(output_dir_images, exist_ok=True)
+    save_tiles: bool,
+    create_csv: bool,
+) -> tuple[BuildDataset, Optional[pd.DataFrame]]:
+    if save_tiles:
+        output_dir_images = _ensure_trailing_slash(output_dir_images)
+        os.makedirs(output_dir_images, exist_ok=True)
+    else:
+        output_dir_images = None
 
     data = BuildDataset(type="SUPERVISED")
     data.create_master_df(manos_file=manos_file or "", input_dir_images=input_dir_images, tracks_df=tracks_df)
@@ -109,7 +114,12 @@ def _build_dataset_from_images(
             "Verifica che l'intervallo contiguo abbia almeno 16 frame per tile."
         )
 
-    df_csv = create_final_df_csv(data.df_video, output_dir_images)
+    if create_csv:
+        if output_dir_images is None:
+            raise RuntimeError("output_dir_images mancante per creare il CSV.")
+        df_csv = create_final_df_csv(data.df_video, output_dir_images)
+    else:
+        df_csv = None
     return data, df_csv
 
 
@@ -183,7 +193,12 @@ def _setup_distributed():
     return rank, local_rank, world_size, distributed
 
 
-def _prepare_dataset_csv(args_cli: argparse.Namespace, tracks_df: pd.DataFrame):
+def _prepare_dataset_csv(
+    args_cli: argparse.Namespace,
+    tracks_df: pd.DataFrame,
+    save_tiles: bool,
+    create_csv: bool,
+):
     input_root = Path(args_cli.input_dir)
     output_root = Path(args_cli.output_dir)
     output_root.mkdir(parents=True, exist_ok=True)
@@ -195,7 +210,12 @@ def _prepare_dataset_csv(args_cli: argparse.Namespace, tracks_df: pd.DataFrame):
         subfolders = sorted([p for p in input_root.iterdir() if p.is_dir()])
         if not subfolders:
             data, df_csv = _build_dataset_from_images(
-                str(input_root), str(output_root), args_cli.manos_file, tracks_df
+                str(input_root),
+                str(output_root),
+                args_cli.manos_file,
+                tracks_df,
+                save_tiles=save_tiles,
+                create_csv=create_csv,
             )
             builders.append(data)
             csv_parts.append(df_csv)
@@ -203,25 +223,38 @@ def _prepare_dataset_csv(args_cli: argparse.Namespace, tracks_df: pd.DataFrame):
             for sub in subfolders:
                 out_dir = output_root / sub.name
                 data, df_csv = _build_dataset_from_images(
-                    str(sub), str(out_dir), args_cli.manos_file, tracks_df
+                    str(sub),
+                    str(out_dir),
+                    args_cli.manos_file,
+                    tracks_df,
+                    save_tiles=save_tiles,
+                    create_csv=create_csv,
                 )
                 builders.append(data)
                 csv_parts.append(df_csv)
     else:
         data, df_csv = _build_dataset_from_images(
-            str(input_root), str(output_root), args_cli.manos_file, tracks_df
+            str(input_root),
+            str(output_root),
+            args_cli.manos_file,
+            tracks_df,
+            save_tiles=save_tiles,
+            create_csv=create_csv,
         )
         builders.append(data)
         csv_parts.append(df_csv)
 
-    df_dataset_csv = _concat_or_single(csv_parts)
-    if df_dataset_csv.empty:
-        raise RuntimeError("CSV dataset vuoto: nessun video generato.")
+    df_dataset_csv = _concat_or_single([c for c in csv_parts if c is not None])
+    if create_csv:
+        if df_dataset_csv.empty:
+            raise RuntimeError("CSV dataset vuoto: nessun video generato.")
 
-    dataset_csv = "output/general_inference_set.csv"
-    os.makedirs(Path(dataset_csv).parent, exist_ok=True)
-    df_dataset_csv.to_csv(dataset_csv, index=False)
-    print(f"CSV dataset salvato in {dataset_csv} ({len(df_dataset_csv)} righe)")
+        dataset_csv = "output/general_inference_set.csv"
+        os.makedirs(Path(dataset_csv).parent, exist_ok=True)
+        df_dataset_csv.to_csv(dataset_csv, index=False)
+        print(f"CSV dataset salvato in {dataset_csv} ({len(df_dataset_csv)} righe)")
+    else:
+        dataset_csv = None
 
     return builders, df_dataset_csv, dataset_csv
 
@@ -307,18 +340,28 @@ def main() -> None:
     rank, local_rank, world_size, distributed = _setup_distributed()
     device = torch.device(f"cuda:{local_rank}") if torch.cuda.is_available() else torch.device("cpu")
 
-    tracks_df, has_labels = _load_tracks(args_cli.manos_file)
-    builders, _, dataset_csv = _prepare_dataset_csv(args_cli, tracks_df)
-
     preds_csv = "output/inference_predictions.csv"
     df_predictions = None
     val_stats = None
 
-    if rank == 0 and Path(preds_csv).exists():
+    preds_exist = Path(preds_csv).exists()
+    need_inference = not preds_exist
+    need_video = args_cli.make_video
+
+    tracks_df, has_labels = _load_tracks(args_cli.manos_file)
+    builders, _, dataset_csv = _prepare_dataset_csv(
+        args_cli,
+        tracks_df,
+        save_tiles=need_inference,
+        create_csv=need_inference,
+    )
+
+    if rank == 0 and preds_exist:
         print(
             f"Predizioni già presenti in {preds_csv}: "
             "salto il caricamento del modello e non calcolo nuove predizioni."
         )
+        print("Uso solo master_df/df_video in memoria: nessuna tile verrà salvata su disco.")
         df_predictions = pd.read_csv(preds_csv)
     else:
         if not torch.cuda.is_available():
@@ -348,7 +391,7 @@ def main() -> None:
     if dist.is_available() and dist.is_initialized():
         dist.barrier()
 
-    if args_cli.make_video and rank == 0:
+    if need_video and rank == 0:
         if df_predictions is None:
             df_predictions = pd.read_csv(preds_csv)
         _make_video(args_cli, builders, df_predictions)
