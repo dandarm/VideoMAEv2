@@ -9,10 +9,257 @@ Loading cineca-ai/4.3.0
     libffi/3.4.4-6r7brdq libxcrypt/4.4.35-ss2rzin sqlite/3.43.2
     util-linux-uuid/2.38.1-jkdi7kv python/3.11.6--gcc--8.5.0 cmake/3.27.7
     openjdk/11.0.20.1_1
-0 files loaded.
-[../fromgcloud/2023] Intervallo immagini: NaT -> NaT
+90205 files loaded.
+[/leonardo_scratch/fast/IscrC_SAME-D/Medicanes_Data/from_gcloud/2023] Intervallo immagini: 2023-01-01 00:00:00 -> 2023-12-31 23:20:00
 Intervalli Manos (clippati all'intervallo immagini):
-Totale immagini folder: 0 | coperte da Manos (clippato): 0
-Totale tile (righe master_df): 0 | coperte da Manos (clippato): 0
-Intervalli contigui totali trovati: 0
-Totale video tile creati: 0
+  1) 2023-02-27 19:00:00 -> 2023-03-02 13:00:00 | immagini: 791 | tile: 9492
+  2) 2023-09-05 04:00:00 -> 2023-09-10 02:00:00 | immagini: 1417 | tile: 17004
+Totale immagini folder: 90205 | coperte da Manos (clippato): 2208
+Totale tile (righe master_df): 1082460 | coperte da Manos (clippato): 26496
+Intervalli contigui totali trovati: 27
+1)  -> 2023-01-01 00:00:00 -> 2023-01-17 09:15:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 4692
+
+Creazione delle folder per i 4692 video...	
+Salvati 0 file - Erano già presenti 75072 file - File totali 75072
+4692 video per il periodo (effettivo) da 2023-01-01 00:45:00 a 2023-01-17 09:00:00
+
+2)  -> 2023-01-20 08:30:00 -> 2023-02-06 09:05:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 4872
+
+Creazione delle folder per i 4872 video...	
+Salvati 0 file - Erano già presenti 77952 file - File totali 77952
+4872 video per il periodo (effettivo) da 2023-01-20 08:45:00 a 2023-02-06 09:00:00
+
+3)  -> 2023-02-20 08:05:00 -> 2023-03-13 15:15:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 69 	 ids: [0]
+Senza cicloni: 6051
+
+Creazione delle folder per i 6120 video...	
+Salvati 0 file - Erano già presenti 97920 file - File totali 97920
+6120 video per il periodo (effettivo) da 2023-02-20 08:45:00 a 2023-03-13 15:00:00
+
+4)  -> 2023-03-28 07:35:00 -> 2023-04-22 23:55:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 7368
+
+Creazione delle folder per i 7368 video...	
+Salvati 0 file - Erano già presenti 117888 file - File totali 117888
+7368 video per il periodo (effettivo) da 2023-03-28 07:45:00 a 2023-04-22 23:00:00
+
+5)  -> 2023-04-23 01:00:00 -> 2023-04-25 09:15:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 660
+
+Creazione delle folder per i 660 video...	
+Salvati 0 file - Erano già presenti 10560 file - File totali 10560
+660 video per il periodo (effettivo) da 2023-04-23 01:45:00 a 2023-04-25 09:00:00
+
+6)  -> 2023-04-27 08:35:00 -> 2023-05-06 18:55:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 2676
+
+Creazione delle folder per i 2676 video...	
+Salvati 0 file - Erano già presenti 42816 file - File totali 42816
+2676 video per il periodo (effettivo) da 2023-04-27 08:45:00 a 2023-05-06 18:00:00
+
+7)  -> 2023-05-06 20:45:00 -> 2023-05-06 23:55:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 24
+
+Creazione delle folder per i 24 video...	
+Salvati 0 file - Erano già presenti 384 file - File totali 384
+24 video per il periodo (effettivo) da 2023-05-06 20:45:00 a 2023-05-06 23:00:00
+
+8)  -> 2023-05-07 01:00:00 -> 2023-05-20 23:55:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 3948
+
+Creazione delle folder per i 3948 video...	
+Salvati 0 file - Erano già presenti 63168 file - File totali 63168
+3948 video per il periodo (effettivo) da 2023-05-07 01:45:00 a 2023-05-20 23:00:00
+
+9)  -> 2023-05-21 01:00:00 -> 2023-05-23 09:15:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 636
+
+Creazione delle folder per i 636 video...	
+Salvati 0 file - Erano già presenti 10176 file - File totali 10176
+636 video per il periodo (effettivo) da 2023-05-21 01:45:00 a 2023-05-23 09:00:00
+
+10)  -> 2023-05-25 08:35:00 -> 2023-06-03 23:55:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 2496
+
+Creazione delle folder per i 2496 video...	
+Salvati 0 file - Erano già presenti 39936 file - File totali 39936
+2496 video per il periodo (effettivo) da 2023-05-25 08:45:00 a 2023-06-03 23:00:00
+
+11)  -> 2023-06-04 01:00:00 -> 2023-06-17 23:55:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 3876
+
+Creazione delle folder per i 3876 video...	
+Salvati 0 file - Erano già presenti 62016 file - File totali 62016
+3876 video per il periodo (effettivo) da 2023-06-04 01:45:00 a 2023-06-17 23:00:00
+
+12)  -> 2023-06-18 01:00:00 -> 2023-06-20 09:15:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 612
+
+Creazione delle folder per i 612 video...	
+Salvati 0 file - Erano già presenti 9792 file - File totali 9792
+612 video per il periodo (effettivo) da 2023-06-18 01:45:00 a 2023-06-20 09:00:00
+
+13)  -> 2023-06-22 08:30:00 -> 2023-07-01 23:55:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 2724
+
+Creazione delle folder per i 2724 video...	
+Salvati 0 file - Erano già presenti 43584 file - File totali 43584
+2724 video per il periodo (effettivo) da 2023-06-22 08:45:00 a 2023-07-01 23:00:00
+
+14)  -> 2023-07-02 01:00:00 -> 2023-07-15 23:55:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 3864
+
+Creazione delle folder per i 3864 video...	
+Salvati 0 file - Erano già presenti 61824 file - File totali 61824
+3864 video per il periodo (effettivo) da 2023-07-02 01:45:00 a 2023-07-15 23:00:00
+
+15)  -> 2023-07-16 01:00:00 -> 2023-07-18 08:45:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 648
+
+Creazione delle folder per i 648 video...	
+Salvati 0 file - Erano già presenti 10368 file - File totali 10368
+648 video per il periodo (effettivo) da 2023-07-16 01:45:00 a 2023-07-18 08:00:00
+
+16)  -> 2023-07-20 08:20:00 -> 2023-07-29 23:55:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 2688
+
+Creazione delle folder per i 2688 video...	
+Salvati 0 file - Erano già presenti 43008 file - File totali 43008
+2688 video per il periodo (effettivo) da 2023-07-20 09:35:00 a 2023-07-29 23:00:00
+
+17)  -> 2023-07-30 01:05:00 -> 2023-08-12 23:55:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 3900
+
+Creazione delle folder per i 3900 video...	
+Salvati 0 file - Erano già presenti 62400 file - File totali 62400
+3900 video per il periodo (effettivo) da 2023-07-30 01:45:00 a 2023-08-12 23:00:00
+
+18)  -> 2023-08-13 01:00:00 -> 2023-08-15 09:10:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 660
+
+Creazione delle folder per i 660 video...	
+Salvati 0 file - Erano già presenti 10560 file - File totali 10560
+660 video per il periodo (effettivo) da 2023-08-13 01:45:00 a 2023-08-15 09:00:00
+
+19)  -> 2023-08-17 08:25:00 -> 2023-08-26 23:55:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 2760
+
+Creazione delle folder per i 2760 video...	
+Salvati 0 file - Erano già presenti 44160 file - File totali 44160
+2760 video per il periodo (effettivo) da 2023-08-17 08:45:00 a 2023-08-26 23:00:00
+
+20)  -> 2023-08-27 01:00:00 -> 2023-09-12 09:15:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 122 	 ids: [0]
+Senza cicloni: 4570
+
+Creazione delle folder per i 4692 video...	
+Salvati 0 file - Erano già presenti 75072 file - File totali 75072
+4692 video per il periodo (effettivo) da 2023-08-27 01:45:00 a 2023-09-12 09:00:00
+
+21)  -> 2023-09-14 08:05:00 -> 2023-09-23 23:55:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 2760
+
+Creazione delle folder per i 2760 video...	
+Salvati 0 file - Erano già presenti 44160 file - File totali 44160
+2760 video per il periodo (effettivo) da 2023-09-14 08:45:00 a 2023-09-23 23:00:00
+
+22)  -> 2023-09-24 01:00:00 -> 2023-10-07 23:55:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 3984
+
+Creazione delle folder per i 3984 video...	
+Salvati 0 file - Erano già presenti 63744 file - File totali 63744
+3984 video per il periodo (effettivo) da 2023-09-24 01:45:00 a 2023-10-07 23:00:00
+
+23)  -> 2023-10-08 01:00:00 -> 2023-10-10 09:10:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 660
+
+Creazione delle folder per i 660 video...	
+Salvati 0 file - Erano già presenti 10560 file - File totali 10560
+660 video per il periodo (effettivo) da 2023-10-08 01:45:00 a 2023-10-10 09:00:00
+
+24)  -> 2023-10-12 08:50:00 -> 2023-10-21 23:55:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 2748
+
+Creazione delle folder per i 2748 video...	50 100 150 200 250 300 350 400 450 500 550 600 650 700 750 800 850 900 950 1000 1050 1100 1150 1200 1250 1300 
+Salvati 20921 file - Erano già presenti 23047 file - File totali 43968
+2748 video per il periodo (effettivo) da 2023-10-12 09:45:00 a 2023-10-21 23:00:00
+
+25)  -> 2023-10-22 01:00:00 -> 2023-11-07 09:15:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 4692
+
+Creazione delle folder per i 4692 video...	50 100 150 200 250 300 350 400 450 500 550 600 650 700 750 800 850 900 950 1000 1050 1100 1150 1200 1250 1300 1350 1400 1450 1500 1550 1600 1650 1700 1750 1800 1850 1900 1950 2000 2050 2100 2150 2200 2250 2300 2350 2400 2450 2500 2550 2600 2650 2700 2750 2800 2850 2900 2950 3000 3050 3100 3150 3200 3250 3300 3350 3400 3450 3500 3550 3600 3650 3700 3750 3800 3850 3900 3950 4000 4050 4100 4150 4200 4250 4300 4350 4400 4450 4500 4550 4600 4650 
+Salvati 75072 file - Erano già presenti 0 file - File totali 75072
+4692 video per il periodo (effettivo) da 2023-10-22 01:45:00 a 2023-11-07 09:00:00
+
+26)  -> 2023-11-09 08:20:00 -> 2023-12-05 09:15:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 7488
+
+Creazione delle folder per i 7488 video...	50 100 150 200 250 300 350 400 450 500 550 600 650 700 750 800 850 900 950 1000 1050 1100 1150 1200 1250 1300 1350 1400 1450 1500 1550 1600 1650 1700 1750 1800 1850 1900 1950 2000 2050 2100 2150 2200 2250 2300 2350 2400 2450 2500 2550 2600 2650 2700 2750 2800 2850 2900 2950 3000 3050 3100 3150 3200 3250 3300 3350 3400 3450 3500 3550 3600 3650 3700 3750 3800 3850 3900 3950 4000 4050 4100 4150 4200 4250 4300 4350 4400 4450 4500 4550 4600 4650 4700 4750 4800 4850 4900 4950 5000 5050 5100 5150 5200 5250 5300 5350 5400 5450 5500 5550 5600 5650 5700 5750 5800 5850 5900 5950 6000 6050 6100 6150 6200 6250 6300 6350 6400 6450 6500 6550 6600 6650 6700 6750 6800 6850 6900 6950 7000 7050 7100 7150 7200 7250 7300 7350 7400 7450 
+Salvati 119808 file - Erano già presenti 0 file - File totali 119808
+7488 video per il periodo (effettivo) da 2023-11-09 08:45:00 a 2023-12-05 09:00:00
+
+27)  -> 2023-12-07 08:40:00 -> 2023-12-31 23:20:00
+Sbilanciato, ma comunque tengo traccia dei positivi e negativi
+Con cicloni: 0 	 ids: [0]
+Senza cicloni: 7068
+
+Creazione delle folder per i 7068 video...	50 100 150 200 250 300 350 400 450 500 550 600 650 700 750 800 850 900 950 1000 1050 1100 1150 1200 1250 1300 1350 1400 1450 1500 1550 1600 1650 1700 1750 1800 1850 1900 1950 2000 2050 2100 2150 2200 2250 2300 2350 2400 2450 2500 2550 2600 2650 2700 2750 2800 2850 2900 2950 3000 3050 3100 3150 3200 3250 3300 3350 3400 3450 3500 3550 3600 3650 3700 3750 3800 3850 3900 3950 4000 4050 4100 4150 4200 4250 4300 4350 4400 4450 4500 4550 4600 4650 4700 4750 4800 4850 4900 4950 5000 5050 5100 5150 5200 5250 5300 5350 5400 5450 5500 5550 5600 5650 5700 5750 5800 5850 5900 5950 6000 6050 6100 6150 6200 6250 6300 6350 6400 6450 6500 6550 6600 6650 6700 6750 6800 6850 6900 6950 7000 7050 
+Salvati 113088 file - Erano già presenti 0 file - File totali 113088
+7068 video per il periodo (effettivo) da 2023-12-07 08:45:00 a 2023-12-31 23:00:00
+
+Totale video tile creati: 89316
+CSV dataset salvato in output/general_inference_set.csv (89316 righe)
+Predizioni già presenti in output/inference_predictions.csv: salto il caricamento del modello e non calcolo nuove predizioni.
