@@ -24,11 +24,41 @@ import warnings
 import numpy as np
 import torch
 import torch.distributed as dist
+class _NullSummaryWriter:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def add_scalar(self, *args, **kwargs):
+        pass
+
+    def add_histogram(self, *args, **kwargs):
+        pass
+
+    def add_image(self, *args, **kwargs):
+        pass
+
+    def add_text(self, *args, **kwargs):
+        pass
+
+    def add_figure(self, *args, **kwargs):
+        pass
+
+    def flush(self):
+        pass
+
+    def close(self):
+        pass
+
+
 try:
     from tensorboardX import SummaryWriter
-except:
-    print("PRobabile errore di protobuf con tensorboardX -> carico tensorboard")
-    from torch.utils.tensorboard import SummaryWriter
+except Exception:
+    try:
+        print("TensorboardX non disponibile: provo torch.utils.tensorboard")
+        from torch.utils.tensorboard import SummaryWriter
+    except Exception:
+        print("Tensorboard non disponibile: logging disabilitato (SummaryWriter nullo)")
+        SummaryWriter = _NullSummaryWriter
 
 from timm.utils import get_state_dict
 from timm.models import create_model

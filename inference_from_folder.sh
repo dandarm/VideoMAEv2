@@ -4,7 +4,7 @@
 #SBATCH --partition=boost_usr_prod
 #SBATCH --gres=gpu:4
 #SBATCH --cpus-per-task=4
-#SBATCH --time=03:59:00
+#SBATCH --time=01:59:00
 #SBATCH --error=inference.err
 #SBATCH --output=inference.out
 
