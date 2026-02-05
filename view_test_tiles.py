@@ -13,6 +13,8 @@ import numpy as np
 import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
+if not os.environ.get("MPLBACKEND") and not os.environ.get("DISPLAY"):
+    matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from IPython.display import HTML
 import matplotlib.animation as animation
@@ -981,8 +983,7 @@ def compose_image(frame_idx, list_grouped_df, debug=False):
         print(f"limiti settati a {norm_array.shape}")
     return fig
 
-def render_and_save_frame(args, overwrite=False):    
-
+def render_and_save_frame(args, overwrite=False):
     frame_idx, list_grouped_df, output_folder = args
 
     # rapido check per non risalvare figure già esistenti:
@@ -992,7 +993,7 @@ def render_and_save_frame(args, overwrite=False):
     output_file = os.path.join(output_folder, base)
     
     if os.path.isfile(output_file) and not overwrite:
-        return output_file
+        return frame_idx, output_file
 
     fig = compose_image(frame_idx, list_grouped_df)
 
@@ -1002,27 +1003,36 @@ def render_and_save_frame(args, overwrite=False):
     plt.close(fig)
 
     #print(f"Salvato frame {frame_idx} → {output_file}")
-    return output_file
+    return frame_idx, output_file
 
-def save_frames_parallel(df, output_folder):
+def save_frames_parallel(df, output_folder, print_every=50):
     grouped = df.groupby("path", dropna=False)
-    print(f" abbiamo {len(list(grouped))} gruppi", flush=True)
-
     list_grouped_df = list(grouped)
-    args = [(i, list_grouped_df, output_folder) for i in range(len(list_grouped_df))]
+    total = len(list_grouped_df)
+    print(f" abbiamo {total} gruppi", flush=True)
+
+    args = [(i, list_grouped_df, output_folder) for i in range(total)]
     
     num_processes = multiprocessing.cpu_count()
     start = time()
-    render_and_save_frame(args[0]) # cancellare dopo
+    results = [None] * total
     with Pool(processes=num_processes) as pool:
-        results = pool.map(render_and_save_frame, args)
+        done = 0
+        for frame_idx, output_path in pool.imap_unordered(render_and_save_frame, args, chunksize=1):
+            results[frame_idx] = output_path
+            done += 1
+            if done % print_every == 0 or done == total:
+                elapsed = max(time() - start, 1e-6)
+                rate = done / elapsed
+                remaining = total - done
+                eta_sec = remaining / rate if rate > 0 else float("inf")
+                eta_min = eta_sec / 60.0
+                print(f"{done}/{total} ETA {eta_min:.1f}m", end="\t", flush=True)
     end = time()
 
     # gestisco i file in modo numerico sequenziale per ffmpeg, 
     # poiché il nome dei file non contiene l'ordine sequenziale
-    idx_list = [a[0] for a in args]
-    # associo indici e percorsi, ordino e tengo solo i percorsi
-    ordered_paths = [p for _, p in sorted(zip(idx_list, results), key=lambda t: t[0])]
+    ordered_paths = results
     frames_txt = os.path.join(output_folder, 'frames.txt')
     dur = 1.0 / framerate
     with open(frames_txt, 'w') as f:
