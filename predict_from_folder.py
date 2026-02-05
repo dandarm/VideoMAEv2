@@ -3,6 +3,8 @@ import argparse
 import os
 from pathlib import Path
 from typing import Optional
+import shutil
+import subprocess
 
 import pandas as pd
 import torch
@@ -166,6 +168,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Se presente, genera anche il video Mediterraneo.",
     )
+    parser.add_argument(
+        "--only_video",
+        action="store_true",
+        help="Se presente, salta il salvataggio dei frame e crea solo il video dai PNG esistenti.",
+    )
     return parser.parse_args()
 
 
@@ -278,6 +285,56 @@ def _build_model(args_cli: argparse.Namespace, device: torch.device):
     return args, model
 
 
+def _fast_video_only(args_cli: argparse.Namespace) -> None:
+    _ensure_ffmpeg_in_path(args_cli.ffmpeg_path)
+    if shutil.which("ffmpeg") is None:
+        raise RuntimeError(
+            "ffmpeg non trovato nel PATH. "
+            "Passa --ffmpeg_path /percorso/ffmpeg oppure installa ffmpeg."
+        )
+
+    folder = Path(f"./anim_frames_{args_cli.video_name}")
+    frames_txt = folder / "frames.txt"
+    if not folder.exists():
+        raise RuntimeError(
+            f"Cartella frame non trovata: {folder}. "
+            "Rimuovi --only_video o genera prima i frame."
+        )
+    if not frames_txt.exists():
+        raise RuntimeError(
+            f"frames.txt non trovato in {folder}. "
+            "Rimuovi --only_video o genera prima i frame."
+        )
+
+    nomefile = f"{args_cli.video_name}.mp4"
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-i",
+        str(frames_txt),
+        "-framerate",
+        "10",
+        "-vsync",
+        "vfr",
+        "-c:v",
+        "libx264",
+        "-crf",
+        "18",
+        "-preset",
+        "medium",
+        "-pix_fmt",
+        "yuv420p",
+        nomefile,
+    ]
+    print("\n>>> Creazione del video MP4 con ffmpeg (only_video)...")
+    subprocess.run(cmd, check=True)
+    print(f"\nVideo salvato: {nomefile}\n")
+
+
 def _run_inference(args, model, device, world_size, rank, args_cli):
     val_m = DataManager(
         is_train=False,
@@ -331,11 +388,22 @@ def _make_video(args_cli, builders, df_predictions):
     expanded_df.predictions = expanded_df.predictions.astype("Int8")
     expanded_df.label = expanded_df.label.astype("Int8")
 
-    make_animation_parallel_ffmpeg(expanded_df, nomefile=args_cli.video_name)
+    make_animation_parallel_ffmpeg(
+        expanded_df,
+        nomefile=args_cli.video_name,
+        only_video=args_cli.only_video,
+    )
 
 
 def main() -> None:
     args_cli = parse_args()
+
+    if args_cli.only_video and not args_cli.make_video:
+        raise RuntimeError("--only_video richiede --make_video.")
+
+    if args_cli.only_video:
+        _fast_video_only(args_cli)
+        return
 
     rank, local_rank, world_size, distributed = _setup_distributed()
     device = torch.device(f"cuda:{local_rank}") if torch.cuda.is_available() else torch.device("cpu")

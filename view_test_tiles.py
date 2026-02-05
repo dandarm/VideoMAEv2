@@ -1057,7 +1057,13 @@ ffmpeg_command = lambda folder,nomefile : [
             '-pix_fmt', 'yuv420p',
             nomefile
         ]
-def make_animation_parallel_ffmpeg(df, id_cyc=None, output_folder = "./anim_frames", nomefile=None):    
+def make_animation_parallel_ffmpeg(
+    df,
+    id_cyc=None,
+    output_folder="./anim_frames",
+    nomefile=None,
+    only_video=False,
+):
     # Safety check: ensure grayed tiles column is present when rendering full Mediterranean frames
     assert filling_missing_tile in df.columns, (
         f"Manca la colonna '{filling_missing_tile}'. "
@@ -1073,11 +1079,29 @@ def make_animation_parallel_ffmpeg(df, id_cyc=None, output_folder = "./anim_fram
     
     #if not folder.exists():
     os.makedirs(folder, exist_ok=True)
-    print(f"\n>>> Generazione dei frame PNG in {folder}")
+    if not only_video:
+        print(f"\n>>> Generazione dei frame PNG in {folder}")
+        save_frames_parallel(df, folder)
+    else:
+        if not folder.exists():
+            raise RuntimeError(
+                f"Cartella frame non trovata: {folder}. "
+                "Rimuovi --only_video o genera prima i frame."
+            )
+        png_files = list(folder.glob("*.png"))
+        if not png_files:
+            raise RuntimeError(
+                f"Nessun frame PNG trovato in {folder}. "
+                "Rimuovi --only_video o genera prima i frame."
+            )
+        print(f"\n>>> Uso i frame PNG esistenti in {folder}")
 
-    save_frames_parallel(df, folder)    
-
-    print("\n>>> Creazione del video MP4 con ffmpeg...")       
+    print("\n>>> Creazione del video MP4 con ffmpeg...")
+    if shutil.which("ffmpeg") is None:
+        raise RuntimeError(
+            "ffmpeg non trovato nel PATH. "
+            "Passa --ffmpeg_path /percorso/ffmpeg oppure installa ffmpeg."
+        )
     subprocess.run(ffmpeg_command(folder,nomefile))
     print(f"\nVideo salvato: {nomefile}\n")
 

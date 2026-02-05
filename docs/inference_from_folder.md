@@ -25,6 +25,7 @@ Questo documento descrive lo script `predict_from_folder.py`, che esegue l’inf
 - `--manos_file`: CSV Manos per etichette (opzionale)
 - `--make_video`: genera il video Mediterraneo
 - `--ffmpeg_path`: (opzionale) path da aggiungere a `PATH` per trovare `ffmpeg`
+- `--only_video`: crea solo il video da frame PNG già esistenti (salta il rendering)
 - `--on`: preset macchina per `arguments.py` (es. `leonardo`)
 
 ## Esempio (ambiente non HPC)
@@ -35,7 +36,9 @@ python predict_from_folder.py \
   --output_dir ../airmassRGB/supervised \
   --model_path ./output/checkpoint-best-lr-again2.pth \
   --manos_file medicane_data_input/medicanes_new_windows.csv \
-  --make_video
+  --make_video \
+  --ffmpeg_path /percorso/ffmpeg \
+  --only_video
 ```
 
 ## Esempio (HPC con Slurm)
