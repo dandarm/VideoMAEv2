@@ -14,6 +14,7 @@ import models  # necessario per create_model (timm registry)
 from timm.models import create_model
 
 import utils
+from ffmpeg_utils import ensure_ffmpeg_in_path as _ensure_ffmpeg_in_path
 from utils import setup_for_distributed
 from arguments import prepare_finetuning_args
 from dataset.data_manager import BuildDataset, DataManager
@@ -25,15 +26,6 @@ from model_analysis import create_df_predictions, video_pred_2_img_pred
 
 def _ensure_trailing_slash(path_str: str) -> str:
     return path_str if path_str.endswith("/") else path_str + "/"
-
-
-def _ensure_ffmpeg_in_path(ffmpeg_path: Optional[str]) -> None:
-    if ffmpeg_path:
-        os.environ["PATH"] = ffmpeg_path + os.pathsep + os.environ.get("PATH", "")
-        return
-    local_ffmpeg = Path(__file__).resolve().parent / "ffmpeg-7.0.2-amd64-static"
-    if local_ffmpeg.exists():
-        os.environ["PATH"] = str(local_ffmpeg) + os.pathsep + os.environ.get("PATH", "")
 
 
 def _load_tracks(manos_file: Optional[str]) -> tuple[pd.DataFrame, bool]:

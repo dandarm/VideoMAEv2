@@ -45,6 +45,7 @@ from timm.models import create_model
 # from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
 # from utils import NativeScalerWithGradNormCount as NativeScaler
 
+from ffmpeg_utils import resolve_ffmpeg_executable
 from medicane_utils.geo_const import latcorners, loncorners, create_basemap_obj
 from dataset.build_dataset import calc_tile_offsets
 from medicane_utils.load_files import extract_dates_pattern_airmass_rgb_20200101_0000
@@ -360,21 +361,6 @@ def create_gif_pil(image_paths, output_gif, duration=100, loop=0):
 
 
 
-##### l'ho usata per l'animazione della singola tile con play in jupyter
-
-def _resolve_ffmpeg_executable():
-    """Trova il binario ffmpeg nel PATH o nella cartella locale del progetto."""
-    found = shutil.which("ffmpeg")
-    if found:
-        return found
-
-    local_ffmpeg = Path(__file__).resolve().parent / "ffmpeg-7.0.2-amd64-static" / "ffmpeg"
-    if local_ffmpeg.exists():
-        return str(local_ffmpeg)
-
-    return None
-
-
 def display_video_clip(frames_tensors, interval=200, save_path=None):
     """Crea l'animazione e (opzionalmente) la salva su file.
 
@@ -405,7 +391,7 @@ def display_video_clip(frames_tensors, interval=200, save_path=None):
             if save_path.suffix.lower() == ".gif":
                 writer = animation.PillowWriter(fps=fps)
             else:
-                ffmpeg_exec = _resolve_ffmpeg_executable()
+                ffmpeg_exec = resolve_ffmpeg_executable()
                 if ffmpeg_exec is None:
                     raise RuntimeError(
                         "ffmpeg non è stato trovato nel PATH né in 'ffmpeg-7.0.2-amd64-static/'. "
