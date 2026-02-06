@@ -20,8 +20,8 @@ export MASTER_PORT=12340
 # Aggiorna i path secondo il tuo caso d'uso
 mpirun --map-by socket:PE=4 --report-bindings python track_from_folder.py \
     --on leonardo \
-    --input_dir $FAST/airmassRGB/supervised_tiles2track \
-    --output_dir $FAST/airmassRGB/supervised_tiles_tracked \
+    --input_dir $FAST/airmass \
+    --output_dir $FAST/airmass/supervised_tiles_tracked \
     --model_path $FAST/checkpoint-tracking-best.pth \
     --manos_file medicane_data_input/medicanes_new_windows.csv \
     --make_video
