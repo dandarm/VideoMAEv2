@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import argparse
-import json
 import os
-import random
 import re
 import shutil
 import subprocess
@@ -16,7 +14,6 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 import torch
-import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 from PIL import Image, ImageDraw
 from torch.utils.data import DataLoader, Dataset, DistributedSampler
@@ -24,15 +21,8 @@ from torchvision import transforms
 
 import utils
 from arguments import prepare_tracking_args
-def _ensure_ffmpeg_in_path(ffmpeg_path: Optional[str]) -> None:
-    if ffmpeg_path:
-        os.environ["PATH"] = ffmpeg_path + os.pathsep + os.environ.get("PATH", "")
-        return
-    local_ffmpeg = Path(__file__).resolve().parent / "ffmpeg-7.0.2-amd64-static"
-    if local_ffmpeg.exists():
-        os.environ["PATH"] = str(local_ffmpeg) + os.pathsep + os.environ.get("PATH", "")
+from inference_tracking import set_seeds, load_checkpoint, run_tracking_inference
 from models.tracking_model import create_tracking_model
-import engine_for_tracking as tracking_engine
 from utils import setup_for_distributed
 
 
@@ -41,6 +31,15 @@ FRAMERATE = 10
 TILE_NAME_RE = re.compile(
     r"^(?P<date>\d{2}-\d{2}-\d{4})_(?P<time>\d{4})_(?P<x>-?\d+(?:\.\d+)?)_(?P<y>-?\d+(?:\.\d+)?)$"
 )
+
+
+def _ensure_ffmpeg_in_path(ffmpeg_path: Optional[str]) -> None:
+    if ffmpeg_path:
+        os.environ["PATH"] = ffmpeg_path + os.pathsep + os.environ.get("PATH", "")
+        return
+    local_ffmpeg = Path(__file__).resolve().parent / "ffmpeg-7.0.2-amd64-static"
+    if local_ffmpeg.exists():
+        os.environ["PATH"] = str(local_ffmpeg) + os.pathsep + os.environ.get("PATH", "")
 
 
 def _collect_tile_folders(root: Path) -> List[Path]:
@@ -223,95 +222,6 @@ class TrackFromFolderDataset(Dataset):
         return video, coords, str(folder_path), has_target
 
 
-def _compute_sample_record(
-    path: str,
-    pred_xy: torch.Tensor,
-    target_xy: Optional[torch.Tensor],
-) -> Dict[str, Union[float, str, None]]:
-    pred_np = pred_xy.detach().cpu().numpy().astype(float)
-    record: Dict[str, Union[float, str, None]] = {
-        "path": path,
-        "pred_x": float(pred_np[0]),
-        "pred_y": float(pred_np[1]),
-        "target_x": None,
-        "target_y": None,
-        "err_px": None,
-        "err_km": None,
-    }
-
-    if target_xy is not None:
-        target_np = target_xy.detach().cpu().numpy().astype(float)
-        err_vec = pred_np - target_np
-        record["target_x"] = float(target_np[0])
-        record["target_y"] = float(target_np[1])
-        record["err_px"] = float(np.linalg.norm(err_vec))
-
-    try:
-        offset_x, offset_y = tracking_engine._parse_tile_offsets(path)
-        pred_abs = pred_np + np.array([offset_x, offset_y], dtype=float)
-        record["tile_offset_x"] = float(offset_x)
-        record["tile_offset_y"] = float(offset_y)
-        record["pred_x_global"] = float(pred_abs[0])
-        record["pred_y_global"] = float(pred_abs[1])
-
-        lat_pred, lon_pred = tracking_engine._pixels_to_latlon(
-            np.array([pred_abs[0]]), np.array([pred_abs[1]])
-        )
-        record["pred_lat"] = float(lat_pred[0])
-        record["pred_lon"] = float(lon_pred[0])
-
-        if target_xy is not None:
-            target_np = target_xy.detach().cpu().numpy().astype(float)
-            target_abs = target_np + np.array([offset_x, offset_y], dtype=float)
-            record["target_x_global"] = float(target_abs[0])
-            record["target_y_global"] = float(target_abs[1])
-            lat_true, lon_true = tracking_engine._pixels_to_latlon(
-                np.array([target_abs[0]]), np.array([target_abs[1]])
-            )
-            record["target_lat"] = float(lat_true[0])
-            record["target_lon"] = float(lon_true[0])
-            record["err_km"] = float(
-                tracking_engine._haversine_km(lat_pred, lon_pred, lat_true, lon_true)[0]
-            )
-    except Exception as exc:
-        print(f"[WARN][track_from_folder] Unable to recover geo coords for {path}: {exc}")
-
-    return record
-
-
-def set_seeds(seed: int) -> None:
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(seed)
-        torch.cuda.manual_seed_all(seed)
-    cudnn.benchmark = True
-
-
-def load_checkpoint(model: torch.nn.Module, checkpoint_path: str, device: torch.device) -> None:
-    if not checkpoint_path:
-        raise ValueError("checkpoint path must be provided for inference")
-    map_location = device if device.type == "cpu" else torch.device("cpu")
-    checkpoint = torch.load(checkpoint_path, map_location=map_location)
-    state_dict = checkpoint.get("model") or checkpoint.get("state_dict")
-    if state_dict is None:
-        raise KeyError(
-            f"Checkpoint at {checkpoint_path} does not contain 'model' or 'state_dict' keys; "
-            f"available keys: {list(checkpoint.keys()) if isinstance(checkpoint, dict) else 'N/A'}"
-        )
-    msg = model.load_state_dict(state_dict, strict=False)
-    print(f"[INFO] Loaded checkpoint from {checkpoint_path}: {msg}")
-
-
-def _format_log_value(key: str, value):
-    if not isinstance(value, float):
-        return value
-    if "lr" in key.lower():
-        return float(f"{value:.8g}")
-    return round(value, 4)
-
-
 def _render_tracking_video(
     folder_path: Path,
     pred_xy: Tuple[float, float],
@@ -382,46 +292,6 @@ def _render_tracking_video(
     subprocess.run(cmd, check=False)
 
 
-def inference_epoch(
-    model: torch.nn.Module,
-    data_loader: Iterable,
-    device: torch.device,
-) -> Tuple[Dict[str, float], List[Dict[str, Union[float, str, None]]]]:
-    criterion = torch.nn.MSELoss()
-    metric_logger = utils.MetricLogger(delimiter="  ")
-    results: List[Dict[str, Union[float, str, None]]] = []
-
-    for samples, target, paths, has_target in metric_logger.log_every(data_loader, 20, header="Infer:"):
-        samples = samples.to(device, non_blocking=True)
-        target = target.to(device, non_blocking=True)
-        has_target = has_target.to(device, non_blocking=True)
-
-        output = model(samples)
-
-        valid_mask = has_target.bool()
-        loss_value = None
-        px_err = None
-        geo_err = None
-        if valid_mask.any():
-            valid_out = output[valid_mask]
-            valid_tgt = target[valid_mask]
-            loss = criterion(valid_out, valid_tgt)
-            loss_value = loss.item()
-            px_err = float(torch.norm(valid_out - valid_tgt, dim=-1).mean().item())
-            valid_paths = [paths[i] for i in range(len(paths)) if bool(valid_mask[i].item())]
-            geo_err = tracking_engine.batch_geo_distance_km(valid_out, valid_tgt, valid_paths)
-
-        metric_logger.update(loss=loss_value, geo_km=geo_err, px_err=px_err)
-
-        for idx, sample_path in enumerate(paths):
-            tgt = target[idx] if bool(valid_mask[idx].item()) else None
-            results.append(_compute_sample_record(sample_path, output[idx], tgt))
-
-    metric_logger.synchronize_between_processes()
-    stats = {k: meter.global_avg for k, meter in metric_logger.meters.items()}
-    return stats, results
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Inferenza tracking da folder di video tile")
     parser.add_argument("--input_dir", required=True, help="Cartella con subfolder dei video tile.")
@@ -445,6 +315,7 @@ def launch_track_from_folder(cli_args: argparse.Namespace) -> None:
     # Avoid loading init_ckpt from default args; we want CLI model_path to be authoritative.
     args.pretrained = False
     args.init_ckpt = ""
+    args.load_for_test_mode = True
 
     set_seeds(args.seed)
 
@@ -514,52 +385,28 @@ def launch_track_from_folder(cli_args: argparse.Namespace) -> None:
             model, device_ids=[args.gpu], output_device=args.gpu
         )
 
-    model.eval()
-    torch.cuda.empty_cache()
+    stats, gathered_results = run_tracking_inference(
+        model=model,
+        data_loader=data_loader,
+        device=device,
+        output_dir=args.output_dir,
+        preds_csv="tracking_inference_predictions.csv",
+    )
 
-    stats, local_results = inference_epoch(model, data_loader, device)
-
-    gathered_results = local_results
-    if dist.is_available() and dist.is_initialized():
-        gathered: List[List[Dict[str, Union[float, str, None]]]] = [None] * dist.get_world_size()
-        dist.all_gather_object(gathered, local_results)
-        if utils.is_main_process():
-            gathered_results = [item for sublist in gathered for item in sublist]
-        else:
-            gathered_results = []
-
-    if utils.is_main_process():
-        os.makedirs(args.output_dir, exist_ok=True)
-        df = pd.DataFrame(gathered_results)
-        out_csv = os.path.join(args.output_dir, "tracking_inference_predictions.csv")
-        df.to_csv(out_csv, index=False)
-        print(f"Saved tracking predictions to {out_csv}")
-
-        log_stats = {f"test_{k}": v for k, v in stats.items()}
-        log_stats = {k: _format_log_value(k, v) for k, v in log_stats.items()}
-        metrics_path = os.path.join(args.output_dir, "inference_tracking_metrics.txt")
-        try:
-            with open(metrics_path, "a") as handle:
-                handle.write(json.dumps(log_stats) + "\n")
-        except Exception as exc:
-            print(f"Warning: could not write metrics to {metrics_path}: {exc}")
-
-        if cli_args.make_video:
-            _ensure_ffmpeg_in_path(cli_args.ffmpeg_path)
-            video_dir = Path(args.output_dir)
-            for record in gathered_results:
-                path = record.get("path")
-                if not path:
-                    continue
-                pred_xy = (record.get("pred_x"), record.get("pred_y"))
-                if pred_xy[0] is None or pred_xy[1] is None:
-                    continue
-                target_xy = None
-                if record.get("target_x") is not None and record.get("target_y") is not None:
-                    target_xy = (record.get("target_x"), record.get("target_y"))
-                _render_tracking_video(Path(path), pred_xy, target_xy, video_dir)
-
-    dist.barrier() if dist.is_available() and dist.is_initialized() else None
+    if utils.is_main_process() and cli_args.make_video:
+        _ensure_ffmpeg_in_path(cli_args.ffmpeg_path)
+        video_dir = Path(args.output_dir)
+        for record in gathered_results:
+            path = record.get("path")
+            if not path:
+                continue
+            pred_xy = (record.get("pred_x"), record.get("pred_y"))
+            if pred_xy[0] is None or pred_xy[1] is None:
+                continue
+            target_xy = None
+            if record.get("target_x") is not None and record.get("target_y") is not None:
+                target_xy = (record.get("target_x"), record.get("target_y"))
+            _render_tracking_video(Path(path), pred_xy, target_xy, video_dir)
 
 
 if __name__ == "__main__":

@@ -53,11 +53,14 @@ def _ensure_path_list(paths) -> List[str]:
     return [str(paths)]
 
 
-def _compute_sample_record(path: str, pred_xy: torch.Tensor, target_xy: torch.Tensor) -> Dict[str, Union[float, str, None]]:
+def _compute_sample_record(path: str, pred_xy: torch.Tensor, target_xy: Union[torch.Tensor, None]) -> Dict[str, Union[float, str, None]]:
     pred_np = pred_xy.detach().cpu().numpy().astype(float)
-    target_np = target_xy.detach().cpu().numpy().astype(float)
-    err_vec = pred_np - target_np
-    err_px = float(np.linalg.norm(err_vec))
+    target_np = None
+    err_px = None
+    if target_xy is not None:
+        target_np = target_xy.detach().cpu().numpy().astype(float)
+        err_vec = pred_np - target_np
+        err_px = float(np.linalg.norm(err_vec))
 
     offset_x = offset_y = None
     pred_abs = target_abs = None
@@ -67,20 +70,21 @@ def _compute_sample_record(path: str, pred_xy: torch.Tensor, target_xy: torch.Te
     try:
         offset_x, offset_y = tracking_engine._parse_tile_offsets(path)
         pred_abs = pred_np + np.array([offset_x, offset_y], dtype=float)
-        target_abs = target_np + np.array([offset_x, offset_y], dtype=float)
         lat_pred, lon_pred = tracking_engine._pixels_to_latlon(
             np.array([pred_abs[0]]), np.array([pred_abs[1]])
         )
-        lat_true, lon_true = tracking_engine._pixels_to_latlon(
-            np.array([target_abs[0]]), np.array([target_abs[1]])
-        )
         pred_lat = float(lat_pred[0])
         pred_lon = float(lon_pred[0])
-        target_lat = float(lat_true[0])
-        target_lon = float(lon_true[0])
-        err_km = float(
-            tracking_engine._haversine_km(lat_pred, lon_pred, lat_true, lon_true)[0]
-        )
+        if target_np is not None:
+            target_abs = target_np + np.array([offset_x, offset_y], dtype=float)
+            lat_true, lon_true = tracking_engine._pixels_to_latlon(
+                np.array([target_abs[0]]), np.array([target_abs[1]])
+            )
+            target_lat = float(lat_true[0])
+            target_lon = float(lon_true[0])
+            err_km = float(
+                tracking_engine._haversine_km(lat_pred, lon_pred, lat_true, lon_true)[0]
+            )
     except Exception as exc:  # pragma: no cover - defensive path for malformed names
         print(f"[WARN][tracking_inference] Unable to recover geo coords for {path}: {exc}")
 
@@ -88,27 +92,32 @@ def _compute_sample_record(path: str, pred_xy: torch.Tensor, target_xy: torch.Te
         "path": path,
         "pred_x": float(pred_np[0]),
         "pred_y": float(pred_np[1]),
-        "target_x": float(target_np[0]),
-        "target_y": float(target_np[1]),
+        "target_x": float(target_np[0]) if target_np is not None else None,
+        "target_y": float(target_np[1]) if target_np is not None else None,
         "err_px": err_px,
         "err_km": err_km,
     }
 
-    if offset_x is not None and pred_abs is not None and target_abs is not None:
+    if offset_x is not None and pred_abs is not None:
         record.update(
             {
                 "tile_offset_x": float(offset_x),
                 "tile_offset_y": float(offset_y),
                 "pred_x_global": float(pred_abs[0]),
                 "pred_y_global": float(pred_abs[1]),
-                "target_x_global": float(target_abs[0]),
-                "target_y_global": float(target_abs[1]),
                 "pred_lat": pred_lat,
                 "pred_lon": pred_lon,
-                "target_lat": target_lat,
-                "target_lon": target_lon,
             }
         )
+        if target_np is not None:
+            record.update(
+                {
+                    "target_x_global": float(target_abs[0]),
+                    "target_y_global": float(target_abs[1]),
+                    "target_lat": target_lat,
+                    "target_lon": target_lon,
+                }
+            )
 
     return record
 
@@ -119,22 +128,46 @@ def inference_epoch(model, data_loader, device) -> tuple[Dict[str, float], List[
     metric_logger = utils.MetricLogger(delimiter="  ")
     results: List[Dict[str, Union[float, str, None]]] = []
 
-    for samples, target, paths in metric_logger.log_every(data_loader, 20, header="Infer:"):
+    for batch in metric_logger.log_every(data_loader, 20, header="Infer:"):
+        if len(batch) == 3:
+            samples, target, paths = batch
+            has_target = None
+        elif len(batch) == 4:
+            samples, target, paths, has_target = batch
+        else:
+            raise ValueError(f"Expected batch of len 3 or 4, got {len(batch)}")
+
         samples = samples.to(device, non_blocking=True)
         target = target.to(device, non_blocking=True)
+        if has_target is not None:
+            has_target = has_target.to(device, non_blocking=True)
 
         output = model(samples)
-        loss = criterion(output, target)
 
-        geo_err = tracking_engine.batch_geo_distance_km(output, target, _ensure_path_list(paths))
-        px_err = float(torch.norm(output - target, dim=-1).mean().item())
+        if has_target is None:
+            valid_mask = torch.ones(target.shape[0], dtype=torch.bool, device=target.device)
+        else:
+            valid_mask = has_target.bool()
 
-        metric_logger.update(loss=loss.item(), geo_km=geo_err, px_err=px_err)
+        loss_value = None
+        px_err = None
+        geo_err = None
+        if valid_mask.any():
+            valid_out = output[valid_mask]
+            valid_tgt = target[valid_mask]
+            loss = criterion(valid_out, valid_tgt)
+            loss_value = loss.item()
+            px_err = float(torch.norm(valid_out - valid_tgt, dim=-1).mean().item())
+            valid_paths = [paths[i] for i in range(len(paths)) if bool(valid_mask[i].item())]
+            geo_err = tracking_engine.batch_geo_distance_km(valid_out, valid_tgt, _ensure_path_list(valid_paths))
+
+        metric_logger.update(loss=loss_value, geo_km=geo_err, px_err=px_err)
 
         path_list = _ensure_path_list(paths)
         for idx, sample_path in enumerate(path_list):
+            tgt = target[idx] if bool(valid_mask[idx].item()) else None
             results.append(
-                _compute_sample_record(sample_path, output[idx], target[idx])
+                _compute_sample_record(sample_path, output[idx], tgt)
             )
 
     metric_logger.synchronize_between_processes()
@@ -155,6 +188,58 @@ def load_checkpoint(model: torch.nn.Module, checkpoint_path: str, device: torch.
         )
     msg = model.load_state_dict(state_dict, strict=False)
     print(f"[INFO] Loaded checkpoint from {checkpoint_path}: {msg}")
+
+
+def run_tracking_inference(
+    model: torch.nn.Module,
+    data_loader,
+    device: torch.device,
+    output_dir: str,
+    preds_csv: str,
+) -> tuple[Dict[str, float], List[Dict[str, Union[float, str, None]]]]:
+    model.eval()
+    torch.cuda.empty_cache()
+
+    start = time.time()
+    stats, local_results = inference_epoch(model, data_loader, device)
+
+    gathered_results = local_results
+    if dist.is_available() and dist.is_initialized():
+        gathered: List[List[Dict[str, Union[float, str, None]]]] = [None] * dist.get_world_size()
+        dist.all_gather_object(gathered, local_results)
+        if utils.is_main_process():
+            gathered_results = [item for sublist in gathered for item in sublist]
+        else:
+            gathered_results = []
+
+    if utils.is_main_process():
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+
+        df = pd.DataFrame(gathered_results)
+        out_csv = preds_csv if not output_dir else os.path.join(output_dir, preds_csv)
+        try:
+            df.to_csv(out_csv, index=False)
+            print(f"Saved tracking predictions to {out_csv}")
+        except Exception as exc:
+            print(f"Warning: could not save predictions CSV: {exc}")
+
+        log_stats = {f"test_{k}": v for k, v in stats.items()}
+        log_stats = {k: _format_log_value(k, v) for k, v in log_stats.items()}
+        metrics_path = os.path.join(output_dir, "inference_tracking_metrics.txt")
+        try:
+            with open(metrics_path, "a") as handle:
+                handle.write(json.dumps(log_stats) + "\n")
+        except Exception as exc:
+            print(f"Warning: could not write metrics to {metrics_path}: {exc}")
+
+    dist.barrier() if dist.is_available() and dist.is_initialized() else None
+
+    elapsed = time.time() - start
+    if utils.is_main_process():
+        print(f"Inference time: {datetime.timedelta(seconds=int(elapsed))}")
+
+    return stats, gathered_results
 
 
 def launch_inference_tracking(terminal_args: argparse.Namespace) -> None:
@@ -211,45 +296,7 @@ def launch_inference_tracking(terminal_args: argparse.Namespace) -> None:
             model, device_ids=[args.gpu], output_device=args.gpu
         )
 
-    model.eval()
-    torch.cuda.empty_cache()
-
-    start = time.time()
-    stats, local_results = inference_epoch(model, data_loader, device)
-
-    gathered_results = local_results
-    if dist.is_available() and dist.is_initialized():
-        gathered: List[List[Dict[str, Union[float, str, None]]]] = [None] * dist.get_world_size()
-        dist.all_gather_object(gathered, local_results)
-        if utils.is_main_process():
-            gathered_results = [item for sublist in gathered for item in sublist]
-        else:
-            gathered_results = []
-
-    if utils.is_main_process():
-        df = pd.DataFrame(gathered_results)
-        preds_csv = terminal_args.preds_csv
-        out_csv = preds_csv if not args.output_dir else os.path.join(args.output_dir, preds_csv)
-        try:
-            df.to_csv(out_csv, index=False)
-            print(f"Saved tracking predictions to {out_csv}")
-        except Exception as exc:
-            print(f"Warning: could not save predictions CSV: {exc}")
-
-        log_stats = {f"test_{k}": v for k, v in stats.items()}
-        log_stats = {k: _format_log_value(k, v) for k, v in log_stats.items()}
-        metrics_path = os.path.join(args.output_dir, "inference_tracking_metrics.txt")
-        try:
-            with open(metrics_path, "a") as handle:
-                handle.write(json.dumps(log_stats) + "\n")
-        except Exception as exc:
-            print(f"Warning: could not write metrics to {metrics_path}: {exc}")
-
-    dist.barrier() if dist.is_available() and dist.is_initialized() else None
-
-    elapsed = time.time() - start
-    if utils.is_main_process():
-        print(f"Inference time: {datetime.timedelta(seconds=int(elapsed))}")
+    run_tracking_inference(model, data_loader, device, args.output_dir, terminal_args.preds_csv)
 
 
 def parse_args() -> argparse.Namespace:
