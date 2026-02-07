@@ -12,4 +12,8 @@ Loading cineca-ai/4.3.0
 launch with mpirun
 [INFO] Loading tracking checkpoint from CLI: /leonardo_scratch/fast/IscrC_SAME-D/checkpoint-tracking-best.pth
 [INFO] Loaded checkpoint from /leonardo_scratch/fast/IscrC_SAME-D/checkpoint-tracking-best.pth: <All keys matched successfully>
-Infer:  [0/6]  eta: 0:00:13    time: 2.2708 (2.2708 -- 2.2708)  data: 0.6464 (0.6464 -- 0.6464)  max mem: 43348
+Infer:  [0/6]  eta: 0:00:13    time: 2.2485 (2.2485 -- 2.2485)  data: 0.7740 (0.7740 -- 0.7740)  max mem: 8982
+Infer:  [5/6]  eta: 0:00:00  loss: 75.9006 (75.9006)  geo_km: 40.1734 (40.1734)  px_err: 12.3208 (12.3208)  time: 0.8896 (0.6027 -- 2.2485)  data: 0.1291 (0.0001 -- 0.7740)  max mem: 8982
+Infer: Total time: 0:00:05 (0.8977 s / it)
+Saved tracking predictions to /leonardo_scratch/fast/IscrC_SAME-D/airmass/supervised_tiles_tracked/tracking_inference_predictions.csv
+Inference time: 0:00:05
