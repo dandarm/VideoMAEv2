@@ -24,7 +24,13 @@ from torchvision import transforms
 
 import utils
 from arguments import prepare_tracking_args
-from ffmpeg_utils import ensure_ffmpeg_in_path as _ensure_ffmpeg_in_path
+def _ensure_ffmpeg_in_path(ffmpeg_path: Optional[str]) -> None:
+    if ffmpeg_path:
+        os.environ["PATH"] = ffmpeg_path + os.pathsep + os.environ.get("PATH", "")
+        return
+    local_ffmpeg = Path(__file__).resolve().parent / "ffmpeg-7.0.2-amd64-static"
+    if local_ffmpeg.exists():
+        os.environ["PATH"] = str(local_ffmpeg) + os.pathsep + os.environ.get("PATH", "")
 from models.tracking_model import create_tracking_model
 import engine_for_tracking as tracking_engine
 from utils import setup_for_distributed

@@ -4,7 +4,7 @@
 #SBATCH --partition=boost_usr_prod
 #SBATCH --gres=gpu:4
 #SBATCH --cpus-per-task=4
-#SBATCH --time=01:59:00
+#SBATCH --time=00:59:00
 #SBATCH --error=track_from_folder.err
 #SBATCH --output=track_from_folder.out
 
@@ -23,5 +23,4 @@ mpirun --map-by socket:PE=4 --report-bindings python track_from_folder.py \
     --input_dir $FAST/airmass/supervised_tiles2track \
     --output_dir $FAST/airmass/supervised_tiles_tracked \
     --model_path $FAST/checkpoint-tracking-best.pth \
-    --manos_file medicane_data_input/medicanes_new_windows.csv \
-    --make_video
+    --manos_file medicane_data_input/medicanes_new_windows.csv 
