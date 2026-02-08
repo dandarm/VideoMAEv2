@@ -420,10 +420,6 @@ def _make_tracking_video(
     df_predictions: Optional[pd.DataFrame],
 ) -> None:
     _ensure_ffmpeg_in_path(args_cli.ffmpeg_path)
-    if not args_cli.only_video:
-        frames_dir = Path(f"./anim_frames_{args_cli.video_name}")
-        if frames_dir.exists():
-            shutil.rmtree(frames_dir)
     expanded_df = _build_tracking_frames_df(builders, tracking_df, df_predictions)
     make_animation_parallel_ffmpeg(
         expanded_df,
