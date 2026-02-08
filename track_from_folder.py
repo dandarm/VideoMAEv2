@@ -242,7 +242,11 @@ def _render_tracking_video(
     tgt_x, tgt_y = target_xy if target_xy is not None else (None, None)
 
     for idx, frame_path in enumerate(frame_files):
-        img = Image.open(frame_path).convert("RGB")
+        try:
+            img = Image.open(frame_path).convert("RGB")
+        except Exception as exc:
+            print(f"[WARN][track_from_folder] Frame non leggibile (saltato): {frame_path} ({exc})")
+            continue
         draw = ImageDraw.Draw(img)
         if tgt_x is not None and tgt_y is not None:
             draw.ellipse((tgt_x - radius, tgt_y - radius, tgt_x + radius, tgt_y + radius), fill=(0, 255, 0))
@@ -345,57 +349,92 @@ def launch_track_from_folder(cli_args: argparse.Namespace) -> None:
     if not folders:
         raise RuntimeError(f"Nessuna tile folder trovata in {input_dir}")
 
-    tile_infos: List[Tuple[str, pd.Timestamp, float, float]] = []
-    for folder in folders:
-        parsed = _parse_tile_folder_name(folder.name)
-        if parsed is None:
-            print(f"[WARN][track_from_folder] Nome cartella non valido (saltato GT): {folder.name}")
-            continue
-        dt_floor, off_x, off_y = parsed
-        tile_infos.append((str(folder), dt_floor, off_x, off_y))
+    preds_csv = "tracking_inference_predictions.csv"
+    preds_csv_path = Path(args.output_dir) / preds_csv if args.output_dir else Path(preds_csv)
+    preds_exist = preds_csv_path.exists()
+    need_inference = not preds_exist
 
-    gt_map = _build_gt_map_from_tracks(cli_args.manos_file, tile_infos)
+    gathered_results: List[Dict[str, Union[float, str, None]]] = []
 
-    dataset = TrackFromFolderDataset(
-        folders=folders,
-        target_map=gt_map,
-        clip_len=args.num_frames,
-    )
+    if need_inference:
+        tile_infos: List[Tuple[str, pd.Timestamp, float, float]] = []
+        for folder in folders:
+            parsed = _parse_tile_folder_name(folder.name)
+            if parsed is None:
+                print(f"[WARN][track_from_folder] Nome cartella non valido (saltato GT): {folder.name}")
+                continue
+            dt_floor, off_x, off_y = parsed
+            tile_infos.append((str(folder), dt_floor, off_x, off_y))
 
-    sampler = None
-    if args.distributed:
-        sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=False)
+        gt_map = _build_gt_map_from_tracks(cli_args.manos_file, tile_infos)
 
-    data_loader = DataLoader(
-        dataset,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-        pin_memory=args.pin_mem,
-        sampler=sampler,
-    )
-
-    model = create_tracking_model(args.model, **args.__dict__)
-    model.to(device)
-    if utils.is_main_process():
-        print(f"[INFO] Loading tracking checkpoint from CLI: {cli_args.model_path}")
-    load_checkpoint(model, cli_args.model_path, device)
-
-    if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(
-            model, device_ids=[args.gpu], output_device=args.gpu
+        dataset = TrackFromFolderDataset(
+            folders=folders,
+            target_map=gt_map,
+            clip_len=args.num_frames,
         )
 
-    stats, gathered_results = run_tracking_inference(
-        model=model,
-        data_loader=data_loader,
-        device=device,
-        output_dir=args.output_dir,
-        preds_csv="tracking_inference_predictions.csv",
-    )
+        sampler = None
+        if args.distributed:
+            sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=False)
+
+        data_loader = DataLoader(
+            dataset,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
+            pin_memory=args.pin_mem,
+            sampler=sampler,
+        )
+
+        model = create_tracking_model(args.model, **args.__dict__)
+        model.to(device)
+        if utils.is_main_process():
+            print(f"[INFO] Loading tracking checkpoint from CLI: {cli_args.model_path}")
+        load_checkpoint(model, cli_args.model_path, device)
+
+        if args.distributed:
+            model = torch.nn.parallel.DistributedDataParallel(
+                model, device_ids=[args.gpu], output_device=args.gpu
+            )
+
+        _, gathered_results = run_tracking_inference(
+            model=model,
+            data_loader=data_loader,
+            device=device,
+            output_dir=args.output_dir,
+            preds_csv=preds_csv,
+        )
+    else:
+        if utils.is_main_process():
+            print(
+                f"[INFO] Predizioni già presenti in {preds_csv_path}: "
+                "salto il caricamento del modello e non calcolo nuove predizioni."
+            )
+
+    if dist.is_available() and dist.is_initialized():
+        dist.barrier()
 
     if utils.is_main_process() and cli_args.make_video:
         _ensure_ffmpeg_in_path(cli_args.ffmpeg_path)
         video_dir = Path(args.output_dir)
+        if not need_inference:
+            df_predictions = pd.read_csv(preds_csv_path)
+            name_to_path = {folder.name: folder for folder in folders}
+            gathered_results = []
+            for _, row in df_predictions.iterrows():
+                name = row.get("path")
+                if not isinstance(name, str) or name not in name_to_path:
+                    print(f"[WARN][track_from_folder] Tile non trovata per CSV: {name}")
+                    continue
+                record = {
+                    "path": str(name_to_path[name]),
+                    "pred_x": row.get("pred_x"),
+                    "pred_y": row.get("pred_y"),
+                    "target_x": row.get("target_x"),
+                    "target_y": row.get("target_y"),
+                }
+                gathered_results.append(record)
+
         for record in gathered_results:
             path = record.get("path")
             if not path:

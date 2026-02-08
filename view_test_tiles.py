@@ -700,6 +700,12 @@ def create_mediterranean_video(list_grouped_df, interval=200, dpi=96, width=1290
                 disable_tile_boxes = False
 
         is_tracking_view = 'track_pred_x' in group_df.columns or disable_tile_boxes
+        keep_tile_boxes = False
+        if 'keep_tile_boxes' in group_df.columns:
+            try:
+                keep_tile_boxes = bool(group_df['keep_tile_boxes'].iloc[0])
+            except Exception:
+                keep_tile_boxes = False
 
         if is_tracking_view:
             def _ensure_list_local(val):
@@ -740,23 +746,30 @@ def create_mediterranean_video(list_grouped_df, interval=200, dpi=96, width=1290
         )
 
         if is_tracking_view:
-            unique_points = {}
-            for centers in xy_source_list:
-                for cx_cy_src in centers:
-                    if len(cx_cy_src) != 3:
-                        continue
-                    src = cx_cy_src[2]
-                    if src not in unique_points:
-                        unique_points[src] = cx_cy_src
-            condensed = [[] for _ in range(len(xy_source_list))]
-            selected = [unique_points[key] for key in ['GT', 'PRED'] if key in unique_points]
-            if condensed:
-                condensed[0] = selected
-            xy_source_list = condensed
+            keep_all_tracks = False
+            if 'keep_all_tracks' in group_df.columns:
+                try:
+                    keep_all_tracks = bool(group_df['keep_all_tracks'].iloc[0])
+                except Exception:
+                    keep_all_tracks = False
+            if not keep_all_tracks:
+                unique_points = {}
+                for centers in xy_source_list:
+                    for cx_cy_src in centers:
+                        if len(cx_cy_src) != 3:
+                            continue
+                        src = cx_cy_src[2]
+                        if src not in unique_points:
+                            unique_points[src] = cx_cy_src
+                condensed = [[] for _ in range(len(xy_source_list))]
+                selected = [unique_points[key] for key in ['GT', 'PRED'] if key in unique_points]
+                if condensed:
+                    condensed[0] = selected
+                xy_source_list = condensed
 
         labeled_tiles_offsets = group_df['label'].values
 
-        if 'predictions' in group_df.columns and not is_tracking_view:
+        if 'predictions' in group_df.columns and (not is_tracking_view or keep_tile_boxes):
             predicted_tiles_offsets = group_df['predictions'].values
         else:
             predicted_tiles_offsets = None
@@ -767,11 +780,12 @@ def create_mediterranean_video(list_grouped_df, interval=200, dpi=96, width=1290
             to_be_filled_offsets = None
 
         neighboring_tiles = None
-        if not is_tracking_view and 'neighboring' in group_df.columns:
+        if (not is_tracking_view or keep_tile_boxes) and 'neighboring' in group_df.columns:
             neighboring_tiles = group_df['neighboring'].values
         
         offsets = list(group_df[['tile_offset_x', 'tile_offset_y']].value_counts().index.values)
 
+        show_tile_boxes = not is_tracking_view or keep_tile_boxes
         out_img = draw_tiles_and_center(
             img,
             offsets,
@@ -780,7 +794,7 @@ def create_mediterranean_video(list_grouped_df, interval=200, dpi=96, width=1290
             predicted_tiles=predicted_tiles_offsets,
             gray_offsets=to_be_filled_offsets,
             neighboring_tile=neighboring_tiles,
-            show_tile_boxes=not is_tracking_view
+            show_tile_boxes=show_tile_boxes
         )
 
         time_str = Path(path).name
@@ -863,6 +877,12 @@ def compose_image(frame_idx, list_grouped_df, debug=False):
             disable_tile_boxes = False
 
     is_tracking_view = 'track_pred_x' in group_df.columns or disable_tile_boxes
+    keep_tile_boxes = False
+    if 'keep_tile_boxes' in group_df.columns:
+        try:
+            keep_tile_boxes = bool(group_df['keep_tile_boxes'].iloc[0])
+        except Exception:
+            keep_tile_boxes = False
 
     if is_tracking_view:
         def _ensure_list_local(val):
@@ -902,19 +922,26 @@ def compose_image(frame_idx, list_grouped_df, debug=False):
         axis=1)        
 
     if is_tracking_view:
-        unique_points = {}
-        for centers in xy_source_list:
-            for cx_cy_src in centers:
-                if len(cx_cy_src) != 3:
-                    continue
-                src = cx_cy_src[2]
-                if src not in unique_points:
-                    unique_points[src] = cx_cy_src
-        condensed = [[] for _ in range(len(xy_source_list))]
-        selected = [unique_points[key] for key in ['GT', 'PRED'] if key in unique_points]
-        if condensed:
-            condensed[0] = selected
-        xy_source_list = condensed
+        keep_all_tracks = False
+        if 'keep_all_tracks' in group_df.columns:
+            try:
+                keep_all_tracks = bool(group_df['keep_all_tracks'].iloc[0])
+            except Exception:
+                keep_all_tracks = False
+        if not keep_all_tracks:
+            unique_points = {}
+            for centers in xy_source_list:
+                for cx_cy_src in centers:
+                    if len(cx_cy_src) != 3:
+                        continue
+                    src = cx_cy_src[2]
+                    if src not in unique_points:
+                        unique_points[src] = cx_cy_src
+            condensed = [[] for _ in range(len(xy_source_list))]
+            selected = [unique_points[key] for key in ['GT', 'PRED'] if key in unique_points]
+            if condensed:
+                condensed[0] = selected
+            xy_source_list = condensed
 
     labeled_tiles_offsets = group_df['label'].values # dovrebbe avere tanti valori quante sono le tiles
     # se ne ha di meno è perché stiamo guardando un sottoinsieme, es. il dataset di test
@@ -922,7 +949,7 @@ def compose_image(frame_idx, list_grouped_df, debug=False):
     if debug:
         print(f"labeled_tiles_offsets: {labeled_tiles_offsets}")
 
-    if 'predictions' in group_df.columns and not is_tracking_view:
+    if 'predictions' in group_df.columns and (not is_tracking_view or keep_tile_boxes):
         predicted_tiles_offsets = group_df['predictions'].values
     else:
         predicted_tiles_offsets = None
@@ -936,16 +963,17 @@ def compose_image(frame_idx, list_grouped_df, debug=False):
     offsets = [tuple(riga) for riga in group_df[['tile_offset_x','tile_offset_y']].values]
     
     neighboring_tiles = None
-    if not is_tracking_view and 'neighboring' in group_df.columns:
+    if (not is_tracking_view or keep_tile_boxes) and 'neighboring' in group_df.columns:
         neighboring_tiles = group_df['neighboring'].values
 
+    show_tile_boxes = not is_tracking_view or keep_tile_boxes
     out_img = draw_tiles_and_center(img, offsets,
         cyclone_centers=xy_source_list,
         labeled_tiles_offsets=labeled_tiles_offsets,
         predicted_tiles=predicted_tiles_offsets,
         gray_offsets=to_be_filled_offsets,
         neighboring_tile=neighboring_tiles,
-        show_tile_boxes=not is_tracking_view
+        show_tile_boxes=show_tile_boxes
     )
 
     # region add timestamp 

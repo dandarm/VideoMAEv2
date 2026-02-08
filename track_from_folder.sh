@@ -4,7 +4,7 @@
 #SBATCH --partition=boost_usr_prod
 #SBATCH --gres=gpu:4
 #SBATCH --cpus-per-task=4
-#SBATCH --time=00:59:00
+#SBATCH --time=00:35:00
 #SBATCH --error=track_from_folder.err
 #SBATCH --output=track_from_folder.out
 

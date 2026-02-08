@@ -217,6 +217,28 @@ def run_tracking_inference(
             os.makedirs(output_dir, exist_ok=True)
 
         df = pd.DataFrame(gathered_results)
+        if "path" in df.columns:
+            df["path"] = df["path"].apply(lambda p: os.path.basename(str(p)) if p else p)
+
+        pixel_cols = [
+            "pred_x",
+            "pred_y",
+            "target_x",
+            "target_y",
+            "pred_x_global",
+            "pred_y_global",
+            "target_x_global",
+            "target_y_global",
+        ]
+        for col in pixel_cols:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce").round().astype("Int64")
+
+        latlon_cols = ["pred_lat", "pred_lon", "target_lat", "target_lon"]
+        for col in latlon_cols:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce").round(2)
+
         out_csv = preds_csv if not output_dir else os.path.join(output_dir, preds_csv)
         try:
             df.to_csv(out_csv, index=False)
