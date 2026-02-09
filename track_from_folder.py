@@ -21,6 +21,7 @@ from torchvision import transforms
 
 import utils
 from arguments import prepare_tracking_args
+from dataset.datasets import MedicanesTrackDataset
 from inference_tracking import set_seeds, load_checkpoint, run_tracking_inference
 from models.tracking_model import create_tracking_model
 from utils import setup_for_distributed
@@ -141,6 +142,70 @@ def _build_gt_map_from_tracks(
         row = hits.iloc[0]
         gt_map[folder_path] = (float(row["x_pix"]) - offset_x, float(row["y_pix"]) - offset_y)
     return gt_map
+
+
+def _build_tracking_csv_for_folders(
+    folders: Sequence[Path],
+    target_map: Dict[str, Tuple[float, float]],
+    output_csv: Path,
+) -> Path:
+    rows = []
+    for folder in folders:
+        folder_path = str(folder)
+        coords = target_map.get(folder_path)
+        if coords is None or not np.isfinite(coords).all():
+            rows.append(
+                {
+                    "path": folder_path,
+                    "x_pix": 0.0,
+                    "y_pix": 0.0,
+                    "has_target": 0,
+                }
+            )
+        else:
+            rows.append(
+                {
+                    "path": folder_path,
+                    "x_pix": float(coords[0]),
+                    "y_pix": float(coords[1]),
+                    "has_target": 1,
+                }
+            )
+    df = pd.DataFrame(rows)
+    output_csv.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(output_csv, index=False)
+    return output_csv
+
+
+def _print_pred_stats(df: pd.DataFrame, label: str = "track_from_folder") -> None:
+    def _summary(series: pd.Series) -> Optional[Dict[str, float]]:
+        s = pd.to_numeric(series, errors="coerce")
+        s = s[np.isfinite(s)]
+        if s.empty:
+            return None
+        return {
+            "min": float(s.min()),
+            "max": float(s.max()),
+            "mean": float(s.mean()),
+            "std": float(s.std()),
+            "p05": float(s.quantile(0.05)),
+            "p50": float(s.quantile(0.50)),
+            "p95": float(s.quantile(0.95)),
+        }
+
+    if df is None or df.empty:
+        print(f"[INFO][{label}] Nessuna predizione disponibile per le statistiche.")
+        return
+
+    stats = {
+        "pred_x": _summary(df.get("pred_x")) if "pred_x" in df.columns else None,
+        "pred_y": _summary(df.get("pred_y")) if "pred_y" in df.columns else None,
+        "pred_x_global": _summary(df.get("pred_x_global")) if "pred_x_global" in df.columns else None,
+        "pred_y_global": _summary(df.get("pred_y_global")) if "pred_y_global" in df.columns else None,
+    }
+    for key, val in stats.items():
+        if val is not None:
+            print(f"[INFO][{label}] {key} stats: {val}")
 
 
 class TrackFromFolderDataset(Dataset):
@@ -367,11 +432,13 @@ def launch_track_from_folder(cli_args: argparse.Namespace) -> None:
             tile_infos.append((str(folder), dt_floor, off_x, off_y))
 
         gt_map = _build_gt_map_from_tracks(cli_args.manos_file, tile_infos)
-
-        dataset = TrackFromFolderDataset(
-            folders=folders,
-            target_map=gt_map,
+        tmp_csv = Path(args.output_dir) / "_tmp_tracking_inference_dataset.csv"
+        _build_tracking_csv_for_folders(folders, gt_map, tmp_csv)
+        dataset = MedicanesTrackDataset(
+            anno_path=str(tmp_csv),
+            data_root="",
             clip_len=args.num_frames,
+            transform=None,
         )
 
         sampler = None
@@ -404,12 +471,23 @@ def launch_track_from_folder(cli_args: argparse.Namespace) -> None:
             output_dir=args.output_dir,
             preds_csv=preds_csv,
         )
+        if utils.is_main_process():
+            try:
+                df_preds = pd.read_csv(preds_csv_path)
+                _print_pred_stats(df_preds, label="track_from_folder")
+            except Exception as exc:
+                print(f"[WARN][track_from_folder] Impossibile leggere {preds_csv_path} per stats: {exc}")
     else:
         if utils.is_main_process():
             print(
                 f"[INFO] Predizioni già presenti in {preds_csv_path}: "
                 "salto il caricamento del modello e non calcolo nuove predizioni."
             )
+            try:
+                df_preds = pd.read_csv(preds_csv_path)
+                _print_pred_stats(df_preds, label="track_from_folder")
+            except Exception as exc:
+                print(f"[WARN][track_from_folder] Impossibile leggere {preds_csv_path} per stats: {exc}")
 
     if dist.is_available() and dist.is_initialized():
         dist.barrier()

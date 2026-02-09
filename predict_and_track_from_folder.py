@@ -18,18 +18,50 @@ import utils
 from utils import setup_for_distributed
 from arguments import prepare_finetuning_args, prepare_tracking_args
 from dataset.data_manager import DataManager
+from dataset.datasets import MedicanesTrackDataset
 from dataset.build_dataset import calc_tile_offsets
 from engine_for_finetuning import validation_one_epoch_collect
 from model_analysis import create_df_predictions
 from predict_from_folder import _load_tracks, _prepare_dataset_csv
 from track_from_folder import (
-    TrackFromFolderDataset,
     _parse_tile_folder_name,
     _build_gt_map_from_tracks,
+    _build_tracking_csv_for_folders,
 )
 from inference_tracking import run_tracking_inference, load_checkpoint, set_seeds
 from models.tracking_model import create_tracking_model
 from view_test_tiles import expand_group, make_animation_parallel_ffmpeg
+
+
+def _print_pred_stats(df: pd.DataFrame, label: str = "predict_and_track") -> None:
+    def _summary(series: pd.Series) -> Optional[Dict[str, float]]:
+        s = pd.to_numeric(series, errors="coerce")
+        s = s[np.isfinite(s)]
+        if s.empty:
+            return None
+        return {
+            "min": float(s.min()),
+            "max": float(s.max()),
+            "mean": float(s.mean()),
+            "std": float(s.std()),
+            "p05": float(s.quantile(0.05)),
+            "p50": float(s.quantile(0.50)),
+            "p95": float(s.quantile(0.95)),
+        }
+
+    if df is None or df.empty:
+        print(f"[INFO][{label}] Nessuna predizione disponibile per le statistiche.")
+        return
+
+    stats = {
+        "pred_x": _summary(df.get("pred_x")) if "pred_x" in df.columns else None,
+        "pred_y": _summary(df.get("pred_y")) if "pred_y" in df.columns else None,
+        "pred_x_global": _summary(df.get("pred_x_global")) if "pred_x_global" in df.columns else None,
+        "pred_y_global": _summary(df.get("pred_y_global")) if "pred_y_global" in df.columns else None,
+    }
+    for key, val in stats.items():
+        if val is not None:
+            print(f"[INFO][{label}] {key} stats: {val}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -360,6 +392,26 @@ def _build_tracking_frames_df(
     records: List[Dict[str, object]] = []
     for _, row in df_joined.iterrows():
         orig_paths = _to_list(row.get("orig_paths"))
+        video_path = row.get("path")
+        off_x = row.get("tile_offset_x")
+        off_y = row.get("tile_offset_y")
+        pred_x = row.get("pred_x")
+        pred_y = row.get("pred_y")
+        tgt_x = row.get("target_x")
+        tgt_y = row.get("target_y")
+        pred_x_global = row.get("pred_x_global")
+        pred_y_global = row.get("pred_y_global")
+        tgt_x_global = row.get("target_x_global")
+        tgt_y_global = row.get("target_y_global")
+        # Prefer the same global coordinates already computed by inference_tracking.
+        # Fallback to relative + offset only if globals are missing.
+        if pd.notna(off_x) and pd.notna(off_y):
+            if pd.isna(pred_x_global) and pd.notna(pred_x) and pd.notna(pred_y):
+                pred_x_global = float(pred_x) + float(off_x)
+                pred_y_global = float(pred_y) + float(off_y)
+            if pd.isna(tgt_x_global) and pd.notna(tgt_x) and pd.notna(tgt_y):
+                tgt_x_global = float(tgt_x) + float(off_x)
+                tgt_y_global = float(tgt_y) + float(off_y)
         for orig_path in orig_paths:
             records.append(
                 {
@@ -367,10 +419,11 @@ def _build_tracking_frames_df(
                     "tile_offset_x": row.get("tile_offset_x"),
                     "tile_offset_y": row.get("tile_offset_y"),
                     "predictions": row.get("predictions"),
-                    "track_pred_x": row.get("pred_x_global"),
-                    "track_pred_y": row.get("pred_y_global"),
-                    "track_target_x": row.get("target_x_global"),
-                    "track_target_y": row.get("target_y_global"),
+                    "track_pred_x": pred_x_global,
+                    "track_pred_y": pred_y_global,
+                    "track_target_x": tgt_x_global,
+                    "track_target_y": tgt_y_global,
+                    "video_path": video_path,
                 }
             )
 
@@ -380,6 +433,51 @@ def _build_tracking_frames_df(
         df_track_map["path_key"] = df_track_map["path"].apply(lambda p: os.path.basename(str(p)))
         for col in ["tile_offset_x", "tile_offset_y"]:
             df_track_map[col] = pd.to_numeric(df_track_map[col], errors="coerce").round().astype("Int64")
+
+        def _parse_video_end(name: object) -> pd.Timestamp:
+            if name is None or (isinstance(name, float) and pd.isna(name)):
+                return pd.NaT
+            parsed = _parse_tile_folder_name(os.path.basename(str(name)))
+            if parsed is None:
+                return pd.NaT
+            return parsed[0]
+
+        df_track_map["video_end_datetime"] = df_track_map["video_path"].apply(_parse_video_end)
+
+        # attach frame datetime from master_df to resolve duplicates from overlapping clips
+        frame_meta = master_df_all[["path", "tile_offset_x", "tile_offset_y", "datetime"]].copy()
+        frame_meta["path_key"] = frame_meta["path"].apply(lambda p: os.path.basename(str(p)))
+        df_track_map = df_track_map.merge(
+            frame_meta[["path_key", "tile_offset_x", "tile_offset_y", "datetime"]],
+            on=["path_key", "tile_offset_x", "tile_offset_y"],
+            how="left",
+        )
+
+        def _select_best_row(group: pd.DataFrame) -> pd.DataFrame:
+            valid = group.dropna(subset=["datetime"])
+            if valid.empty:
+                return group.iloc[[0]]
+            valid = valid.dropna(subset=["video_end_datetime"])
+            if valid.empty:
+                return group.iloc[[0]]
+            candidates = valid[valid["video_end_datetime"] >= valid["datetime"]]
+            if not candidates.empty:
+                diffs = (candidates["video_end_datetime"] - candidates["datetime"]).dropna()
+                if diffs.empty:
+                    return candidates.iloc[[0]]
+                idx = diffs.idxmin()
+                return candidates.loc[[idx]]
+            diffs = (valid["video_end_datetime"] - valid["datetime"]).abs().dropna()
+            if diffs.empty:
+                return valid.iloc[[0]]
+            idx = diffs.idxmin()
+            return valid.loc[[idx]]
+
+        df_track_map = (
+            df_track_map.groupby(["path_key", "tile_offset_x", "tile_offset_y"], group_keys=False)
+            .apply(_select_best_row)
+            .reset_index(drop=True)
+        )
 
     for col in ["tile_offset_x", "tile_offset_y"]:
         if col in master_df_all.columns:
@@ -401,6 +499,7 @@ def _build_tracking_frames_df(
 
     df_frames = _append_tracking_points(df_frames)
     df_frames["keep_tile_boxes"] = True
+    # Keep all tracks across tiles; duplicates within a tile are already resolved above.
     df_frames["keep_all_tracks"] = True
 
     offsets = calc_tile_offsets(stride_x=213, stride_y=196)
@@ -518,10 +617,13 @@ def main() -> None:
             tile_infos.append((str(folder), dt_floor, off_x, off_y))
 
         gt_map = _build_gt_map_from_tracks(args_cli.manos_file, tile_infos)
-        dataset = TrackFromFolderDataset(
-            folders=positive_folders,
-            target_map=gt_map,
+        tmp_csv = Path(args_cli.output_dir) / "_tmp_tracking_inference_dataset.csv"
+        _build_tracking_csv_for_folders(positive_folders, gt_map, tmp_csv)
+        dataset = MedicanesTrackDataset(
+            anno_path=str(tmp_csv),
+            data_root="",
             clip_len=args_tracking.num_frames,
+            transform=None,
         )
 
         sampler = None
@@ -554,6 +656,12 @@ def main() -> None:
             output_dir=args_cli.output_dir,
             preds_csv=track_tiles_csv.name,
         )
+        if rank == 0:
+            try:
+                df_preds = pd.read_csv(track_tiles_csv)
+                _print_pred_stats(df_preds, label="predict_and_track")
+            except Exception as exc:
+                print(f"[WARN][combined] Impossibile leggere {track_tiles_csv} per stats: {exc}")
     else:
         if rank == 0:
             print("[WARN][combined] Nessuna tile positiva: salto tracking.")
@@ -567,6 +675,7 @@ def main() -> None:
             track_df = pd.read_csv(track_tiles_csv)
         else:
             track_df = pd.DataFrame([])
+        _print_pred_stats(track_df, label="predict_and_track")
         manos_available = bool(args_cli.manos_file and Path(args_cli.manos_file).exists())
         _build_timeframe_csv(tile_folders, track_df, manos_available, final_time_csv)
         print(f"[INFO] CSV finale salvato in {final_time_csv}")

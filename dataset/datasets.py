@@ -800,6 +800,7 @@ class MedicanesTrackDataset(MedicanesClsDataset):
         transform: Optional[transforms.Compose] = None,
         x_col: str = "x_pix",
         y_col: str = "y_pix",
+        has_target_col: str = "has_target",
     ) -> None:
         super().__init__(
             anno_path=anno_path,
@@ -820,6 +821,7 @@ class MedicanesTrackDataset(MedicanesClsDataset):
             )
         self.x_col = x_col
         self.y_col = y_col
+        self.has_target_col = has_target_col if has_target_col in self.df.columns else None
 
         # Coerce to numeric and drop rows with missing/non-finite coordinates
         before = len(self.df)
@@ -828,18 +830,41 @@ class MedicanesTrackDataset(MedicanesClsDataset):
         mask_finite = np.isfinite(self.df[self.x_col].values) & np.isfinite(
             self.df[self.y_col].values
         )
-        self.df = self.df[mask_finite].reset_index(drop=True)
-        dropped = before - len(self.df)
-        if dropped > 0:
-            print(
-                f"[INFO][TrackingDataset] Dropped {dropped} rows with missing/non-finite coordinates from {anno_path} (kept {len(self.df)}/{before})."
+        if self.has_target_col:
+            self.df[self.has_target_col] = (
+                pd.to_numeric(self.df[self.has_target_col], errors="coerce")
+                .fillna(0)
+                .astype(int)
             )
+            keep_mask = mask_finite | (self.df[self.has_target_col].values == 0)
+            self.df = self.df[keep_mask].reset_index(drop=True)
+            dropped = before - len(self.df)
+            if dropped > 0:
+                print(
+                    f"[INFO][TrackingDataset] Dropped {dropped} rows with missing/non-finite coordinates "
+                    f"from {anno_path} (kept {len(self.df)}/{before})."
+                )
+            # Per i target mancanti riempiamo con 0 per evitare NaN nei tensor
+            missing_mask = ~mask_finite
+            if missing_mask.any():
+                self.df.loc[missing_mask, [self.x_col, self.y_col]] = 0.0
+        else:
+            self.df = self.df[mask_finite].reset_index(drop=True)
+            dropped = before - len(self.df)
+            if dropped > 0:
+                print(
+                    f"[INFO][TrackingDataset] Dropped {dropped} rows with missing/non-finite coordinates "
+                    f"from {anno_path} (kept {len(self.df)}/{before})."
+                )
         self._refresh_resolved_paths()
 
     def __getitem__(self, idx: int):
         """Return video tensor, coords tensor (x,y), and folder path."""
         row, video, folder_path = self._get_row_and_clip(idx)
         coords = torch.tensor([row[self.x_col], row[self.y_col]], dtype=torch.float32)
+        if self.has_target_col:
+            has_target = bool(row[self.has_target_col])
+            return video, coords, folder_path, has_target
         return video, coords, folder_path
 
 

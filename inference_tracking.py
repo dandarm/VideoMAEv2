@@ -220,6 +220,21 @@ def run_tracking_inference(
         if "path" in df.columns:
             df["path"] = df["path"].apply(lambda p: os.path.basename(str(p)) if p else p)
 
+        def _summary_stats(series: pd.Series) -> Optional[Dict[str, float]]:
+            s = pd.to_numeric(series, errors="coerce")
+            s = s[np.isfinite(s)]
+            if s.empty:
+                return None
+            return {
+                "min": float(s.min()),
+                "max": float(s.max()),
+                "mean": float(s.mean()),
+                "std": float(s.std()),
+                "p05": float(s.quantile(0.05)),
+                "p50": float(s.quantile(0.50)),
+                "p95": float(s.quantile(0.95)),
+            }
+
         pixel_cols = [
             "pred_x",
             "pred_y",
@@ -233,6 +248,18 @@ def run_tracking_inference(
         for col in pixel_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce").round().astype("Int64")
+
+        # Quick sanity stats on predictions (useful for debugging collapsed outputs)
+        if "pred_x" in df.columns and "pred_y" in df.columns:
+            pred_x_stats = _summary_stats(df["pred_x"])
+            pred_y_stats = _summary_stats(df["pred_y"])
+            pred_xg_stats = _summary_stats(df["pred_x_global"]) if "pred_x_global" in df.columns else None
+            pred_yg_stats = _summary_stats(df["pred_y_global"]) if "pred_y_global" in df.columns else None
+            print(f"[INFO][tracking_inference] pred_x stats: {pred_x_stats}")
+            print(f"[INFO][tracking_inference] pred_y stats: {pred_y_stats}")
+            if pred_xg_stats is not None or pred_yg_stats is not None:
+                print(f"[INFO][tracking_inference] pred_x_global stats: {pred_xg_stats}")
+                print(f"[INFO][tracking_inference] pred_y_global stats: {pred_yg_stats}")
 
         latlon_cols = ["pred_lat", "pred_lon", "target_lat", "target_lon"]
         for col in latlon_cols:
