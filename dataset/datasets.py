@@ -16,6 +16,8 @@ from .random_erasing import RandomErasing
 
 from PIL import Image
 
+IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff")
+
 class VideoClsDataset(Dataset):
     """Load your own video classification dataset."""
 
@@ -721,12 +723,13 @@ class MedicanesClsDataset(Dataset):
         if folder_path is None:
             return False, "path is missing or not a string", None
         try:
-            frame_files = sorted(os.listdir(folder_path))
+            all_files = sorted(os.listdir(folder_path))
         except Exception as exc:
             return False, f"os.listdir failed: {exc}", None
 
+        frame_files = [f for f in all_files if f.lower().endswith(IMAGE_EXTS)]
         if not frame_files:
-            return False, "directory contains no frames", None
+            return False, "directory contains no readable image frames", None
 
         frames = []
         for file in frame_files[: self.clip_len]:
@@ -837,7 +840,7 @@ class MedicanesTrackDataset(MedicanesClsDataset):
                 .astype(int)
             )
             keep_mask = mask_finite | (self.df[self.has_target_col].values == 0)
-            self.df = self.df[keep_mask].reset_index(drop=True)
+            self.df = self.df[keep_mask].copy()
             dropped = before - len(self.df)
             if dropped > 0:
                 print(
@@ -845,9 +848,10 @@ class MedicanesTrackDataset(MedicanesClsDataset):
                     f"from {anno_path} (kept {len(self.df)}/{before})."
                 )
             # Per i target mancanti riempiamo con 0 per evitare NaN nei tensor
-            missing_mask = ~mask_finite
+            missing_mask = ~(np.isfinite(self.df[self.x_col].values) & np.isfinite(self.df[self.y_col].values))
             if missing_mask.any():
                 self.df.loc[missing_mask, [self.x_col, self.y_col]] = 0.0
+            self.df = self.df.reset_index(drop=True)
         else:
             self.df = self.df[mask_finite].reset_index(drop=True)
             dropped = before - len(self.df)

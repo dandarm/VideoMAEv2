@@ -53,11 +53,20 @@ def _ensure_path_list(paths) -> List[str]:
     return [str(paths)]
 
 
-def _compute_sample_record(path: str, pred_xy: torch.Tensor, target_xy: Union[torch.Tensor, None]) -> Dict[str, Union[float, str, None]]:
+def _compute_sample_record(
+    path: str,
+    pred_xy: torch.Tensor,
+    target_xy: Union[torch.Tensor, None],
+    has_target: Optional[bool] = None,
+) -> Dict[str, Union[float, int, str, None]]:
+    if has_target is None:
+        has_target = target_xy is not None
+    else:
+        has_target = bool(has_target)
     pred_np = pred_xy.detach().cpu().numpy().astype(float)
     target_np = None
     err_px = None
-    if target_xy is not None:
+    if has_target and target_xy is not None:
         target_np = target_xy.detach().cpu().numpy().astype(float)
         err_vec = pred_np - target_np
         err_px = float(np.linalg.norm(err_vec))
@@ -90,6 +99,7 @@ def _compute_sample_record(path: str, pred_xy: torch.Tensor, target_xy: Union[to
 
     record = {
         "path": path,
+        "has_target": int(has_target),
         "pred_x": float(pred_np[0]),
         "pred_y": float(pred_np[1]),
         "target_x": float(target_np[0]) if target_np is not None else None,
@@ -212,9 +222,15 @@ def inference_epoch(model, data_loader, device) -> tuple[Dict[str, float], List[
 
         path_list = _ensure_path_list(paths)
         for idx, sample_path in enumerate(path_list):
-            tgt = target[idx] if bool(valid_mask[idx].item()) else None
+            sample_has_target = bool(valid_mask[idx].item())
+            tgt = target[idx] if sample_has_target else None
             results.append(
-                _compute_sample_record(sample_path, output[idx], tgt)
+                _compute_sample_record(
+                    sample_path,
+                    output[idx],
+                    tgt,
+                    has_target=sample_has_target,
+                )
             )
 
     metric_logger.synchronize_between_processes()
@@ -283,6 +299,29 @@ def load_checkpoint(model: torch.nn.Module, checkpoint_path: str, device: torch.
         print(f"[WARN] Unexpected checkpoint keys (prime 8): {unexpected_keys[:8]}")
 
 
+def _validate_tracking_dataset_paths(dataset) -> None:
+    resolved_paths = getattr(dataset, "_resolved_paths", None)
+    if not isinstance(resolved_paths, list):
+        return
+    total = len(resolved_paths)
+    if total == 0:
+        raise RuntimeError("Tracking dataset vuoto: nessun sample disponibile.")
+
+    existing = sum(1 for p in resolved_paths if isinstance(p, str) and os.path.isdir(p))
+    missing = total - existing
+    print(f"[INFO] Tracking dataset paths: existing={existing}/{total}, missing={missing}")
+    if existing == 0:
+        raise RuntimeError(
+            "Nessuna cartella clip del tracking esiste sul filesystem. "
+            "Controlla il CSV input e i path assoluti/relativi."
+        )
+    if missing > 0:
+        print(
+            "[WARN] Alcune cartelle clip del tracking non esistono. "
+            "Il dataset usera' fallback/skip per quei sample."
+        )
+
+
 def run_tracking_inference(
     model: torch.nn.Module,
     data_loader,
@@ -341,6 +380,10 @@ def run_tracking_inference(
         for col in pixel_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce").round().astype("Int64")
+        if "has_target" in df.columns:
+            df["has_target"] = pd.to_numeric(df["has_target"], errors="coerce").fillna(0).astype("Int8")
+            n_has_target = int((df["has_target"] == 1).sum())
+            print(f"[INFO][tracking_inference] rows with target: {n_has_target}/{len(df)}")
 
         # Quick sanity stats on predictions (useful for debugging collapsed outputs)
         if "pred_x" in df.columns and "pred_y" in df.columns:
@@ -428,6 +471,7 @@ def launch_inference_tracking(terminal_args: argparse.Namespace) -> None:
         specify_data_path=args.test_path,
     )
     data_loader = data_manager.get_tracking_dataloader(args)
+    _validate_tracking_dataset_paths(data_manager.dataset)
 
     model = create_tracking_model(args.model, **args.__dict__)
     model.to(device)
