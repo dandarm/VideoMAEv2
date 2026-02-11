@@ -19,8 +19,8 @@ export PYTHONWARNINGS=ignore
 
 mpirun --map-by socket:PE=4 --report-bindings python inference_tracking.py \
     --on leonardo \
-    --inference_model output/checkpoint-tracking-best.pth \
-    --csvfile test_tracking_extra.csv \
+    --inference_model $FAST/checkpoint-tracking-best.pth \
+    --csvfile test_tracking.csv \
     
     
 #srun --ntasks-per-node=4 \
