@@ -132,7 +132,26 @@ def draw_timestamp_in_bottom_right(
 
     #if font is None:
     #    font = ImageFont.load_default()  # default Pillow font
-    font = ImageFont.truetype(font_path, font_size)
+    # Risoluzione robusta del font: prima assoluto locale al modulo, poi il path passato.
+    module_dir = Path(__file__).resolve().parent
+    candidates = []
+    font_path_obj = Path(font_path)
+    if font_path_obj.is_absolute():
+        candidates.append(font_path_obj)
+    else:
+        candidates.append(module_dir / font_path_obj)
+        candidates.append(font_path_obj)
+
+    font = None
+    for cand in candidates:
+        try:
+            font = ImageFont.truetype(str(cand), font_size)
+            break
+        except OSError:
+            continue
+    if font is None:
+        # Ultima risorsa: font di default, così non interrompe il rendering.
+        font = ImageFont.load_default()
 
     # textbbox restituisce (left, top, right, bottom)
     bbox = draw.textbbox((0, 0), text_str, font=font)
