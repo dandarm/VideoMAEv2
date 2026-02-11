@@ -3,3 +3,4 @@
 {"test_loss": 171.4311, "test_geo_km": 55.2602, "test_px_err": 14.5214}
 {"test_loss": 162.6934, "test_geo_km": 53.0585, "test_px_err": 14.3632}
 {"test_loss": 30.3459, "test_geo_km": 17.0736, "test_px_err": 4.7948}
+{"test_loss": 104.616, "test_geo_km": 23.4918, "test_px_err": 6.6036}
