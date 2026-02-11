@@ -20,7 +20,7 @@ export PYTHONWARNINGS=ignore
 mpirun --map-by socket:PE=4 --report-bindings python inference_tracking.py \
     --on leonardo \
     --inference_model $FAST/checkpoint-tracking-best.pth \
-    --csvfile test_tracking_selezionati.csv \
+    --csvfile val_tracking_selezionati.csv 
     
     
 #srun --ntasks-per-node=4 \
