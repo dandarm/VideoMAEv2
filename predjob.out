@@ -11,24 +11,25 @@ Loading cineca-ai/4.3.0
     openjdk/11.0.20.1_1
 launch with mpirun
 Getting TRACKING dataset (pixel coords)...
-[INFO][TrackingDataset] Dropped 3 rows with missing/non-finite coordinates from test_tracking_selezionati.csv (kept 156/159).
-DATASET length: 156
+[INFO][TrackingDataset] Dropped 15 rows with missing/non-finite coordinates from train_tracking_selezionati.csv (kept 819/834).
+DATASET length: 819
 Creo il DistributedSampler con world_size 16 e rank 0
-Sampler_train = <torch.utils.data.distributed.DistributedSampler object at 0x151e10723fd0>
+Sampler_train = <torch.utils.data.distributed.DistributedSampler object at 0x14c7695a0750>
 Batch_size local: 2
-[INFO] Tracking dataset paths: existing=156/156, missing=0
+[INFO] Tracking dataset paths: existing=819/819, missing=0
 Caricamento del checkpoint da: /leonardo_scratch/fast/IscrC_SAME-D/checkpoint-tracking-best_1.pth
 Caricato state_dict con chiave: model
 Checkpoint caricato con successo!
 [INFO] Loaded checkpoint from /leonardo_scratch/fast/IscrC_SAME-D/checkpoint-tracking-best_1.pth | loaded=528/528, missing=0, unexpected=0, shape_mismatch=0
 [INFO] Regression head load status: loaded 4/4 params
-Infer:  [0/5]  eta: 0:00:11  loss: 2049.6306 (2049.6306)  geo_km: 154.3471 (154.3471)  px_err: 47.0394 (47.0394)  time: 2.3417 (2.3417 -- 2.3417)  data: 0.6185 (0.6185 -- 0.6185)  max mem: 8982
-Infer:  [4/5]  eta: 0:00:00  loss: 11.9912 (432.4021)  geo_km: 15.6283 (43.1795)  px_err: 4.7209 (13.1991)  time: 0.9541 (0.6042 -- 2.3417)  data: 0.1238 (0.0001 -- 0.6185)  max mem: 8982
-Infer: Total time: 0:00:04 (0.9553 s / it)
-[INFO][tracking_inference] rows with target: 160/160
-[INFO][tracking_inference] pred_x stats: {'min': 6.0, 'max': 211.0, 'mean': 98.0, 'std': 44.817168767696614, 'p05': 35.0, 'p50': 85.0, 'p95': 174.24999999999991}
-[INFO][tracking_inference] pred_y stats: {'min': 33.0, 'max': 171.0, 'mean': 83.55, 'std': 37.14747085865966, 'p05': 36.95, 'p50': 73.5, 'p95': 154.09999999999997}
-[INFO][tracking_inference] pred_x_global stats: {'min': 493.0, 'max': 1232.0, 'mean': 846.1625, 'std': 239.21406658908677, 'p05': 510.0, 'p50': 732.0, 'p95': 1219.05}
-[INFO][tracking_inference] pred_y_global stats: {'min': 48.0, 'max': 317.0, 'mean': 235.45, 'std': 69.86283056346646, 'p05': 83.55, 'p50': 247.5, 'p95': 311.0}
+Infer:  [ 0/26]  eta: 0:01:01  loss: 19.6690 (19.6690)  geo_km: 24.0600 (24.0600)  px_err: 6.2718 (6.2718)  time: 2.3669 (2.3669 -- 2.3669)  data: 0.8215 (0.8215 -- 0.8215)  max mem: 8982
+Infer:  [20/26]  eta: 0:00:04  loss: 6.0927 (9.2574)  geo_km: 13.1738 (14.3916)  px_err: 3.3764 (3.7809)  time: 0.6023 (0.5989 -- 0.6138)  data: 0.0001 (0.0001 -- 0.0001)  max mem: 8982
+Infer:  [25/26]  eta: 0:00:00  loss: 5.6646 (8.4607)  geo_km: 10.5017 (13.4854)  px_err: 3.0296 (3.5951)  time: 0.6012 (0.5989 -- 0.6039)  data: 0.0001 (0.0001 -- 0.0001)  max mem: 8982
+Infer: Total time: 0:00:17 (0.6701 s / it)
+[INFO][tracking_inference] rows with target: 832/832
+[INFO][tracking_inference] pred_x stats: {'min': 6.0, 'max': 215.0, 'mean': 117.90504807692308, 'std': 50.31072521798089, 'p05': 36.0, 'p50': 116.0, 'p95': 200.0}
+[INFO][tracking_inference] pred_y stats: {'min': 1.0, 'max': 224.0, 'mean': 113.9639423076923, 'std': 54.9466311277177, 'p05': 23.0, 'p50': 120.0, 'p95': 196.0}
+[INFO][tracking_inference] pred_x_global stats: {'min': 281.0, 'max': 1232.0, 'mean': 639.140625, 'std': 206.5827123065165, 'p05': 325.55, 'p50': 697.0, 'p95': 996.1499999999995}
+[INFO][tracking_inference] pred_y_global stats: {'min': 44.0, 'max': 345.0, 'mean': 201.59855769230768, 'std': 65.44861312978902, 'p05': 109.55000000000001, 'p50': 196.0, 'p95': 313.0}
 Saved tracking predictions to ./output/tracking_inference_predictions.csv
-Inference time: 0:00:04
+Inference time: 0:00:17
