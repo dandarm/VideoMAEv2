@@ -80,6 +80,19 @@ def _first_val(val):
         return float("nan")
 
 
+def _parse_datetime_series(values: pd.Series) -> pd.Series:
+    """Parse datetimes robustly, supporting both ISO and day-first formats."""
+    s1 = pd.to_datetime(values, errors="coerce", utc=False)
+    s2 = pd.to_datetime(values, errors="coerce", dayfirst=True, utc=False)
+    out = s2 if s2.notna().sum() > s1.notna().sum() else s1
+    try:
+        if hasattr(out.dt, "tz") and out.dt.tz is not None:
+            out = out.dt.tz_localize(None)
+    except Exception:
+        pass
+    return out
+
+
 def _parse_tile_folder_name(folder_name: str) -> Optional[Tuple[pd.Timestamp, float, float]]:
     match = TILE_NAME_RE.match(folder_name)
     if not match:
@@ -112,13 +125,21 @@ def _build_gt_map_from_tracks(
         return {}
 
     tracks_df = pd.read_csv(manos_path)
-    required_cols = {"time", "x_pix", "y_pix"}
-    if not required_cols.issubset(tracks_df.columns):
-        print("[WARN][track_from_folder] GT CSV senza colonne time/x_pix/y_pix. Output senza GT.")
+    time_col = None
+    for cand in ("time", "datetime", "timestamp"):
+        if cand in tracks_df.columns:
+            time_col = cand
+            break
+    required_cols = {"x_pix", "y_pix"}
+    if time_col is None or not required_cols.issubset(tracks_df.columns):
+        print(
+            "[WARN][track_from_folder] GT CSV senza colonne richieste "
+            "(time/datetime/timestamp + x_pix/y_pix). Output senza GT."
+        )
         return {}
 
     tracks_df = tracks_df.copy()
-    tracks_df["time"] = pd.to_datetime(tracks_df["time"], errors="coerce", dayfirst=True)
+    tracks_df["time"] = _parse_datetime_series(tracks_df[time_col])
     tracks_df["x_pix"] = tracks_df["x_pix"].apply(_first_val)
     tracks_df["y_pix"] = tracks_df["y_pix"].apply(_first_val)
     tracks_df = tracks_df[np.isfinite(tracks_df["x_pix"]) & np.isfinite(tracks_df["y_pix"])].copy()
@@ -126,12 +147,13 @@ def _build_gt_map_from_tracks(
     if tracks_df.empty:
         return {}
 
-    tracks_df["time_floor"] = tracks_df["time"].dt.round("h")
-    grouped = {t: df for t, df in tracks_df.groupby("time_floor")}
+    tracks_df["time_key"] = tracks_df["time"].dt.round("h")
+    grouped = {t: df for t, df in tracks_df.groupby("time_key")}
 
     gt_map: Dict[str, Tuple[float, float]] = {}
-    for folder_path, dt_floor, offset_x, offset_y in tile_infos:
-        df_t = grouped.get(dt_floor)
+    for folder_path, tile_dt, offset_x, offset_y in tile_infos:
+        dt_key = pd.Timestamp(tile_dt).round("h")
+        df_t = grouped.get(dt_key)
         if df_t is None or df_t.empty:
             continue
         cond_x = (df_t["x_pix"] >= offset_x) & (df_t["x_pix"] < offset_x + tile_width)

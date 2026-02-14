@@ -453,11 +453,11 @@ def prepare_tracking_args(machine=None):
         'pretrained': True,
         'init_ckpt': './output/checkpoint_88k.pth',           #'./output/checkpoint-best-lr-again2.pth',
         'auto_resume': True,
-        'resume_checkpoint': './output/last_checkpoint-tracking.pth',
+        #'resume_checkpoint': './output/checkpoint-tracking-augmented.pth',
         'load_for_test_mode': False,
         'data_path': './',
         # default CSVs for tracking
-        'train_path': 'train_tracking_selezionati.csv',
+        'train_path': 'train_tracking_selezionati_augmented_leonardo_short.csv',
         'test_path': 'test_tracking.csv',
         'val_path': '', #val_tracking_selezionati.csv',
         'log_dir': './output',
@@ -484,9 +484,9 @@ def prepare_tracking_args(machine=None):
         'cloudy': False,
         'use_class_weight': False,
 
-        'start_epoch': 1000,
-        'epochs': 2000,
-        'start_epoch_for_saving_best_ckpt': 90,
+        'start_epoch': 0,
+        'epochs': 300,
+        'start_epoch_for_saving_best_ckpt': 30,
         'momentum': 0.9,
         'weight_decay': 0.05,
         'weight_decay_end': None,
@@ -514,7 +514,10 @@ def prepare_tracking_args(machine=None):
             machine_args_override['init_ckpt'] = exp_path
             machine_args_override['pretrained'] = True
         elif machine == 'ewc':
-            machine_args_override['device'] = 'cpu'
+            #machine_args_override['device'] = 'cuda'
+            machine_args_override['train_path'] = 'moduli/videomae/train_tracking_selezionati_augmented_leonardo_short.csv'
+
+
 
         args_dict = {**args_dict, **machine_args_override}
 

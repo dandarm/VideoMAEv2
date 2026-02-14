@@ -35,6 +35,42 @@ def _format_log_value(key: str, value):
     return round(value, 4)
 
 
+def _summarize_tracking_dataset(split_name: str, dataset, data_loader, rank: int) -> None:
+    """Print a compact summary of tracking dataset availability."""
+    if rank != 0:
+        return
+
+    dataset_rows = len(dataset) if dataset is not None else 0
+    batches_per_rank = len(data_loader) if data_loader is not None else 0
+
+    resolved_paths = getattr(dataset, "_resolved_paths", None)
+    if isinstance(resolved_paths, list):
+        total_paths = len(resolved_paths)
+        existing_dirs = 0
+        dirs_with_frames = 0
+        for p in resolved_paths:
+            if not isinstance(p, str):
+                continue
+            if os.path.isdir(p):
+                existing_dirs += 1
+                try:
+                    has_img = any(name.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"))
+                                  for name in os.listdir(p))
+                except Exception:
+                    has_img = False
+                if has_img:
+                    dirs_with_frames += 1
+    else:
+        total_paths = dataset_rows
+        existing_dirs = -1
+        dirs_with_frames = -1
+
+    print(
+        f"[DATASET][{split_name}] rows={dataset_rows} | batches_per_rank={batches_per_rank} | "
+        f"paths={total_paths} | existing_dirs={existing_dirs} | dirs_with_frames={dirs_with_frames}"
+    )
+
+
 def _resume_from_checkpoint(
     model: torch.nn.Module,
     optimizer: Optional[torch.optim.Optimizer],
@@ -155,6 +191,17 @@ def launch_tracking(terminal_args: argparse.Namespace) -> None:
     train_loader = train_m.get_tracking_dataloader(args)
     test_loader = test_m.get_tracking_dataloader(args)
     val_loader = val_m.get_tracking_dataloader(args) if val_m is not None else None
+    _summarize_tracking_dataset("train", train_m.dataset, train_loader, args.rank)
+    _summarize_tracking_dataset("test", test_m.dataset, test_loader, args.rank)
+    if val_m is not None:
+        _summarize_tracking_dataset("val", val_m.dataset, val_loader, args.rank)
+
+    if getattr(terminal_args, "dry_run", False):
+        if args.rank == 0:
+            print("[DRY-RUN] DataLoader creation completed. Exiting before model/training.")
+        if dist.is_available() and dist.is_initialized():
+            dist.barrier()
+        return
 
     # region ------------------------------- model ---------------------------------
     #model_kwargs = args.__dict__.copy()
@@ -328,6 +375,11 @@ def parse_args() -> argparse.Namespace:
         #metavar='NAME',
         help='[ewc, leonardo]'
     ),
+    parser.add_argument(
+        "--dry_run",
+        action="store_true",
+        help="Build tracking dataloaders, print dataset counts, and exit.",
+    )
     return parser.parse_args()
 
 
